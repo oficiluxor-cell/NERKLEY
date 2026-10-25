@@ -16,6 +16,22 @@ interface CartItem {
   maxStock: number;
 }
 
+interface Order {
+  id: string;
+  created_at: string;
+  product_name: string;
+  total_price: number;
+  customer_name: string;
+  customer_document: string;
+  customer_email?: string;
+  customer_phone: string;
+  city: string;
+  address: string;
+  status: string;
+  shipping_guide?: string;
+  transport_company?: string;
+}
+
 interface CartContextType {
   cartItems: CartItem[];
   addToCart: (item: CartItem) => void;
@@ -25,6 +41,10 @@ interface CartContextType {
   cartTotal: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
+  isOrdersOpen: boolean;
+  setIsOrdersOpen: (isOpen: boolean) => void;
+  customerOrders: Order[];
+  fetchCustomerOrders: (emailOrDoc: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -32,6 +52,8 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isOrdersOpen, setIsOrdersOpen] = useState(false);
+  const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -53,16 +75,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     documentId: string;
   } | null>(null);
 
-  // Cargar localStorage de forma segura
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         const storedCart = localStorage.getItem("NERKLEY_cart");
-        if (storedCart) {
-          setCartItems(JSON.parse(storedCart));
+        if (storedCart) setCartItems(JSON.parse(storedCart));
+
+        // Cargar pedidos guardados previamente en este navegador
+        const savedEmail = localStorage.getItem("NERKLEY_client_email");
+        if (savedEmail) {
+          fetchCustomerOrders(savedEmail);
         }
       } catch (e) {
-        console.error("Error leyendo carrito", e);
+        console.error("Error leyendo localStorage", e);
       }
     }
   }, []);
@@ -71,11 +96,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("NERKLEY_cart", JSON.stringify(cartItems));
-      } catch (e) {
-        console.error("Error guardando carrito", e);
-      }
+      } catch (e) {}
     }
   }, [cartItems]);
+
+  const fetchCustomerOrders = async (identifier: string) => {
+    if (!identifier) return;
+    const { data, error } = await supabase
+      .from("orders")
+      .select("*")
+      .or(`customer_email.eq.${identifier},customer_document.eq.${identifier},customer_phone.eq.${identifier}`)
+      .order("created_at", { ascending: false });
+
+    if (data && !error) {
+      setCustomerOrders(data);
+    }
+  };
 
   const addToCart = (newItem: CartItem) => {
     setCartItems((prev) => {
@@ -157,6 +193,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       await supabase.from("orders").insert([pendingOrderData]);
+      // Guardar identificador localmente para consultar sus pedidos luego
+      localStorage.setItem("NERKLEY_client_email", formData.email);
+      fetchCustomerOrders(formData.email);
     } catch (err) {
       console.error("Error guardando orden en Supabase:", err);
     }
@@ -181,10 +220,125 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ cartItems, addToCart, removeFromCart, updateQuantity, cartCount, cartTotal, isCartOpen, setIsCartOpen }}
+      value={{ 
+        cartItems, addToCart, removeFromCart, updateQuantity, 
+        cartCount, cartTotal, isCartOpen, setIsCartOpen, 
+        isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders 
+      }}
     >
       {children}
 
+      {/* MODAL / CAJÓN DE "MIS PEDIDOS" */}
+      {isOrdersOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity"
+          onClick={() => setIsOrdersOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white text-neutral-900 z-[101] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col ${
+          isOrdersOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between p-6 border-b border-neutral-200">
+          <div>
+            <h2 className="text-xl font-serif uppercase tracking-widest font-bold text-black">Mis Pedidos & Compras</h2>
+            <p className="text-[10px] text-neutral-500 uppercase tracking-widest mt-0.5">Historial y garantía verificada</p>
+          </div>
+          <button onClick={() => setIsOrdersOpen(false)} className="text-neutral-500 hover:text-black text-2xl leading-none cursor-pointer">
+            &times;
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {/* Formulario rápido para consultar por cédula o correo si no hay cargados */}
+          <div className="bg-[#fafafa] p-4 border border-neutral-200 space-y-3">
+            <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-700 block">¿No ves tus pedidos recientes?</span>
+            <div className="flex gap-2">
+              <input 
+                type="text" 
+                id="searchOrderInput" 
+                placeholder="Ingresa tu cédula o correo" 
+                className="flex-1 bg-white border border-neutral-300 px-3 py-2 text-xs uppercase"
+              />
+              <button 
+                onClick={() => {
+                  const val = (document.getElementById("searchOrderInput") as HTMLInputElement)?.value;
+                  if (val) fetchCustomerOrders(val);
+                }}
+                className="bg-black text-white px-4 py-2 text-xs uppercase font-bold tracking-wider hover:bg-neutral-800 cursor-pointer"
+              >
+                Buscar
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {customerOrders.length === 0 ? (
+              <div className="text-center py-12 space-y-3">
+                <span className="text-2xl">📦</span>
+                <p className="text-xs uppercase tracking-widest text-neutral-500">No hay pedidos registrados en este dispositivo</p>
+                <p className="text-[10px] text-neutral-400">Realiza una compra o ingresa tu cédula arriba para consultar.</p>
+              </div>
+            ) : (
+              customerOrders.map((ord) => (
+                <div key={ord.id} className="bg-white border border-neutral-200 p-4 shadow-sm space-y-3">
+                  <div className="flex justify-between items-center border-b border-neutral-100 pb-2">
+                    <span className="text-[10px] font-mono text-neutral-400">{new Date(ord.created_at).toLocaleDateString()}</span>
+                    <span className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
+                      ord.status === "Pagado" || ord.status === "Entregado" ? "bg-emerald-100 text-emerald-800" :
+                      ord.status === "Pendiente de Pago" ? "bg-amber-100 text-amber-800" :
+                      "bg-neutral-100 text-neutral-800"
+                    }`}>
+                      {ord.status}
+                    </span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-black">{ord.customer_name}</h4>
+                    <p className="text-[11px] text-neutral-700 font-medium mt-1 bg-neutral-50 p-2 border border-neutral-100">{ord.product_name}</p>
+                  </div>
+
+                  <div className="bg-neutral-50 p-2.5 border border-neutral-100 text-[11px] space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-neutral-500 uppercase text-[9px]">Ciudad / Dirección:</span>
+                      <span className="font-semibold">{ord.city} - {ord.address}</span>
+                    </div>
+                    {ord.shipping_guide ? (
+                      <div className="flex justify-between pt-1 border-t border-neutral-200">
+                        <span className="text-neutral-500 uppercase text-[9px]">Guía de Envío:</span>
+                        <span className="font-mono font-bold text-emerald-600">{ord.transport_company || "Envío"}: {ord.shipping_guide}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between pt-1 border-t border-neutral-200 text-neutral-400 italic text-[10px]">
+                        <span>Guía de despacho:</span>
+                        <span>En preparación de bodega</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2 border-t border-neutral-100">
+                    <span className="text-[10px] uppercase tracking-wider text-neutral-500 font-medium">Total:</span>
+                    <span className="text-sm font-bold text-black">$ {Number(ord.total_price).toLocaleString()} COP</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="bg-neutral-900 text-white p-4 text-[10px] space-y-2 uppercase tracking-wider">
+            <p className="font-bold text-emerald-400 flex items-center gap-1.5">
+              <span>🛡️</span> Compra 100% Garantizada & Segura
+            </p>
+            <p className="text-neutral-400 font-light leading-relaxed">
+              Todos nuestros envíos en Colombia están respaldados con guía de rastreo oficial y soporte directo en caso de novedades.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* CARRITO Y CHECKOUT LATERAL (EXISTENTE) */}
       {isCartOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity"
@@ -232,12 +386,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 </div>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
-                <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir directamente a la pasarela y completar tu pago.
-              </div>
-
-              {/* FORMULARIO HTML NATIVO GET DIRECTO A WOMPI */}
               <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
                 <input type="hidden" name="public-key" value="pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG" />
                 <input type="hidden" name="currency" value="COP" />
