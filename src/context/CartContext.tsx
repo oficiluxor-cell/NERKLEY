@@ -174,57 +174,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Función inteligente con reintento automático para abrir Wompi al instante
-  const openWompiWidget = () => {
-    if (!pendingPaymentInfo) return;
-
-    const lanzarWidget = () => {
-      // @ts-ignore
-      if (typeof window !== "undefined" && window.CheckoutWidget) {
-        // @ts-ignore
-        const checkout = new window.CheckoutWidget({
-          publicKey: "pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI",
-          currency: "COP",
-          amountInCents: pendingPaymentInfo.total * 100,
-          reference: pendingPaymentInfo.reference,
-          customerData: {
-            email: pendingPaymentInfo.email,
-            fullName: pendingPaymentInfo.customerName,
-            phoneNumber: pendingPaymentInfo.phone,
-            phoneNumberPrefix: "+57",
-            legalId: pendingPaymentInfo.documentId,
-            legalIdType: "CC"
-          }
-        });
-
-        checkout.open(function (result: any) {
-          const transaction = result.transaction;
-          console.log("Transacción Wompi:", transaction);
-          if (transaction && transaction.status === "APPROVED") {
-            window.location.href = `/success?id=${transaction.id}`;
-          }
-        });
-        return true;
-      }
-      return false;
-    };
-
-    // Si ya está listo, lo abre de una vez
-    if (lanzarWidget()) return;
-
-    // Si está cargando, reintenta automáticamente durante un par de segundos
-    let intentos = 0;
-    const intervalo = setInterval(() => {
-      intentos++;
-      if (lanzarWidget() || intentos > 10) {
-        clearInterval(intervalo);
-        if (intentos > 10) {
-          alert("No se pudo conectar con la pasarela de Wompi. Por favor recarga la página.");
-        }
-      }
-    }, 300);
-  };
-
   return (
     <CartContext.Provider
       value={{ cartItems, addToCart, removeFromCart, updateQuantity, cartCount, cartTotal, isCartOpen, setIsCartOpen }}
@@ -280,16 +229,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para abrir la ventana de pago seguro con el monto exacto predefinido.
+                Haz clic en el botón de abajo para ir directamente a la pasarela segura con tu monto exacto.
               </div>
 
-              <button
-                type="button"
-                onClick={openWompiWidget}
-                className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
-              >
-                Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
-              </button>
+              {/* FORMULARIO NATIVO DIRECTO A WOMPI */}
+              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
+                <input type="hidden" name="public-key" value="pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI" />
+                <input type="hidden" name="currency" value="COP" />
+                <input type="hidden" name="amount-in-cents" value={pendingPaymentInfo.total * 100} />
+                <input type="hidden" name="reference" value={pendingPaymentInfo.reference} />
+                
+                <button
+                  type="submit"
+                  className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
+                >
+                  Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
+                </button>
+              </form>
 
               <button
                 onClick={() => {
