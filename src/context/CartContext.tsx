@@ -180,32 +180,32 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Función para calcular la firma de integridad SHA-256 exigida por Wompi
+  // Función para calcular la firma de integridad SHA-256 con tus credenciales REALES de producción
   const handleWompiSubmit = async () => {
     if (!pendingPaymentInfo) return;
 
     const reference = pendingPaymentInfo.reference;
     const amountInCents = (pendingPaymentInfo.total * 100).toString();
     const currency = "COP";
-    const integrityKey = "test_integrity_rryp1CwIQBRFLdshKtYFr2Bc9F2mNgjS";
+    const integrityKey = "prod_integrity_CNGPJNqACancGJI5OqQ1YsSwNxnx9M71";
 
-    // Concatenación exacta exigida por Wompi: referencia + monto + moneda + secreto
+    // Concatenación exacta exigida por Wompi: referencia + monto + moneda + secreto real
     const concatenatedString = `${reference}${amountInCents}${currency}${integrityKey}`;
 
-    // Generar hash SHA-256 usando la API nativa del navegador
+    // Generar hash SHA-256 nativo
     const encoder = new TextEncoder();
     const data = encoder.encode(concatenatedString);
     const hashBuffer = await crypto.subtle.digest("SHA-256", data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
 
-    // Crear formulario dinámico con la firma incluida
+    // Formulario directo con credenciales de producción
     const form = document.createElement("form");
     form.method = "GET";
     form.action = "https://checkout.wompi.co/p/";
 
     const params: { [key: string]: string } = {
-      "public-key": "pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI",
+      "public-key": "pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG",
       "currency": currency,
       "amount-in-cents": amountInCents,
       "reference": reference,
@@ -280,7 +280,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir directamente a la pasarela con firma de seguridad validada.
+                Haz clic en el botón de abajo para ir directamente a la pasarela con firma real de producción.
               </div>
 
               <button
