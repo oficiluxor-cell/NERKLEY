@@ -38,6 +38,7 @@ interface Product {
   colors?: string;
   stock: number;
   is_active: boolean;
+  badge?: string;
 }
 
 const STATUS_OPTIONS = [
@@ -70,6 +71,7 @@ export default function AdminDashboard() {
   const [sizes, setSizes] = useState("");
   const [colors, setColors] = useState("");
   const [stock, setStock] = useState("");
+  const [badge, setBadge] = useState(""); // NUEVO: Etiqueta opcional
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -240,6 +242,7 @@ export default function AdminDashboard() {
         colors: colors.trim(),
         stock: initialStock,
         is_active: true,
+        badge: badge.trim(), // Se guarda la etiqueta opcional
       },
     ]);
 
@@ -256,6 +259,7 @@ export default function AdminDashboard() {
       setSizes("");
       setColors("");
       setStock("");
+      setBadge("");
       fetchData();
     }
     setCreating(false);
@@ -386,7 +390,6 @@ export default function AdminDashboard() {
           </button>
         </header>
 
-        {/* TAB: DASHBOARD */}
         {activeTab === "dashboard" && (
           <section className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -410,7 +413,6 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* TAB: PEDIDOS CON GUÍAS */}
         {activeTab === "pedidos" && (
           <section className="space-y-4">
             <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
@@ -511,7 +513,6 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* TAB: CLIENTES */}
         {activeTab === "clientes" && (
           <section className="space-y-4">
             <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
@@ -544,7 +545,6 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* TAB: PUBLICAR */}
         {activeTab === "publicar" && (
           <div className="space-y-12">
             <section className="bg-neutral-900 border border-neutral-800 p-8 max-w-4xl">
@@ -574,8 +574,12 @@ export default function AdminDashboard() {
                     <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div className="md:col-span-3">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Etiqueta Destacada Opcional (Ej: 100% Original)</label>
+                    <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="Ej: 100% Original o Edición Limitada (Déjalo en blanco si no deseas)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  </div>
+                  <div className="md:col-span-3">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Descripción del Producto *</label>
-                    <textarea required rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Escribe los detalles, notas aromáticas o características del producto..." className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white" />
+                    <textarea required rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Escribe los detalles, notas aromáticas o características..." className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white" />
                   </div>
                   <div className="md:col-span-3">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">URLs de Fotos (Comas)</label>
