@@ -49,6 +49,7 @@ interface CartContextType {
   submitting: boolean;
   formData: any;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
+  pendingWompiData: { reference: string; amountInCents: number } | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -69,6 +70,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [pendingWompiData, setPendingWompiData] = useState<{ reference: string; amountInCents: number } | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -154,7 +156,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // REDIRECCIÓN AUTOMÁTICA DIRECTA A WOMPI POR MÉTODO POST SEGURO
+  // ALMACENA LOS DATOS Y PREPARA LA ORDEN, DEJANDO EL BOTÓN NATIVO LISTO PARA ENVIAR A WOMPI
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
@@ -194,34 +196,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error("Error guardando orden en Supabase:", err);
     }
 
-    // CREAR FORMULARIO POST DINÁMICO OCULTO HACIA WOMPI
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "https://checkout.wompi.co/p/";
-
-    const payload = {
-      "public-key": "pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG",
-      "currency": "COP",
-      "amount-in-cents": (cartTotal * 100).toString(),
-      "reference": uniqueRef,
-      "customer-data:email": formData.email,
-      "customer-data:full-name": formData.fullName,
-      "customer-data:phone-number": formData.phone,
-      "customer-data:legal-id": formData.documentId,
-      "customer-data:legal-id-type": "CC"
-    };
-
-    for (const [key, value] of Object.entries(payload)) {
-      const input = document.createElement("input");
-      input.type = "hidden";
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    }
-
-    document.body.appendChild(form);
     setSubmitting(false);
-    form.submit();
+    // Activamos el estado que muestra el botón directo de pago de Wompi con el precio exacto
+    setPendingWompiData({
+      reference: uniqueRef,
+      amountInCents: cartTotal * 100,
+    });
   };
 
   return (
@@ -230,7 +210,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems, addToCart, removeFromCart, updateQuantity, 
         cartCount, cartTotal, isCartOpen, setIsCartOpen, 
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
-        handleCheckout, submitting, formData, handleInputChange
+        handleCheckout, submitting, formData, handleInputChange, pendingWompiData
       }}
     >
       {children}
@@ -365,6 +345,39 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 Explorar Catálogo
               </button>
             </div>
+          ) : pendingWompiData ? (
+            /* BOTÓN DE PAGO NATIVO DE WOMPI CON EL PRECIO EXACTO (APARECE DE INMEDIATO AL LLENAR LOS DATOS) */
+            <div className="py-8 text-center space-y-6">
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+                ✓
+              </div>
+              <div>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-black">¡Datos Guardados con Éxito!</h3>
+                <p className="text-xs text-neutral-500 mt-1">Referencia: <span className="font-mono font-bold text-black">{pendingWompiData.reference}</span></p>
+                <p className="text-lg font-bold text-black mt-2">$ {(pendingWompiData.amountInCents / 100).toLocaleString()} COP</p>
+              </div>
+
+              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full space-y-3">
+                <input type="hidden" name="public-key" value="pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG" />
+                <input type="hidden" name="currency" value="COP" />
+                <input type="hidden" name="amount-in-cents" value={pendingWompiData.amountInCents} />
+                <input type="hidden" name="reference" value={pendingWompiData.reference} />
+
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-600 text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-lg cursor-pointer"
+                >
+                  Pagar Ahora en Wompi &rarr;
+                </button>
+              </form>
+
+              <button
+                onClick={() => setPendingWompiData(null)}
+                className="text-[10px] text-neutral-500 uppercase tracking-widest underline hover:text-black cursor-pointer block mx-auto pt-2"
+              >
+                &larr; Modificar datos o carrito
+              </button>
+            </div>
           ) : (
             <>
               <div className="space-y-4">
@@ -444,7 +457,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
                   <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
-                    {submitting ? "Redirigiendo a Wompi..." : "Proceder al Pago con Wompi"}
+                    {submitting ? "Procesando..." : "Proceder al Pago con Wompi"}
                   </button>
                   <p className="text-[9px] text-center text-neutral-500 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
                 </form>
