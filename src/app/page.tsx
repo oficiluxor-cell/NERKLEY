@@ -18,6 +18,12 @@ interface Product {
   badge?: string;
 }
 
+const RANDOM_NAMES = [
+  "Carlos M.", "Valentina R.", "Andrés F.", "Camila P.", "Sebastián G.",
+  "Laura T.", "Mateo L.", "Daniela C.", "Santiago B.", "Valeria N.",
+  "Juan D.", "Mariana S.", "Diego A.", "Sofía V.", "Alejandro P."
+];
+
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -35,6 +41,10 @@ export default function Home() {
   ];
   const [currentAnnouncement, setCurrentAnnouncement] = useState(0);
 
+  // Estados para la notificación de compras (Social Proof)
+  const [purchaseNotification, setPurchaseNotification] = useState<{ name: string, productName: string, image: string | null } | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
+
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentAnnouncement((prev) => (prev + 1) % announcements.length);
@@ -44,7 +54,6 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchProducts() {
-      // El select("*") ya trae la columna badge automáticamente si existe en Supabase
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -75,6 +84,42 @@ export default function Home() {
     fetchProducts();
   }, []);
 
+  // Lógica del sistema de Social Proof (Notificaciones aleatorias reguladas)
+  useEffect(() => {
+    if (products.length === 0) return;
+
+    let timeoutId: NodeJS.Timeout;
+    let hideTimeoutId: NodeJS.Timeout;
+
+    const scheduleNext = () => {
+      // Aparece de forma aleatoria entre 15 y 35 segundos para mantener naturalidad
+      const nextInterval = Math.floor(Math.random() * (35000 - 15000 + 1) + 15000);
+      
+      timeoutId = setTimeout(() => {
+        const randomProduct = products[Math.floor(Math.random() * products.length)];
+        const randomName = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
+        const img = randomProduct.images ? randomProduct.images.split(",")[0].trim() : null;
+
+        setPurchaseNotification({ name: randomName, productName: randomProduct.name, image: img });
+        setShowNotification(true);
+
+        // Se oculta después de 6 segundos exactos
+        hideTimeoutId = setTimeout(() => {
+          setShowNotification(false);
+          scheduleNext();
+        }, 6000);
+      }, nextInterval);
+    };
+
+    // Iniciar el ciclo 5 segundos después de cargar el inventario
+    timeoutId = setTimeout(() => scheduleNext(), 5000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      clearTimeout(hideTimeoutId);
+    };
+  }, [products]);
+
   const filteredProducts = products.filter((p) => {
     const matchesCategory = selectedCategory === "Todas" || p.category === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) || 
@@ -83,14 +128,14 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col">
+    <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-hidden">
       <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative">
         <div className="transition-all duration-500 ease-in-out px-4">
           {announcements[currentAnnouncement]}
         </div>
       </div>
 
-      <header className="border-b border-neutral-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 shadow-sm">
+      <header className="border-b border-neutral-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-40 transition-all duration-300 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3 group">
             <svg
@@ -361,7 +406,6 @@ export default function Home() {
                             quantity: 1,
                             maxStock: product.stock || 10,
                           });
-                          // CORREGIDO: Ya no llama a setIsCartOpen(true), para que no interrumpa al cliente
                         }}
                         title="Agregar al carrito"
                         className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
@@ -388,6 +432,34 @@ export default function Home() {
           </p>
         </div>
       </footer>
+
+      {/* COMPONENTE DE NOTIFICACIÓN FAKE SOCIAL PROOF */}
+      <div 
+        className={`fixed bottom-4 md:bottom-6 left-4 md:left-6 z-50 bg-white border border-neutral-200 shadow-2xl p-3 flex items-center gap-3 md:gap-4 transition-all duration-700 max-w-[280px] md:max-w-sm rounded-sm ${showNotification ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}
+      >
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-neutral-100 flex-shrink-0 border border-neutral-200 overflow-hidden flex items-center justify-center p-1">
+          {purchaseNotification?.image ? (
+            <img src={purchaseNotification.image} alt="" className="w-full h-full object-contain" />
+          ) : (
+            <span className="text-[6px] uppercase font-serif text-neutral-400">Nerkley</span>
+          )}
+        </div>
+        <div>
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className="text-[10px] md:text-xs font-bold text-neutral-900">{purchaseNotification?.name}</span>
+            <span className="text-[8px] md:text-[9px] text-neutral-400">compró hace instantes</span>
+          </div>
+          <p className="text-[9px] md:text-[10px] font-medium text-neutral-700 line-clamp-1">
+            {purchaseNotification?.productName}
+          </p>
+          <div className="flex items-center gap-1 mt-1">
+            <svg className="w-3 h-3 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-[7px] md:text-[8px] uppercase tracking-widest text-emerald-600 font-bold">Compra Verificada</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
