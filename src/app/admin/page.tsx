@@ -290,33 +290,6 @@ export default function AdminDashboard() {
     if (!error) fetchData();
   };
 
-  const handleSetDiscount = async (p: Product) => {
-    const base = p.original_price || p.sale_price;
-    const newDiscountStr = window.prompt(`Ingresa el % de descuento para "${p.name}":`, p.discount_percent ? String(p.discount_percent) : "20");
-    if (newDiscountStr === null) return;
-
-    const newDiscount = parseFloat(newDiscountStr);
-    if (isNaN(newDiscount) || newDiscount <= 0) return;
-
-    const newSalePrice = Math.round(base * (1 - newDiscount / 100));
-
-    const { error } = await supabase
-      .from("products")
-      .update({ sale_price: newSalePrice, original_price: base, discount_percent: newDiscount })
-      .eq("id", p.id);
-
-    if (!error) fetchData();
-  };
-
-  const handleRemoveDiscount = async (p: Product) => {
-    const restoredPrice = p.original_price || p.sale_price;
-    const { error } = await supabase
-      .from("products")
-      .update({ sale_price: restoredPrice, original_price: null, discount_percent: 0 })
-      .eq("id", p.id);
-    if (!error) fetchData();
-  };
-
   const handleDeleteProduct = async (id: string, productName: string) => {
     if (!window.confirm(`¿Deseas eliminar "${productName}" permanentemente?`)) return;
     setDeletingId(id);
@@ -599,6 +572,10 @@ export default function AdminDashboard() {
                   <div>
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Categoría *</label>
                     <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  </div>
+                  <div className="md:col-span-3">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Descripción del Producto *</label>
+                    <textarea required rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Escribe los detalles, notas aromáticas o características del producto..." className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white" />
                   </div>
                   <div className="md:col-span-3">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">URLs de Fotos (Comas)</label>
