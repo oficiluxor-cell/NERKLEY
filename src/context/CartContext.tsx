@@ -53,14 +53,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     documentId: string;
   } | null>(null);
 
-  // Cargar script de Wompi de manera dinámica
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.wompi.co/widget.js";
-    script.async = true;
-    document.body.appendChild(script);
-  }, []);
-
   // Cargar localStorage de forma segura
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -182,7 +174,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Función para abrir el Widget Checkout de Wompi de forma limpia
+  // Función directa para abrir el Widget de Wompi de manera inmediata
   const openWompiWidget = () => {
     if (!pendingPaymentInfo) return;
 
@@ -212,7 +204,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         }
       });
     } else {
-      alert("El widget de Wompi está cargando, por favor intenta de nuevo en un segundo.");
+      alert("Cargando pasarela de pago, por favor intenta de nuevo en un momento.");
     }
   };
 
