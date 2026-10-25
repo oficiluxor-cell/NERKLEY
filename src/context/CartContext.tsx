@@ -150,7 +150,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // REDIRECCIÓN AUTOMÁTICA PROFESIONAL A WOMPI (IGUAL A LA COMPETENCIA)
+  // REDIRECCIÓN DINÁMICA CORREGIDA A WOMPI
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
@@ -190,11 +190,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       console.error("Error guardando orden en Supabase:", err);
     }
 
-    // CONSTRUCCIÓN DINÁMICA DE LA URL DE WOMPI CON EL MONTO EXACTO EN CENTAVOS
+    // URL CORRECTA DE WOMPI PARA MONTOS DINÁMICOS
     const publicKey = "pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG";
     const currency = "COP";
     const amountInCents = cartTotal * 100;
-    const wompiCheckoutUrl = `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=${currency}&amount-in-cents=${amountInCents}&reference=${uniqueRef}`;
+    const wompiCheckoutUrl = `https://checkout.wompi.co/p?public-key=${publicKey}&currency=${currency}&amount-in-cents=${amountInCents}&reference=${uniqueRef}`;
 
     setSubmitting(false);
 
@@ -420,7 +420,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   
                   <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
-                  <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
+                  <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-805 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
                     {submitting ? "Redirigiendo a Wompi..." : "Proceder al Pago con Wompi"}
                   </button>
                   <p className="text-[9px] text-center text-neutral-500 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
