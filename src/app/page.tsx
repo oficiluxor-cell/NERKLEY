@@ -24,7 +24,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [loading, setLoading] = useState(true);
   
-  const { cartCount, setIsCartOpen, addToCart } = useCart();
+  const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart } = useCart();
 
   useEffect(() => {
     async function fetchProducts() {
@@ -113,20 +113,29 @@ export default function Home() {
             </a>
           </nav>
 
-          <button 
-            onClick={() => setIsCartOpen(true)}
-            className="relative bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span>Carrito</span>
-            {cartCount > 0 && (
-              <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] md:text-[11px] font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-bounce">
-                {cartCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2 md:gap-3">
+            <button 
+              onClick={() => setIsOrdersOpen(true)}
+              className="bg-neutral-100 text-neutral-900 px-3 md:px-4 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-sm font-semibold cursor-pointer"
+            >
+              Mis Pedidos
+            </button>
+
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className="relative bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>Carrito</span>
+              {cartCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] md:text-[11px] font-bold w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-bounce">
+                  {cartCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -252,7 +261,6 @@ export default function Home() {
                   className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    {/* Imagen clickeable para ir a detalles */}
                     <Link href={`/product/${product.slug}`}>
                       <div className="aspect-[3/4] bg-neutral-50 mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer">
                         {mainImage ? (
@@ -304,7 +312,6 @@ export default function Home() {
                       </p>
                     </div>
 
-                    {/* BOTONES: DETALLES + ICONO DE CARRITO */}
                     <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
                       <Link
                         href={`/product/${product.slug}`}
