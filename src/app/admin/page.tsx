@@ -71,7 +71,7 @@ export default function AdminDashboard() {
   const [sizes, setSizes] = useState("");
   const [colors, setColors] = useState("");
   const [stock, setStock] = useState("");
-  const [badge, setBadge] = useState(""); // NUEVO: Etiqueta opcional
+  const [badge, setBadge] = useState("");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -242,7 +242,7 @@ export default function AdminDashboard() {
         colors: colors.trim(),
         stock: initialStock,
         is_active: true,
-        badge: badge.trim(), // Se guarda la etiqueta opcional
+        badge: badge.trim(),
       },
     ]);
 
@@ -291,6 +291,36 @@ export default function AdminDashboard() {
       .update({ sale_price: newSalePrice, original_price: newOriginalPrice })
       .eq("id", p.id);
 
+    if (!error) fetchData();
+  };
+
+  const handleSetDiscount = async (p: Product) => {
+    const base = p.original_price || p.sale_price;
+    const newDiscountStr = window.prompt(`Ingresa el % de descuento para "${p.name}":`, p.discount_percent ? String(p.discount_percent) : "20");
+    if (newDiscountStr === null) return;
+
+    const newDiscount = parseFloat(newDiscountStr);
+    if (isNaN(newDiscount) || newDiscount <= 0) return;
+
+    const newSalePrice = Math.round(base * (1 - newDiscount / 100));
+
+    const { error } = await supabase
+      .from("products")
+      .update({ sale_price: newSalePrice, original_price: base, discount_percent: newDiscount })
+      .eq("id", p.id);
+
+    if (!error) fetchData();
+  };
+
+  const handleRemoveDiscount = async (p: Product) => {
+    if (!window.confirm(`¿Seguro que deseas quitar el descuento de "${p.name}"?`)) return;
+    const restoredPrice = p.original_price || p.sale_price;
+    
+    const { error } = await supabase
+      .from("products")
+      .update({ sale_price: restoredPrice, original_price: null, discount_percent: 0 })
+      .eq("id", p.id);
+      
     if (!error) fetchData();
   };
 
@@ -573,6 +603,16 @@ export default function AdminDashboard() {
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Categoría *</label>
                     <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
+                  <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Tallas (Separadas por comas)</label>
+                      <input type="text" value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="Ej: S, M, L, 40, 42 (Opcional)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Colores (Separados por comas)</label>
+                      <input type="text" value={colors} onChange={(e) => setColors(e.target.value)} placeholder="Ej: Rojo, Azul, Negro (Opcional)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                    </div>
+                  </div>
                   <div className="md:col-span-3">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Etiqueta Destacada Opcional (Ej: 100% Original)</label>
                     <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="Ej: 100% Original o Edición Limitada (Déjalo en blanco si no deseas)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
@@ -599,7 +639,7 @@ export default function AdminDashboard() {
                   <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800">
                     <tr>
                       <th className="p-4">Foto & Producto</th>
-                      <th className="p-4">Precio (COP)</th>
+                      <th className="p-4">Precio (COP) & Descuento</th>
                       <th className="p-4 w-32">Stock</th>
                       <th className="p-4 w-36">Estado</th>
                       <th className="p-4 text-right">Acciones</th>
@@ -619,8 +659,17 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="p-4">
-                            <span className="font-bold text-white">$ {Number(p.sale_price).toLocaleString()}</span>
-                            <button onClick={() => handleEditPrice(p)} className="text-[10px] text-neutral-400 underline ml-2 cursor-pointer">Editar</button>
+                            <span className="font-bold text-white block">$ {Number(p.sale_price).toLocaleString()}</span>
+                            {p.discount_percent && p.discount_percent > 0 && p.original_price ? (
+                              <span className="text-[10px] text-red-400 line-through block">$ {Number(p.original_price).toLocaleString()}</span>
+                            ) : null}
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              <button onClick={() => handleEditPrice(p)} className="text-[10px] text-neutral-400 underline cursor-pointer hover:text-white">Precio</button>
+                              <button onClick={() => handleSetDiscount(p)} className="text-[10px] text-neutral-400 underline cursor-pointer hover:text-white">% Desc</button>
+                              {p.discount_percent && p.discount_percent > 0 ? (
+                                <button onClick={() => handleRemoveDiscount(p)} className="text-[10px] text-red-400 underline cursor-pointer hover:text-red-300">Quitar Desc</button>
+                              ) : null}
+                            </div>
                           </td>
                           <td className="p-4">
                             <input type="number" value={p.stock} onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))} className="w-full bg-neutral-950 border border-neutral-700 px-3 py-2 text-white" />
