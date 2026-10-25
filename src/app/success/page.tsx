@@ -3,28 +3,78 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const orderIdFromUrl = searchParams.get("order_id");
+  const transactionId = searchParams.get("id") || searchParams.get("order_id");
   const [loading, setLoading] = useState(true);
-  const [confirmed, setConfirmed] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (orderIdFromUrl) {
-        setConfirmed(true);
+    const updateOrderStatus = async () => {
+      if (typeof window !== "undefined") {
+        try {
+          // 1. Limpiar el carrito de compras local ya que se pagó con éxito
+          localStorage.removeItem("NERKLEY_cart");
+
+          // 2. Recuperar la última orden pendiente que el usuario guardó antes de ir a Wompi
+          const pendingOrderString = localStorage.getItem("NERKLEY_pending_order");
+          
+          if (pendingOrderString) {
+            const pendingOrder = JSON.parse(pendingOrderString);
+
+            // 3. Buscar la orden en Supabase (por ejemplo, por correo y estado pendiente) y actualizarla a "Pagado"
+            const { data: existingOrders } = await supabase
+              .from("orders")
+              .select("id, notes")
+              .eq("customer_email", pendingOrder.customer_email)
+              .eq("status", "Pendiente de Pago")
+              .order("id", { ascending: false })
+              .limit(1);
+
+            if (existingOrders && existingOrders.length > 0) {
+              const orderId = existingOrders[0].id;
+              const currentNotes = existingOrders[0].notes || "";
+
+              // Actualizamos el estado a Pagado y agregamos el ID de Wompi a las notas
+              await supabase
+                .from("orders")
+                .update({
+                  status: "Pagado",
+                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`
+                })
+                .eq("id", orderId);
+            } else {
+              // Si no encuentra una pendiente previa, inserta la orden ya con estado Pagado
+              await supabase.from("orders").insert([{
+                ...pendingOrder,
+                status: "Pagado",
+                notes: `ID Transacción Wompi: ${transactionId || "Aprobado"}`
+              }]);
+            }
+
+            // Limpiar el registro temporal local
+            localStorage.removeItem("NERKLEY_pending_order");
+          }
+        } catch (e) {
+          console.error("Error al actualizar la orden en Supabase:", e);
+        }
       }
       setLoading(false);
+    };
+
+    const timer = setTimeout(() => {
+      updateOrderStatus();
     }, 1000);
+
     return () => clearTimeout(timer);
-  }, [orderIdFromUrl]);
+  }, [transactionId]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center">
          <div className="text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
-            Procesando tu orden en NERKLEY...
+           Actualizando estado de tu orden en NERKLEY...
          </div>
       </div>
     );
@@ -49,14 +99,14 @@ function SuccessContent() {
           </div>
           
           <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
-            Pago Confirmado
+            Pago Exitoso &bull; Orden Actualizada
           </span>
           <h1 className="text-3xl font-serif uppercase tracking-wider text-neutral-900 font-semibold">
             ¡Gracias por tu compra!
           </h1>
           
           <p className="text-sm text-neutral-600 leading-relaxed bg-neutral-50 p-4 border border-neutral-100">
-            Tu pedido {orderIdFromUrl ? <span className="font-bold text-black">#{orderIdFromUrl}</span> : "ha sido procesado"} está siendo preparado para el envío. Recibirás un correo con los detalles en breve.
+            Tu pago ha sido procesado exitosamente y el estado en tu panel administrativo se ha actualizado a <span className="font-bold text-emerald-600 uppercase">Pagado</span>. En breve prepararemos tu envío.
           </p>
 
           <div className="pt-6">
