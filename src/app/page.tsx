@@ -26,6 +26,22 @@ export default function Home() {
   
   const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart } = useCart();
 
+  // Marquesina superior dinámica y profesional
+  const announcements = [
+    "🚀 Envíos Express asegurados a todo el país (Colombia)",
+    "💳 Pagos 100% seguros con Wompi & Bancolombia",
+    "🛡️ Calidad garantizada y soporte directo en cada pedido",
+    "✨ Descubre las tendencias exclusivas de temporada en NERKLEY"
+  ];
+  const [currentAnnouncement, setCurrentAnnouncement] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentAnnouncement((prev) => (prev + 1) % announcements.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [announcements.length]);
+
   useEffect(() => {
     async function fetchProducts() {
       const { data, error } = await supabase
@@ -67,8 +83,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col">
-      <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner">
-        Envíos Express a todo el país &bull; Ofertas Exclusivas de Temporada
+      {/* BARRA SUPERIOR DINÁMICA (MARQUESINA) */}
+      <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative">
+        <div className="transition-all duration-500 ease-in-out px-4">
+          {announcements[currentAnnouncement]}
+        </div>
       </div>
 
       <header className="border-b border-neutral-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 shadow-sm">
