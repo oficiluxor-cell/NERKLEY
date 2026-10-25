@@ -19,6 +19,8 @@ interface Order {
   selected_size?: string;
   selected_color?: string;
   status: string;
+  shipping_guide?: string;
+  transport_company?: string;
 }
 
 interface Product {
@@ -46,7 +48,6 @@ const STATUS_OPTIONS = [
   "Cancelado"
 ];
 
-// CONTRASEÑA SECRETA PARA ENTRAR AL ADMIN
 const ADMIN_PASSWORD = "NERKLEY2027-Kleyner.";
 
 export default function AdminDashboard() {
@@ -150,7 +151,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // ---- CÁLCULOS DEL DASHBOARD FINANCIERO ----
   const totalIngresos = orders
     .filter((o) => o.status === "Pagado / En Preparación" || o.status === "En Despacho / Enviado" || o.status === "Entregado")
     .reduce((acc, o) => acc + Number(o.total_price), 0);
@@ -162,7 +162,6 @@ export default function AdminDashboard() {
   const totalVentasCompletadas = orders.filter((o) => o.status === "Entregado").length;
   const totalEnProceso = orders.filter((o) => o.status === "Pagado / En Preparación" || o.status === "En Despacho / Enviado").length;
 
-  // ---- CÁLCULOS DEL CRM (CLIENTES) ----
   const customers = Object.values(
     orders.reduce((acc: any, order) => {
       const key = order.customer_document || order.customer_phone;
@@ -200,8 +199,17 @@ export default function AdminDashboard() {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     if (error) {
-      alert("Error al actualizar el estado del pedido: " + error.message);
+      alert("Error al actualizar estado: " + error.message);
       fetchData(); 
+    }
+  };
+
+  const handleUpdateOrderField = async (orderId: string, field: string, value: string) => {
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, [field]: value } : o)));
+    const { error } = await supabase.from("orders").update({ [field]: value }).eq("id", orderId);
+    if (error) {
+      alert("Error al actualizar la guía: " + error.message);
+      fetchData();
     }
   };
 
@@ -268,10 +276,7 @@ export default function AdminDashboard() {
     if (newPriceStr === null) return;
 
     const newBasePrice = parseFloat(newPriceStr);
-    if (isNaN(newBasePrice) || newBasePrice <= 0) {
-      alert("Por favor ingresa un precio válido.");
-      return;
-    }
+    if (isNaN(newBasePrice) || newBasePrice <= 0) return;
 
     const discount = p.discount_percent || 0;
     const newSalePrice = discount > 0 ? Math.round(newBasePrice * (1 - discount / 100)) : newBasePrice;
@@ -287,10 +292,7 @@ export default function AdminDashboard() {
 
   const handleSetDiscount = async (p: Product) => {
     const base = p.original_price || p.sale_price;
-    const newDiscountStr = window.prompt(
-      `Ingresa el % de descuento a restar al precio base ($ ${base.toLocaleString()} COP) de "${p.name}":`,
-      p.discount_percent ? String(p.discount_percent) : "20"
-    );
+    const newDiscountStr = window.prompt(`Ingresa el % de descuento para "${p.name}":`, p.discount_percent ? String(p.discount_percent) : "20");
     if (newDiscountStr === null) return;
 
     const newDiscount = parseFloat(newDiscountStr);
@@ -323,7 +325,6 @@ export default function AdminDashboard() {
     setDeletingId(null);
   };
 
-  // Función auxiliar para buscar la foto de un producto según el nombre del pedido
   const getProductImageByName = (productName: string) => {
     const found = products.find((p) => productName.toLowerCase().includes(p.name.toLowerCase()));
     if (found && found.images) {
@@ -345,9 +346,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab("dashboard")}
               className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "dashboard"
-                  ? "bg-white text-black font-semibold shadow-md"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                activeTab === "dashboard" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
               }`}
             >
               Métricas & Resumen
@@ -355,9 +354,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab("pedidos")}
               className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "pedidos"
-                  ? "bg-white text-black font-semibold shadow-md"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                activeTab === "pedidos" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
               }`}
             >
               Pedidos Recibidos ({orders.length})
@@ -365,9 +362,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab("clientes")}
               className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "clientes"
-                  ? "bg-white text-black font-semibold shadow-md"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                activeTab === "clientes" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
               }`}
             >
               Base de Clientes ({customers.length})
@@ -375,9 +370,7 @@ export default function AdminDashboard() {
             <button
               onClick={() => setActiveTab("publicar")}
               className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "publicar"
-                  ? "bg-white text-black font-semibold shadow-md"
-                  : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+                activeTab === "publicar" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
               }`}
             >
               Catálogo e Inventario
@@ -406,7 +399,7 @@ export default function AdminDashboard() {
           <div>
             <h1 className="text-2xl font-serif uppercase tracking-wider font-medium">
               {activeTab === "dashboard" && "Dashboard Financiero"}
-              {activeTab === "pedidos" && "Gestión de Pedidos"}
+              {activeTab === "pedidos" && "Gestión de Pedidos & Guías de Envío"}
               {activeTab === "clientes" && "Directorio de Clientes CRM"}
               {activeTab === "publicar" && "Catálogo & Publicación"}
             </h1>
@@ -420,7 +413,7 @@ export default function AdminDashboard() {
           </button>
         </header>
 
-        {/* TAB: DASHBOARD FINANCIERO */}
+        {/* TAB: DASHBOARD */}
         {activeTab === "dashboard" && (
           <section className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -441,28 +434,10 @@ export default function AdminDashboard() {
                 <p className="text-2xl font-bold text-emerald-400">{totalVentasCompletadas} Órdenes</p>
               </div>
             </div>
-
-            <div className="bg-neutral-900 border border-neutral-800 p-6 max-w-2xl mt-8">
-              <h3 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400 mb-4 border-b border-neutral-800 pb-3">
-                Resumen de Inventario General
-              </h3>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm text-neutral-300">Total Referencias Publicadas:</span>
-                <span className="font-bold text-white">{products.length} Productos</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-t border-neutral-800/50">
-                <span className="text-sm text-neutral-300">Referencias con Stock Crítico (≤ 3):</span>
-                <span className="font-bold text-red-400">{products.filter(p => p.stock <= 3).length} Productos</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-t border-neutral-800/50">
-                <span className="text-sm text-neutral-300">Productos Ocultos en Tienda:</span>
-                <span className="font-bold text-neutral-500">{products.filter(p => !p.is_active).length} Productos</span>
-              </div>
-            </div>
           </section>
         )}
 
-        {/* TAB: PEDIDOS */}
+        {/* TAB: PEDIDOS CON GUÍAS */}
         {activeTab === "pedidos" && (
           <section className="space-y-4">
             <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
@@ -485,9 +460,9 @@ export default function AdminDashboard() {
                       <th className="p-4">Fecha</th>
                       <th className="p-4">Cliente</th>
                       <th className="p-4">Producto & Foto</th>
-                      <th className="p-4">Dirección</th>
+                      <th className="p-4">Envío y Guía</th>
                       <th className="p-4">Total</th>
-                      <th className="p-4">Estado del Pedido</th>
+                      <th className="p-4">Estado</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-800">
@@ -499,7 +474,6 @@ export default function AdminDashboard() {
                           <td className="p-4">
                             <span className="font-semibold text-white block">{o.customer_name}</span>
                             <span className="text-neutral-300 text-[11px] block mt-1">{o.customer_phone}</span>
-                            <span className="text-neutral-500 text-[10px] block">{o.customer_email || "Sin correo"}</span>
                             <span className="text-neutral-500 text-[10px] block">{o.customer_document}</span>
                           </td>
                           <td className="p-4">
@@ -513,15 +487,28 @@ export default function AdminDashboard() {
                               </div>
                               <div>
                                 <span className="text-white font-medium block">{o.product_name}</span>
-                                <span className="text-neutral-400 text-[10px] block mt-1">
-                                  {o.selected_size && `Talla: ${o.selected_size}`} {o.selected_color && `| Color: ${o.selected_color}`}
-                                </span>
                               </div>
                             </div>
                           </td>
-                          <td className="p-4 text-neutral-300">
-                            <span className="block font-semibold">{o.city}</span>
-                            <span className="block text-[10px] text-neutral-400 mt-1">{o.address}</span>
+                          <td className="p-4 space-y-2 min-w-[200px]">
+                            <span className="block text-neutral-300 font-semibold">{o.city}</span>
+                            <span className="block text-[10px] text-neutral-400">{o.address}</span>
+                            <div className="pt-2 border-t border-neutral-800/80 space-y-1.5">
+                              <input
+                                type="text"
+                                placeholder="Transportadora (Ej: Envía)"
+                                value={o.transport_company || ""}
+                                onChange={(e) => handleUpdateOrderField(o.id, "transport_company", e.target.value)}
+                                className="w-full bg-neutral-950 border border-neutral-800 px-2 py-1 text-[10px] text-white focus:outline-none focus:border-white placeholder-neutral-600"
+                              />
+                              <input
+                                type="text"
+                                placeholder="N° de Guía de Rastreo"
+                                value={o.shipping_guide || ""}
+                                onChange={(e) => handleUpdateOrderField(o.id, "shipping_guide", e.target.value)}
+                                className="w-full bg-neutral-950 border border-neutral-800 px-2 py-1 text-[10px] text-emerald-400 font-mono font-bold focus:outline-none focus:border-white placeholder-neutral-600"
+                              />
+                            </div>
                           </td>
                           <td className="p-4 font-bold text-white">$ {Number(o.total_price).toLocaleString()} COP</td>
                           <td className="p-4">
@@ -533,7 +520,6 @@ export default function AdminDashboard() {
                                 o.status === "Pagado / En Preparación" ? "bg-blue-950/30 border-blue-900/50 text-blue-400" :
                                 o.status === "En Despacho / Enviado" ? "bg-amber-950/30 border-amber-900/50 text-amber-500" :
                                 o.status === "Entregado" ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-400" :
-                                o.status === "Cancelado" ? "bg-red-950/30 border-red-900/50 text-red-500" :
                                 "bg-neutral-900 border-neutral-700 text-white"
                               }`}
                             >
@@ -552,68 +538,40 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* TAB: CLIENTES (CRM) */}
+        {/* TAB: CLIENTES */}
         {activeTab === "clientes" && (
           <section className="space-y-4">
             <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
               Listado de Clientes (Ranking de Compras)
             </h2>
-
-            {loading ? (
-              <div className="text-xs text-neutral-500 uppercase tracking-[0.3em] py-12 text-center animate-pulse">
-                Analizando base de clientes...
-              </div>
-            ) : customers.length === 0 ? (
-              <div className="text-xs text-neutral-500 uppercase tracking-widest py-12 text-center border border-dashed border-neutral-800 bg-neutral-900/30">
-                Aún no hay clientes registrados en la base de datos.
-              </div>
-            ) : (
-              <div className="overflow-x-auto border border-neutral-800">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800 tracking-wider">
-                    <tr>
-                      <th className="p-4">Cliente</th>
-                      <th className="p-4">Contacto</th>
-                      <th className="p-4">Ubicación Frecuente</th>
-                      <th className="p-4">Total Compras</th>
-                      <th className="p-4">Inversión Total</th>
-                      <th className="p-4">Última Compra</th>
+            <div className="overflow-x-auto border border-neutral-800">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800 tracking-wider">
+                  <tr>
+                    <th className="p-4">Cliente</th>
+                    <th className="p-4">Contacto</th>
+                    <th className="p-4">Ciudad</th>
+                    <th className="p-4">Total Compras</th>
+                    <th className="p-4">Inversión</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-800">
+                  {customers.map((c: any) => (
+                    <tr key={c.id} className="hover:bg-neutral-900/60 transition-colors">
+                      <td className="p-4 font-semibold text-white uppercase">{c.name}</td>
+                      <td className="p-4 text-neutral-300">{c.phone}</td>
+                      <td className="p-4 text-neutral-300">{c.city}</td>
+                      <td className="p-4 font-bold text-white text-center">{c.orderCount}</td>
+                      <td className="p-4 font-bold text-emerald-400">$ {c.totalSpent.toLocaleString()} COP</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-neutral-800">
-                    {customers.map((c: any) => (
-                      <tr key={c.id} className="hover:bg-neutral-900/60 transition-colors">
-                        <td className="p-4">
-                          <span className="font-semibold text-white block uppercase">{c.name}</span>
-                          <span className="text-neutral-500 text-[10px] block mt-1">{c.document}</span>
-                        </td>
-                        <td className="p-4 text-neutral-300">
-                          <span className="block">{c.phone}</span>
-                          <span className="text-neutral-500 text-[10px] block mt-1">{c.email || "Sin correo"}</span>
-                        </td>
-                        <td className="p-4 text-neutral-300">
-                          <span className="block font-medium">{c.city}</span>
-                          <span className="block text-[10px] text-neutral-400 mt-1">{c.address}</span>
-                        </td>
-                        <td className="p-4 font-bold text-white text-center">
-                          <span className="bg-neutral-800 px-2 py-1 rounded">{c.orderCount}</span>
-                        </td>
-                        <td className="p-4 font-bold text-emerald-400">
-                          $ {c.totalSpent.toLocaleString()} COP
-                        </td>
-                        <td className="p-4 text-neutral-400 text-[10px]">
-                          {new Date(c.lastOrderDate).toLocaleDateString()}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         )}
 
-        {/* TAB: PUBLICAR (CATÁLOGO E INVENTARIO) */}
+        {/* TAB: PUBLICAR */}
         {activeTab === "publicar" && (
           <div className="space-y-12">
             <section className="bg-neutral-900 border border-neutral-800 p-8 max-w-4xl">
@@ -623,150 +581,83 @@ export default function AdminDashboard() {
               <form onSubmit={handleCreateProduct} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Nombre del Producto *</label>
-                    <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Perfume Layton" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Nombre del Producto *</label>
+                    <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Perfume Layton" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Stock Inicial *</label>
-                    <input type="number" required min="0" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Ej: 50" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Stock Inicial *</label>
+                    <input type="number" required min="0" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Ej: 50" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Precio Base (COP) *</label>
-                    <input type="number" required value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Ej: 140000" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Precio Base (COP) *</label>
+                    <input type="number" required value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Ej: 140000" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Descuento % (Opcional)</label>
-                    <input type="number" min="0" max="90" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} placeholder="Ej: 25" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Descuento %</label>
+                    <input type="number" min="0" max="90" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} placeholder="Ej: 20" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Categoría *</label>
-                    <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Categoría *</label>
+                    <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                   <div className="md:col-span-3">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Descripción Elegante del Producto</label>
-                    <textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ej: Una fragancia cautivadora con notas de salida..." className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
-                  </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">URLs de Fotos (Separadas por comas)</label>
-                    <input type="text" value={images} onChange={(e) => setImages(e.target.value)} placeholder="https://foto1.jpg, https://foto2.jpg" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
-                  </div>
-                  <div className="md:col-span-1">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Tallas (Opcional)</label>
-                    <input type="text" value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="Ej: 100ml, 50ml" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2 font-medium">Colores / Ediciones (Opcional)</label>
-                    <input type="text" value={colors} onChange={(e) => setColors(e.target.value)} placeholder="Ej: Edición Oro, Clásico" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white transition-colors" />
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">URLs de Fotos (Comas)</label>
+                    <input type="text" value={images} onChange={(e) => setImages(e.target.value)} placeholder="https://foto1.jpg, https://foto2.jpg" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
                   </div>
                 </div>
-
-                <div className="pt-4 border-t border-neutral-800 flex justify-end">
-                  <button type="submit" disabled={creating} className="bg-white text-black px-8 py-3.5 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md disabled:opacity-50 cursor-pointer">
-                    {creating ? "Publicando..." : "Publicar Producto en Tienda"}
-                  </button>
-                </div>
+                <button type="submit" disabled={creating} className="bg-white text-black px-8 py-3.5 text-xs font-semibold uppercase tracking-[0.25em] cursor-pointer">
+                  {creating ? "Publicando..." : "Publicar Producto"}
+                </button>
               </form>
             </section>
 
             <section className="space-y-4">
-              <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
-                Inventario & Productos Publicados ({products.length})
-              </h2>
-
-              {products.length === 0 ? (
-                <div className="text-xs text-neutral-500 uppercase tracking-widest py-8 text-center border border-dashed border-neutral-800">
-                  No hay productos registrados en el inventario.
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-neutral-800">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800 tracking-wider">
-                      <tr>
-                        <th className="p-4">Foto & Producto</th>
-                        <th className="p-4">Precio (COP)</th>
-                        <th className="p-4 w-32">Stock</th>
-                        <th className="p-4 w-36">Estado (Tienda)</th>
-                        <th className="p-4 text-right">Acciones</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-800">
-                      {products.map((p) => {
-                        const firstImg = p.images ? p.images.split(",")[0].trim() : null;
-                        return (
-                          <tr key={p.id} className={`hover:bg-neutral-900/60 transition-colors ${!p.is_active && 'opacity-60'}`}>
-                            <td className="p-4">
-                              <div className="flex items-center gap-3">
-                                <div className="w-12 h-14 bg-neutral-950 border border-neutral-800 flex-shrink-0 flex items-center justify-center overflow-hidden">
-                                  {firstImg ? (
-                                    <img src={firstImg} alt={p.name} className="w-full h-full object-cover" />
-                                  ) : (
-                                    <span className="text-[8px] text-neutral-600">Sin foto</span>
-                                  )}
-                                </div>
-                                <div>
-                                  <span className="font-semibold text-white block">{p.name}</span>
-                                  <span className="text-neutral-500 text-[10px] uppercase mt-1 block">{p.category}</span>
-                                </div>
+              <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">Inventario & Productos Publicados</h2>
+              <div className="overflow-x-auto border border-neutral-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800">
+                    <tr>
+                      <th className="p-4">Foto & Producto</th>
+                      <th className="p-4">Precio (COP)</th>
+                      <th className="p-4 w-32">Stock</th>
+                      <th className="p-4 w-36">Estado</th>
+                      <th className="p-4 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800">
+                    {products.map((p) => {
+                      const firstImg = p.images ? p.images.split(",")[0].trim() : null;
+                      return (
+                        <tr key={p.id} className="hover:bg-neutral-900/60">
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-12 h-14 bg-neutral-950 border border-neutral-800 flex items-center justify-center overflow-hidden">
+                                {firstImg ? <img src={firstImg} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-[8px]">N/A</span>}
                               </div>
-                            </td>
-                            <td className="p-4">
-                              <div className="flex items-center gap-2">
-                                <div>
-                                  {p.original_price && <span className="line-through text-neutral-500 text-[10px] block">$ {Number(p.original_price).toLocaleString()}</span>}
-                                  <span className="font-bold text-white">$ {Number(p.sale_price).toLocaleString()}</span>
-                                </div>
-                                <button onClick={() => handleEditPrice(p)} className="text-[10px] text-neutral-400 hover:text-white border border-neutral-700 px-2 py-1 ml-2 cursor-pointer">Editar $</button>
-                              </div>
-                              <div className="mt-2">
-                                {p.discount_percent && p.discount_percent > 0 ? (
-                                  <div className="flex items-center gap-2">
-                                    <span className="bg-red-950 text-red-400 border border-red-800 px-2 py-1 text-[9px] uppercase font-bold">-{p.discount_percent}% OFF</span>
-                                    <button onClick={() => handleRemoveDiscount(p)} className="text-[10px] text-neutral-400 underline hover:text-white cursor-pointer">Quitar</button>
-                                  </div>
-                                ) : (
-                                  <button onClick={() => handleSetDiscount(p)} className="text-[10px] text-neutral-400 underline hover:text-white cursor-pointer">+ Aplicar %</button>
-                                )}
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <input
-                                type="number"
-                                value={p.stock}
-                                onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))}
-                                className={`w-full bg-neutral-950 border px-3 py-2 text-white focus:outline-none transition-colors ${
-                                  p.stock <= 3 ? "border-red-500/50 text-red-400" : "border-neutral-700 focus:border-white"
-                                }`}
-                              />
-                              {p.stock <= 3 && <span className="text-red-500 text-[9px] uppercase font-bold block mt-1">Stock Bajo</span>}
-                            </td>
-                            <td className="p-4">
-                              <button
-                                onClick={() => handleUpdateProductField(p.id, "is_active", !p.is_active)}
-                                className={`w-full border px-3 py-2 text-[10px] uppercase font-bold tracking-widest transition-colors cursor-pointer ${
-                                  p.is_active
-                                    ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-400 hover:bg-emerald-900/50"
-                                    : "bg-neutral-900 border-neutral-700 text-neutral-500 hover:bg-neutral-800 hover:text-white"
-                                }`}
-                              >
-                                {p.is_active ? "Público" : "Oculto"}
-                              </button>
-                            </td>
-                            <td className="p-4 text-right">
-                              <button
-                                onClick={() => handleDeleteProduct(p.id, p.name)}
-                                disabled={deletingId === p.id}
-                                className="bg-red-900/20 hover:bg-red-900/80 border border-red-900/50 text-red-400 hover:text-white px-3 py-2 text-[10px] uppercase tracking-widest transition-all disabled:opacity-50 cursor-pointer"
-                              >
-                                {deletingId === p.id ? "Eliminando..." : "Eliminar"}
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                              <span className="font-semibold text-white">{p.name}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-bold text-white">$ {Number(p.sale_price).toLocaleString()}</span>
+                            <button onClick={() => handleEditPrice(p)} className="text-[10px] text-neutral-400 underline ml-2 cursor-pointer">Editar</button>
+                          </td>
+                          <td className="p-4">
+                            <input type="number" value={p.stock} onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))} className="w-full bg-neutral-950 border border-neutral-700 px-3 py-2 text-white" />
+                          </td>
+                          <td className="p-4">
+                            <button onClick={() => handleUpdateProductField(p.id, "is_active", !p.is_active)} className={`px-3 py-2 text-[10px] font-bold uppercase cursor-pointer ${p.is_active ? "bg-emerald-950/30 text-emerald-400" : "bg-neutral-900 text-neutral-500"}`}>
+                              {p.is_active ? "Público" : "Oculto"}
+                            </button>
+                          </td>
+                          <td className="p-4 text-right">
+                            <button onClick={() => handleDeleteProduct(p.id, p.name)} className="bg-red-900/20 text-red-400 px-3 py-2 text-[10px] uppercase cursor-pointer">Eliminar</button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </div>
         )}
