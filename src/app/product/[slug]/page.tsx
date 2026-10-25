@@ -279,7 +279,7 @@ export default function Home() {
                   className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    {/* IMAGEN CLICKEABLE */}
+                    {/* IMAGEN CLICKEABLE QUE LLEVA DIRECTO A DETALLES */}
                     <Link href={`/product/${product.slug}`} className="block">
                       <div className="aspect-[3/4] bg-white mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
                         {mainImage ? (
@@ -294,20 +294,20 @@ export default function Home() {
                           </span>
                         )}
 
-                        {/* ETIQUETA ANIMADA */}
+                        {/* ETIQUETA ANIMADA VISIBLE DIRECTAMENTE EN EL CATÁLOGO */}
                         {product.badge && product.badge.trim() !== "" && (
-                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 shadow-lg z-10 animate-pulse border border-neutral-700 pointer-events-none">
+                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 shadow-lg z-20 animate-pulse border border-neutral-700">
                             ✨ {product.badge}
                           </div>
                         )}
 
                         {product.discount_percent && product.discount_percent > 0 ? (
-                          <div className={`absolute ${product.badge ? 'top-10 left-2 md:top-12 md:left-3' : 'top-2 left-2 md:top-3 md:left-3'} bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10 pointer-events-none`}>
+                          <div className={`absolute ${product.badge ? 'top-10 left-2 md:top-12 md:left-3' : 'top-2 left-2 md:top-3 md:left-3'} bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10`}>
                             -{product.discount_percent}%
                           </div>
                         ) : null}
 
-                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10 pointer-events-none">
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10">
                           Stock
                         </div>
                       </div>
