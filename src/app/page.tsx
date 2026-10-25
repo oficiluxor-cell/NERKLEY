@@ -41,7 +41,6 @@ export default function Home() {
   ];
   const [currentAnnouncement, setCurrentAnnouncement] = useState(0);
 
-  // Estados para la notificación de compras (Social Proof)
   const [purchaseNotification, setPurchaseNotification] = useState<{ name: string, productName: string, image: string | null } | null>(null);
   const [showNotification, setShowNotification] = useState(false);
 
@@ -84,7 +83,6 @@ export default function Home() {
     fetchProducts();
   }, []);
 
-  // Lógica del sistema de Social Proof (Notificaciones aleatorias reguladas)
   useEffect(() => {
     if (products.length === 0) return;
 
@@ -92,7 +90,6 @@ export default function Home() {
     let hideTimeoutId: NodeJS.Timeout;
 
     const scheduleNext = () => {
-      // Aparece de forma aleatoria entre 15 y 35 segundos para mantener naturalidad
       const nextInterval = Math.floor(Math.random() * (35000 - 15000 + 1) + 15000);
       
       timeoutId = setTimeout(() => {
@@ -103,7 +100,6 @@ export default function Home() {
         setPurchaseNotification({ name: randomName, productName: randomProduct.name, image: img });
         setShowNotification(true);
 
-        // Se oculta después de 6 segundos exactos
         hideTimeoutId = setTimeout(() => {
           setShowNotification(false);
           scheduleNext();
@@ -111,7 +107,6 @@ export default function Home() {
       }, nextInterval);
     };
 
-    // Iniciar el ciclo 5 segundos después de cargar el inventario
     timeoutId = setTimeout(() => scheduleNext(), 5000);
 
     return () => {
@@ -128,14 +123,22 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-hidden">
-      <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative">
+    <div className="min-h-screen bg-transparent text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-hidden">
+      
+      {/* FONDO ANIMADO PREMIUM (AURORA NEUTRA) */}
+      <div className="fixed inset-0 z-[-1] bg-[#fbfbfb] overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50vw] h-[50vw] bg-neutral-200/70 rounded-full blur-[120px] animate-pulse" style={{ animationDuration: '8s' }}></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[60vw] h-[60vw] bg-stone-200/60 rounded-full blur-[140px] animate-pulse" style={{ animationDuration: '14s' }}></div>
+        <div className="absolute top-[40%] left-[30%] w-[40vw] h-[40vw] bg-gray-200/50 rounded-full blur-[100px] animate-pulse" style={{ animationDuration: '11s' }}></div>
+      </div>
+
+      <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative z-50">
         <div className="transition-all duration-500 ease-in-out px-4">
           {announcements[currentAnnouncement]}
         </div>
       </div>
 
-      <header className="border-b border-neutral-200/80 bg-white/90 backdrop-blur-md sticky top-0 z-40 transition-all duration-300 shadow-sm">
+      <header className="border-b border-neutral-200/50 bg-white/70 backdrop-blur-xl sticky top-0 z-40 transition-all duration-300 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3 group">
             <svg
@@ -160,7 +163,7 @@ export default function Home() {
               <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.3em] uppercase leading-none">
                 NERKLEY
               </span>
-              <span className="text-[7px] md:text-[9px] uppercase tracking-[0.35em] text-neutral-400 font-sans mt-0.5">
+              <span className="text-[7px] md:text-[9px] uppercase tracking-[0.35em] text-neutral-500 font-sans mt-0.5">
                 Official Store
               </span>
             </div>
@@ -180,14 +183,14 @@ export default function Home() {
           <div className="flex items-center gap-2 md:gap-3">
             <button 
               onClick={() => setIsOrdersOpen(true)}
-              className="bg-neutral-100 text-neutral-900 px-3 md:px-4 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-sm font-semibold cursor-pointer"
+              className="bg-white/50 backdrop-blur-md border border-neutral-200 text-neutral-900 px-3 md:px-4 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-white hover:shadow-md transition-all font-semibold cursor-pointer"
             >
               Mis Pedidos
             </button>
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md active:scale-95 flex items-center gap-2 cursor-pointer"
+              className="relative bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-lg active:scale-95 flex items-center gap-2 cursor-pointer"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -236,13 +239,13 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="catalogo" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-24 w-full">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-10 border-b border-neutral-200/80 pb-6 gap-6">
+      <section id="catalogo" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-24 w-full relative z-10">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-10 border-b border-neutral-300/50 pb-6 gap-6">
           <div>
             <h3 className="text-2xl md:text-3xl font-serif font-light uppercase tracking-wider text-neutral-900">
               Catálogo
             </h3>
-            <p className="text-[10px] md:text-xs text-neutral-400 mt-1 md:mt-2 tracking-wide">
+            <p className="text-[10px] md:text-xs text-neutral-500 mt-1 md:mt-2 tracking-wide font-medium">
               {filteredProducts.length} {filteredProducts.length === 1 ? "producto" : "productos"}
             </p>
           </div>
@@ -254,7 +257,7 @@ export default function Home() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar producto..."
-                className="w-full bg-white border border-neutral-300 px-3 md:px-4 py-2 md:py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-black tracking-wider"
+                className="w-full bg-white/60 backdrop-blur-md border border-neutral-200 px-3 md:px-4 py-2 md:py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-black focus:bg-white transition-all tracking-wider shadow-sm"
               />
               {searchQuery && (
                 <button
@@ -269,10 +272,10 @@ export default function Home() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedCategory("Todas")}
-                className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold ${
+                className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm ${
                   selectedCategory === "Todas"
-                    ? "bg-black text-white shadow-md"
-                    : "bg-white border border-neutral-200 text-neutral-600 hover:border-black"
+                    ? "bg-black text-white"
+                    : "bg-white/60 backdrop-blur-md border border-neutral-200 text-neutral-600 hover:border-black hover:bg-white"
                 }`}
               >
                 Todas
@@ -281,10 +284,10 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold ${
+                  className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm ${
                     selectedCategory === cat
-                      ? "bg-black text-white shadow-md"
-                      : "bg-white border border-neutral-200 text-neutral-600 hover:border-black"
+                      ? "bg-black text-white"
+                      : "bg-white/60 backdrop-blur-md border border-neutral-200 text-neutral-600 hover:border-black hover:bg-white"
                   }`}
                 >
                   {cat}
@@ -295,12 +298,12 @@ export default function Home() {
         </div>
 
         {loading ? (
-          <div className="text-center py-20 text-[10px] md:text-xs text-neutral-400 uppercase tracking-[0.3em] animate-pulse">
+          <div className="text-center py-20 text-[10px] md:text-xs text-neutral-500 uppercase tracking-[0.3em] animate-pulse font-medium">
             Cargando inventario NERKLEY...
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-16 px-4 md:px-6 border border-dashed border-neutral-300 bg-white max-w-xl mx-auto shadow-sm">
-            <span className="text-2xl md:text-3xl block mb-3">🔍</span>
+          <div className="text-center py-16 px-4 md:px-6 border border-dashed border-neutral-300 bg-white/50 backdrop-blur-md max-w-xl mx-auto shadow-sm">
+            <span className="text-2xl md:text-3xl block mb-3 opacity-80">🔍</span>
             <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-widest font-bold text-neutral-900 mb-2">
               Producto aún no integrado
             </h4>
@@ -309,7 +312,7 @@ export default function Home() {
             </p>
             <button
               onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); }}
-              className="bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-neutral-800 transition-all"
+              className="bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md"
             >
               Ver Todo el Catálogo
             </button>
@@ -322,17 +325,16 @@ export default function Home() {
               return (
                 <div
                   key={product.id}
-                  className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
+                  className="group bg-white/50 backdrop-blur-lg border border-white/60 p-2 md:p-5 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:bg-white/80 hover:-translate-y-1 flex flex-col justify-between relative shadow-sm"
                 >
                   <div>
-                    {/* IMAGEN CLICKEABLE */}
                     <Link href={`/product/${product.slug}`} className="block">
-                      <div className="aspect-[3/4] bg-white mb-2 md:mb-4 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
+                      <div className="aspect-[3/4] bg-white mb-2 md:mb-4 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-200 transition-colors cursor-pointer p-2 shadow-[inset_0_2px_10px_rgba(0,0,0,0.02)]">
                         {mainImage ? (
                           <img
                             src={mainImage}
                             alt={product.name}
-                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 ease-out"
                           />
                         ) : (
                           <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif">
@@ -346,16 +348,15 @@ export default function Home() {
                           </div>
                         ) : null}
 
-                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10 pointer-events-none">
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900/90 backdrop-blur-md text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10 pointer-events-none">
                           Stock
                         </div>
                       </div>
                     </Link>
 
-                    {/* ETIQUETA Y CATEGORÍA (Reubicada fuera de la imagen para evitar bloqueos) */}
                     <div className="flex items-center gap-2 mb-1 md:mb-1.5">
                       {product.category && (
-                        <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
+                        <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-500 font-semibold block truncate">
                           {product.category}
                         </span>
                       )}
@@ -367,7 +368,6 @@ export default function Home() {
                       )}
                     </div>
                     
-                    {/* TÍTULO CLICKEABLE */}
                     <Link href={`/product/${product.slug}`}>
                       <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mb-1 md:mb-2 line-clamp-1 hover:underline cursor-pointer">
                         {product.name}
@@ -375,7 +375,7 @@ export default function Home() {
                     </Link>
                   </div>
 
-                  <div className="pt-2 md:pt-4 border-t border-neutral-100 flex flex-col justify-between mt-2 md:mt-4 gap-2">
+                  <div className="pt-2 md:pt-4 border-t border-neutral-200/60 flex flex-col justify-between mt-2 md:mt-4 gap-2">
                     <div>
                       {product.discount_percent && product.discount_percent > 0 && product.original_price ? (
                         <span className="text-[9px] md:text-[11px] line-through text-neutral-400 block font-light">
@@ -383,14 +383,14 @@ export default function Home() {
                         </span>
                       ) : null}
                       <p className="text-xs md:text-base font-bold text-neutral-900 tracking-tight">
-                        $ {Number(product.sale_price).toLocaleString()} <span className="text-[8px] md:text-[10px] font-normal text-neutral-400">COP</span>
+                        $ {Number(product.sale_price).toLocaleString()} <span className="text-[8px] md:text-[10px] font-normal text-neutral-500">COP</span>
                       </p>
                     </div>
 
                     <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
                       <Link
                         href={`/product/${product.slug}`}
-                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center cursor-pointer"
+                        className="bg-white border border-neutral-200 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:border-black transition-all text-center flex items-center justify-center cursor-pointer shadow-sm"
                       >
                         Detalles
                       </Link>
@@ -408,7 +408,7 @@ export default function Home() {
                           });
                         }}
                         title="Agregar al carrito"
-                        className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
+                        className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center shadow-lg active:scale-90 group/btn cursor-pointer"
                       >
                         <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -423,21 +423,21 @@ export default function Home() {
         )}
       </section>
 
-      <footer className="mt-auto bg-white border-t border-neutral-200/80 py-10 md:py-12 px-4 md:px-6 text-center">
+      <footer className="relative z-10 mt-auto bg-white/80 backdrop-blur-xl border-t border-neutral-200/50 py-10 md:py-12 px-4 md:px-6 text-center">
         <div className="max-w-md mx-auto flex flex-col items-center">
           <span className="text-lg md:text-xl font-serif font-bold tracking-[0.3em] uppercase mb-2">NERKLEY</span>
-          <p className="text-[10px] md:text-xs text-neutral-400 font-light mb-4 md:mb-6">Tu tienda en línea de confianza.</p>
+          <p className="text-[10px] md:text-xs text-neutral-500 font-light mb-4 md:mb-6">Tu tienda en línea de confianza.</p>
           <p className="text-[8px] md:text-[10px] text-neutral-400 uppercase tracking-[0.2em]">
             &copy; 2026 TIENDAS NERKLEY. Todos los derechos reservados.
           </p>
         </div>
       </footer>
 
-      {/* COMPONENTE DE NOTIFICACIÓN FAKE SOCIAL PROOF */}
+      {/* COMPONENTE DE NOTIFICACIÓN FAKE SOCIAL PROOF (MODERNIZADO) */}
       <div 
-        className={`fixed bottom-4 md:bottom-6 left-4 md:left-6 z-50 bg-white border border-neutral-200 shadow-2xl p-3 flex items-center gap-3 md:gap-4 transition-all duration-700 max-w-[280px] md:max-w-sm rounded-sm ${showNotification ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}
+        className={`fixed bottom-4 md:bottom-6 left-4 md:left-6 z-50 bg-white/80 backdrop-blur-xl border border-white/60 shadow-[0_10px_40px_rgba(0,0,0,0.1)] p-3 flex items-center gap-3 md:gap-4 transition-all duration-700 max-w-[280px] md:max-w-sm rounded-lg ${showNotification ? 'translate-y-0 opacity-100' : 'translate-y-20 opacity-0 pointer-events-none'}`}
       >
-        <div className="w-10 h-10 md:w-12 md:h-12 bg-neutral-100 flex-shrink-0 border border-neutral-200 overflow-hidden flex items-center justify-center p-1">
+        <div className="w-10 h-10 md:w-12 md:h-12 bg-white flex-shrink-0 border border-neutral-100 overflow-hidden flex items-center justify-center p-1 shadow-sm rounded-md">
           {purchaseNotification?.image ? (
             <img src={purchaseNotification.image} alt="" className="w-full h-full object-contain" />
           ) : (
@@ -447,7 +447,7 @@ export default function Home() {
         <div>
           <div className="flex items-center gap-1.5 mb-0.5">
             <span className="text-[10px] md:text-xs font-bold text-neutral-900">{purchaseNotification?.name}</span>
-            <span className="text-[8px] md:text-[9px] text-neutral-400">compró hace instantes</span>
+            <span className="text-[8px] md:text-[9px] text-neutral-500">compró hace instantes</span>
           </div>
           <p className="text-[9px] md:text-[10px] font-medium text-neutral-700 line-clamp-1">
             {purchaseNotification?.productName}
