@@ -95,7 +95,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, newItem];
     });
-    setIsCartOpen(true);
   };
 
   const removeFromCart = (id: string) => {
@@ -180,13 +179,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Redirección pasando el monto exacto por parámetro a Wompi
-  const handleWompiRedirect = () => {
-    if (!pendingPaymentInfo) return;
-    const wompiUrl = `https://checkout.wompi.co/l/VPOS_f57eYA?amount=${pendingPaymentInfo.total}&reference=${pendingPaymentInfo.reference}`;
-    window.location.href = wompiUrl;
-  };
-
   return (
     <CartContext.Provider
       value={{ cartItems, addToCart, removeFromCart, updateQuantity, cartCount, cartTotal, isCartOpen, setIsCartOpen }}
@@ -203,16 +195,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
       )}
 
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white z-[101] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-white text-neutral-900 z-[101] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col ${
           isCartOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
         <div className="flex items-center justify-between p-6 border-b border-neutral-200">
-          <h2 className="text-xl font-serif uppercase tracking-widest font-bold">
+          <h2 className="text-xl font-serif uppercase tracking-widest font-bold text-black">
             {pendingPaymentInfo ? "Pasarela de Pago Wompi" : `Tu Carrito (${cartCount})`}
           </h2>
           {!pendingPaymentInfo && (
-            <button onClick={() => setIsCartOpen(false)} className="text-neutral-400 hover:text-black text-2xl leading-none">
+            <button onClick={() => setIsCartOpen(false)} className="text-neutral-500 hover:text-black text-2xl leading-none cursor-pointer">
               &times;
             </button>
           )}
@@ -225,48 +217,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 $
               </div>
               <div>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-neutral-400 font-semibold block mb-1">Orden Registrada en NERKLEY</span>
-                <h3 className="text-xl font-serif uppercase tracking-wider font-bold">¡Hola, {pendingPaymentInfo.customerName}!</h3>
+                <span className="text-[10px] uppercase tracking-[0.3em] text-neutral-500 font-semibold block mb-1">Orden Registrada en NERKLEY</span>
+                <h3 className="text-xl font-serif uppercase tracking-wider font-bold text-black">¡Hola, {pendingPaymentInfo.customerName}!</h3>
               </div>
 
               <div className="bg-[#fafafa] border border-neutral-200 p-6 space-y-4 text-left shadow-sm">
                 <div className="flex justify-between items-center border-b border-neutral-200 pb-3">
-                  <span className="text-xs uppercase tracking-wider text-neutral-500 font-medium">Referencia:</span>
+                  <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Referencia:</span>
                   <span className="text-sm font-mono font-bold bg-black text-white px-3 py-1 tracking-widest">{pendingPaymentInfo.reference}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase tracking-wider text-neutral-500 font-medium">Total a Pagar:</span>
+                  <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Total a Pagar:</span>
                   <span className="text-lg font-bold text-black">$ {pendingPaymentInfo.total.toLocaleString()} COP</span>
                 </div>
               </div>
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir a Wompi con tu monto exacto predefinido.
+                Haz clic en el botón de abajo para ir directamente a la pasarela y completar tu pago.
               </div>
 
-              <button
-                type="button"
-                onClick={handleWompiRedirect}
-                className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
-              >
-                Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
-              </button>
+              {/* FORMULARIO HTML NATIVO GET DIRECTO A WOMPI */}
+              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
+                <input type="hidden" name="public-key" value="pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG" />
+                <input type="hidden" name="currency" value="COP" />
+                <input type="hidden" name="amount-in-cents" value={pendingPaymentInfo.total * 100} />
+                <input type="hidden" name="reference" value={pendingPaymentInfo.reference} />
+                
+                <button
+                  type="submit"
+                  className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
+                >
+                  Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
+                </button>
+              </form>
 
               <button
                 onClick={() => {
                   setPendingPaymentInfo(null);
                   setIsCartOpen(false);
                 }}
-                className="text-[10px] text-neutral-400 uppercase tracking-widest underline hover:text-black block mx-auto pt-2"
+                className="text-[10px] text-neutral-500 uppercase tracking-widest underline hover:text-black block mx-auto pt-2 cursor-pointer"
               >
                 Modificar datos o carrito
               </button>
             </div>
           ) : cartItems.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Tu carrito está vacío</p>
-              <button onClick={() => setIsCartOpen(false)} className="bg-black text-white px-6 py-3 text-xs uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md">
+              <p className="text-xs uppercase tracking-widest text-neutral-500 mb-6">Tu carrito está vacío</p>
+              <button onClick={() => setIsCartOpen(false)} className="bg-black text-white px-6 py-3 text-xs uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md cursor-pointer">
                 Explorar Catálogo
               </button>
             </div>
@@ -274,10 +273,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
             <>
               <div className="space-y-4">
                 {cartItems.map((item) => (
-                  <div key={item.id} className="flex gap-4 bg-[#fafafa] p-3 border border-neutral-100 relative group">
+                  <div key={item.id} className="flex gap-4 bg-[#fafafa] p-3 border border-neutral-200 relative group">
                     <button 
                       onClick={() => removeFromCart(item.id)}
-                      className="absolute top-2 right-2 text-neutral-300 hover:text-red-500 text-lg font-bold leading-none"
+                      className="absolute top-2 right-2 text-neutral-400 hover:text-red-600 text-lg font-bold leading-none cursor-pointer"
                       title="Eliminar producto"
                     >&times;</button>
                     
@@ -285,14 +284,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
                       {item.image ? (
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
-                        <span className="text-[8px] uppercase tracking-widest text-neutral-300 font-serif">NERKLEY</span>
+                        <span className="text-[8px] uppercase tracking-widest text-neutral-400 font-serif">NERKLEY</span>
                       )}
                     </div>
                     
                     <div className="flex flex-col justify-between py-1 pr-6 w-full">
                       <div>
-                        <h4 className="text-xs font-semibold uppercase tracking-wider line-clamp-1">{item.name}</h4>
-                        <div className="flex gap-2 mt-1 text-[10px] text-neutral-500 uppercase font-medium">
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-black line-clamp-1">{item.name}</h4>
+                        <div className="flex gap-2 mt-1 text-[10px] text-neutral-600 uppercase font-medium">
                           {item.size && <span>Talla: {item.size}</span>}
                           {item.size && item.color && <span>|</span>}
                           {item.color && <span>Color: {item.color}</span>}
@@ -302,15 +301,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
                           <div className="flex items-center border border-neutral-300 bg-white">
                             <button 
                               onClick={() => updateQuantity(item.id, -1)}
-                              className="px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-100 font-bold"
+                              className="px-2 py-0.5 text-xs text-neutral-800 hover:bg-neutral-100 font-bold cursor-pointer"
                             >-</button>
-                            <span className="px-2.5 text-xs font-semibold">{item.quantity}</span>
+                            <span className="px-2.5 text-xs font-semibold text-black">{item.quantity}</span>
                             <button 
                               onClick={() => updateQuantity(item.id, 1)}
-                              className="px-2 py-0.5 text-xs text-neutral-600 hover:bg-neutral-100 font-bold"
+                              className="px-2 py-0.5 text-xs text-neutral-800 hover:bg-neutral-100 font-bold cursor-pointer"
                             >+</button>
                           </div>
-                          <span className="text-[9px] text-neutral-400">Stock: {item.maxStock}</span>
+                          <span className="text-[9px] text-neutral-500">Stock: {item.maxStock}</span>
                         </div>
                       </div>
                       <p className="text-sm font-bold text-black mt-2">$ {(item.price * item.quantity).toLocaleString()} COP</p>
@@ -321,8 +320,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="border-t border-neutral-200 pt-6">
                 <div className="flex justify-between items-center mb-6">
-                  <span className="text-xs font-semibold uppercase tracking-widest">Total a Pagar</span>
-                  <span className="text-xl font-bold">$ {cartTotal.toLocaleString()} COP</span>
+                  <span className="text-xs font-semibold uppercase tracking-widest text-black">Total a Pagar</span>
+                  <span className="text-xl font-bold text-black">$ {cartTotal.toLocaleString()} COP</span>
                 </div>
 
                 <form onSubmit={handleCheckout} className="space-y-4 bg-[#fafafa] p-5 border border-neutral-200">
@@ -330,28 +329,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     Datos para Envío y Facturación (Wompi)
                   </h3>
                   
-                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} placeholder="Nombre Completo *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} placeholder="Nombre Completo *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="text" name="documentId" required value={formData.documentId} onChange={handleInputChange} placeholder="Cédula *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
-                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="Teléfono *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                    <input type="text" name="documentId" required value={formData.documentId} onChange={handleInputChange} placeholder="Cédula *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
+                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="Teléfono *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   </div>
                   
-                  <input type="email" name="email" required value={formData.email} onChange={handleInputChange} placeholder="Correo Electrónico *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                  <input type="email" name="email" required value={formData.email} onChange={handleInputChange} placeholder="Correo Electrónico *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
                   <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value="Colombia" disabled className="w-full bg-neutral-100 border border-neutral-300 px-4 py-2.5 text-xs text-neutral-500 cursor-not-allowed" />
-                    <input type="text" name="city" required value={formData.city} onChange={handleInputChange} placeholder="Ciudad *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                    <input type="text" value="Colombia" disabled className="w-full bg-neutral-100 text-neutral-600 border border-neutral-300 px-4 py-2.5 text-xs cursor-not-allowed" />
+                    <input type="text" name="city" required value={formData.city} onChange={handleInputChange} placeholder="Ciudad *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   </div>
                   
-                  <input type="text" name="address" required value={formData.address} onChange={handleInputChange} placeholder="Dirección Exacta (Casa, Apto) *" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                  <input type="text" name="address" required value={formData.address} onChange={handleInputChange} placeholder="Dirección Exacta (Casa, Apto) *" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
-                  <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-white border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black" />
+                  <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
-                  <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2">
+                  <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
                     {submitting ? "Procesando..." : "Proceder al Pago con Wompi"}
                   </button>
-                  <p className="text-[9px] text-center text-neutral-400 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
+                  <p className="text-[9px] text-center text-neutral-500 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
                 </form>
               </div>
             </>
