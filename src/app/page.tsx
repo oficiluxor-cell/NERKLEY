@@ -106,46 +106,9 @@ export default function Home() {
   return (
     <div className={`min-h-screen bg-[#F9F9F9] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-hidden transition-opacity duration-1000 ${isMounted ? 'opacity-100' : 'opacity-0'}`}>
       
-      {/* ESTILOS NATIVOS PARA MARQUESINA Y FADE-IN */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes marquee {
-          0% { transform: translateX(0%); }
-          100% { transform: translateX(-50%); }
-        }
-        .animate-marquee {
-          display: inline-block;
-          white-space: nowrap;
-          animation: marquee 25s linear infinite;
-        }
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .fade-in-up {
-          animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-      `}} />
-
-      {/* BARRA SUPERIOR - MARQUESINA INFINITA */}
-      <div className="bg-black text-white text-[10px] md:text-[11px] uppercase tracking-[0.25em] py-3 font-semibold overflow-hidden relative z-50 flex whitespace-nowrap">
-        <div className="animate-marquee">
-          <span className="mx-8">🚀 ENVÍOS EXPRESS A TODO EL PAÍS</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">💳 PAGOS 100% SEGUROS CON WOMPI</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">🛡️ CALIDAD GARANTIZADA</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">✨ DESCUBRE TENDENCIAS EXCLUSIVAS</span>
-          <span className="mx-8">·</span>
-          {/* Duplicado para el bucle infinito */}
-          <span className="mx-8">🚀 ENVÍOS EXPRESS A TODO EL PAÍS</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">💳 PAGOS 100% SEGUROS CON WOMPI</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">🛡️ CALIDAD GARANTIZADA</span>
-          <span className="mx-8">·</span>
-          <span className="mx-8">✨ DESCUBRE TENDENCIAS EXCLUSIVAS</span>
-        </div>
+      {/* BARRA SUPERIOR - ANUNCIOS */}
+      <div className="bg-black text-white text-[10px] md:text-[11px] uppercase tracking-[0.25em] py-3 font-semibold overflow-hidden relative z-50 text-center">
+        <span>🚀 ENVÍOS EXPRESS A TODO EL PAÍS &nbsp;&nbsp;·&nbsp;&nbsp; 💳 PAGOS 100% SEGUROS &nbsp;&nbsp;·&nbsp;&nbsp; 🛡️ CALIDAD GARANTIZADA</span>
       </div>
 
       <header className="bg-white/90 backdrop-blur-xl sticky top-0 z-40 transition-all duration-500 border-b border-neutral-100 shadow-[0_4px_20px_rgba(0,0,0,0.02)]">
@@ -208,10 +171,9 @@ export default function Home() {
 
       {/* HERO SECTION - ESTILO EDITORIAL */}
       <section className="relative bg-neutral-950 text-white py-32 md:py-48 px-6 text-center overflow-hidden">
-        {/* Efecto de luz sutil de fondo */}
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-neutral-800/40 via-neutral-950 to-neutral-950"></div>
         
-        <div className="max-w-3xl mx-auto relative z-10 fade-in-up">
+        <div className="max-w-3xl mx-auto relative z-10 transition-all duration-1000">
           <span className="inline-block text-[10px] uppercase tracking-[0.5em] text-neutral-400 font-semibold mb-6">
             Colección Oficial
           </span>
@@ -220,7 +182,7 @@ export default function Home() {
           </h2>
           <a
             href="#catalogo"
-            className="inline-block bg-white text-black px-12 py-4 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-neutral-200 transition-colors duration-500"
+            className="inline-block bg-white text-black px-12 py-4 text-[10px] font-bold uppercase tracking-[0.3em] hover:bg-neutral-200 transition-colors duration-500 shadow-xl"
           >
             Explorar Catálogo
           </a>
@@ -228,7 +190,7 @@ export default function Home() {
       </section>
 
       <section id="catalogo" className="max-w-[1400px] mx-auto px-6 py-16 md:py-24 w-full relative z-10 min-h-screen">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-neutral-200 pb-8 gap-6 fade-in-up">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 border-b border-neutral-200 pb-8 gap-6">
           <div>
             <h3 className="text-3xl font-serif font-light uppercase tracking-widest text-neutral-900">
               Catálogo
@@ -252,7 +214,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2 justify-end w-full sm:w-auto">
               <button
                 onClick={() => setSelectedCategory("Todas")}
-                className={`px-4 py-2 text-[9px] uppercase tracking-[0.25em] transition-all font-bold border-b-2 ${
+                className={`px-4 py-2 text-[9px] uppercase tracking-[0.25em] transition-all font-bold border-b-2 cursor-pointer ${
                   selectedCategory === "Todas" ? "border-black text-black" : "border-transparent text-neutral-400 hover:text-black"
                 }`}
               >
@@ -262,7 +224,7 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 text-[9px] uppercase tracking-[0.25em] transition-all font-bold border-b-2 ${
+                  className={`px-4 py-2 text-[9px] uppercase tracking-[0.25em] transition-all font-bold border-b-2 cursor-pointer ${
                     selectedCategory === cat ? "border-black text-black" : "border-transparent text-neutral-400 hover:text-black"
                   }`}
                 >
@@ -278,7 +240,7 @@ export default function Home() {
             Preparando colección...
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-24 px-6 max-w-xl mx-auto fade-in-up">
+          <div className="text-center py-24 px-6 max-w-xl mx-auto">
             <h4 className="text-[12px] font-serif uppercase tracking-[0.3em] font-bold text-neutral-900 mb-4">
               Sin Resultados
             </h4>
@@ -287,28 +249,27 @@ export default function Home() {
             </p>
             <button
               onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); }}
-              className="bg-black text-white px-8 py-3 text-[9px] uppercase tracking-[0.3em] hover:bg-neutral-800 transition-colors"
+              className="bg-black text-white px-8 py-3 text-[9px] uppercase tracking-[0.3em] hover:bg-neutral-800 transition-colors cursor-pointer"
             >
               Restablecer Filtros
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-6 gap-y-12">
-            {filteredProducts.map((product, index) => {
+            {filteredProducts.map((product) => {
               const mainImage = product.images ? product.images.split(",")[0].trim() : null;
 
               return (
                 <div
                   key={product.id}
-                  className="group flex flex-col relative fade-in-up bg-white p-4 transition-all duration-700 hover:shadow-[0_20px_40px_rgba(0,0,0,0.04)]"
-                  style={{ animationDelay: `${index * 0.05}s` }}
+                  className="group flex flex-col relative bg-white p-4 transition-all duration-500 hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] border border-neutral-100"
                 >
                   <Link href={`/product/${product.slug}`} className="block relative overflow-hidden bg-[#F2F2F2] aspect-[3/4] mb-5">
                     {mainImage ? (
                       <img
                         src={mainImage}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1500ms] ease-out mix-blend-multiply"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -366,7 +327,8 @@ export default function Home() {
                             maxStock: product.stock || 10,
                           });
                         }}
-                        className="w-10 h-10 bg-black text-white flex items-center justify-center hover:bg-neutral-800 transition-colors cursor-pointer group/btn rounded-none"
+                        className="w-10 h-10 bg-black text-white flex items-center justify-center hover:bg-neutral-800 transition-colors cursor-pointer group/btn rounded-none shadow-md"
+                        title="Agregar al carrito"
                       >
                         <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -394,9 +356,9 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* NOTIFICACIÓN SOCIAL PROOF (MINIMALISTA) */}
+      {/* NOTIFICACIÓN SOCIAL PROOF */}
       <div 
-        className={`fixed bottom-6 left-6 z-50 bg-white border border-neutral-200 shadow-2xl p-4 flex items-center gap-4 transition-all duration-[800ms] max-w-sm ${showNotification ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'}`}
+        className={`fixed bottom-6 left-6 z-50 bg-white border border-neutral-200 shadow-2xl p-4 flex items-center gap-4 transition-all duration-700 max-w-sm ${showNotification ? 'translate-y-0 opacity-100' : 'translate-y-12 opacity-0 pointer-events-none'}`}
       >
         <div className="w-12 h-12 bg-neutral-100 flex-shrink-0 flex items-center justify-center p-1">
           {purchaseNotification?.image ? (
