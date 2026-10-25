@@ -51,7 +51,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
     email: string;
     phone: string;
     documentId: string;
-    summary: string;
   } | null>(null);
 
   // Cargar localStorage de forma segura
@@ -157,6 +156,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       status: "Pendiente de Pago",
     };
 
+    try {
+      await supabase.from("orders").insert([pendingOrderData]);
+    } catch (err) {
+      console.error("Error guardando orden en Supabase:", err);
+    }
+
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("NERKLEY_pending_order", JSON.stringify(pendingOrderData));
@@ -170,10 +175,54 @@ export function CartProvider({ children }: { children: ReactNode }) {
       email: formData.email,
       phone: formData.phone,
       documentId: formData.documentId,
-      summary: orderSummary,
     });
 
     setSubmitting(false);
+  };
+
+  // Función para calcular la firma de integridad SHA-256 exigida por Wompi
+  const handleWompiSubmit = async () => {
+    if (!pendingPaymentInfo) return;
+
+    const reference = pendingPaymentInfo.reference;
+    const amountInCents = (pendingPaymentInfo.total * 100).toString();
+    const currency = "COP";
+    const integrityKey = "test_integrity_rryp1CwIQBRFLdshKtYFr2Bc9F2mNgjS";
+
+    // Concatenación exacta exigida por Wompi: referencia + monto + moneda + secreto
+    const concatenatedString = `${reference}${amountInCents}${currency}${integrityKey}`;
+
+    // Generar hash SHA-256 usando la API nativa del navegador
+    const encoder = new TextEncoder();
+    const data = encoder.encode(concatenatedString);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const signature = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+    // Crear formulario dinámico con la firma incluida
+    const form = document.createElement("form");
+    form.method = "GET";
+    form.action = "https://checkout.wompi.co/p/";
+
+    const params: { [key: string]: string } = {
+      "public-key": "pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI",
+      "currency": currency,
+      "amount-in-cents": amountInCents,
+      "reference": reference,
+      "signature:integrity": signature,
+      "redirect-url": "https://nerkley-m4t2.vercel.app/success"
+    };
+
+    for (const [key, value] of Object.entries(params)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    }
+
+    document.body.appendChild(form);
+    form.submit();
   };
 
   return (
@@ -231,24 +280,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir a la pasarela con tu orden cargada correctamente.
+                Haz clic en el botón de abajo para ir directamente a la pasarela con firma de seguridad validada.
               </div>
 
-              {/* FORMULARIO ESTÁNDAR COMPATIBLE CON WOMPI */}
-              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
-                <input type="hidden" name="public-key" value="pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI" />
-                <input type="hidden" name="currency" value="COP" />
-                <input type="hidden" name="amount-in-cents" value={pendingPaymentInfo.total * 100} />
-                <input type="hidden" name="reference" value={pendingPaymentInfo.reference} />
-                <input type="hidden" name="redirect-url" value="https://nerkley-m4t2.vercel.app/success" />
-                
-                <button
-                  type="submit"
-                  className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
-                >
-                  Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={handleWompiSubmit}
+                className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
+              >
+                Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
+              </button>
 
               <button
                 onClick={() => {
