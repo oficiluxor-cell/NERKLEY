@@ -14,6 +14,7 @@ interface Product {
   discount_percent?: number;
   category: string;
   images?: string;
+  stock?: number;
 }
 
 export default function Home() {
@@ -23,7 +24,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [loading, setLoading] = useState(true);
   
-  const { cartCount, setIsCartOpen } = useCart();
+  const { cartCount, setIsCartOpen, addToCart } = useCart();
 
   useEffect(() => {
     async function fetchProducts() {
@@ -243,64 +244,91 @@ export default function Home() {
               const mainImage = product.images ? product.images.split(",")[0].trim() : null;
 
               return (
-                <Link
+                <div
                   key={product.id}
-                  href={`/product/${product.slug}`}
-                  className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between cursor-pointer relative"
+                  className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    <div className="aspect-[3/4] bg-neutral-50 mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors">
-                      {mainImage ? (
-                        <img
-                          src={mainImage}
-                          alt={product.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif group-hover:scale-110 transition-transform duration-500">
-                          [ NERKLEY ]
-                        </span>
-                      )}
+                    {/* Imagen clickeable para ir a detalles */}
+                    <Link href={`/product/${product.slug}`}>
+                      <div className="aspect-[3/4] bg-neutral-50 mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer">
+                        {mainImage ? (
+                          <img
+                            src={mainImage}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif group-hover:scale-110 transition-transform duration-500">
+                            [ NERKLEY ]
+                          </span>
+                        )}
 
-                      {product.discount_percent && product.discount_percent > 0 ? (
-                        <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10">
-                          -{product.discount_percent}%
+                        {product.discount_percent && product.discount_percent > 0 ? (
+                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10">
+                            -{product.discount_percent}%
+                          </div>
+                        ) : null}
+
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-black text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10">
+                          Stock
                         </div>
-                      ) : null}
-
-                      <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-black text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10">
-                        Stock
                       </div>
-                    </div>
+                    </Link>
 
                     {product.category && (
                       <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
                         {product.category}
                       </span>
                     )}
-                    <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mt-1 md:mt-1 mb-1 md:mb-2 line-clamp-1">
-                      {product.name}
-                    </h4>
+                    
+                    <Link href={`/product/${product.slug}`}>
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mt-1 md:mt-1 mb-1 md:mb-2 line-clamp-1 hover:underline">
+                        {product.name}
+                      </h4>
+                    </Link>
                   </div>
 
-                  <div className="pt-2 md:pt-4 border-t border-neutral-100 flex flex-col md:flex-row justify-between items-start md:items-end mt-2 md:mt-4 gap-2 md:gap-0">
+                  <div className="pt-2 md:pt-4 border-t border-neutral-100 flex flex-col justify-between mt-2 md:mt-4 gap-2">
                     <div>
                       {product.discount_percent && product.discount_percent > 0 && product.original_price ? (
                         <span className="text-[9px] md:text-[11px] line-through text-neutral-400 block font-light">
                           $ {Number(product.original_price).toLocaleString()}
                         </span>
-                      ) : (
-                        <span className="text-[8px] md:text-[9px] uppercase tracking-wider text-neutral-400 block hidden md:block">Precio</span>
-                      )}
+                      ) : null}
                       <p className="text-xs md:text-base font-bold text-neutral-900 tracking-tight">
                         $ {Number(product.sale_price).toLocaleString()} <span className="text-[8px] md:text-[10px] font-normal text-neutral-400">COP</span>
                       </p>
                     </div>
-                    <span className="bg-black text-white px-2 py-1.5 md:px-4 md:py-2 text-[8px] md:text-[10px] uppercase tracking-widest hover:bg-neutral-800 transition-all w-full md:w-auto text-center">
-                      Detalles
-                    </span>
+
+                    {/* BOTONES DE ACCIÓN: DETALLES + AGREGAR AL CARRITO */}
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <Link
+                        href={`/product/${product.slug}`}
+                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center"
+                      >
+                        Detalles
+                      </Link>
+
+                      <button
+                        onClick={() => {
+                          addToCart({
+                            id: product.id,
+                            product_id: product.id,
+                            name: product.name,
+                            price: product.sale_price,
+                            image: mainImage,
+                            quantity: 1,
+                            maxStock: product.stock || 10,
+                          });
+                        }}
+                        className="bg-black text-white py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-800 transition-all text-center flex items-center justify-center gap-1 shadow-sm active:scale-95"
+                      >
+                        <span>+ Carrito</span>
+                      </button>
+                    </div>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
