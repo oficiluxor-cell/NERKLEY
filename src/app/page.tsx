@@ -15,6 +15,7 @@ interface Product {
   category: string;
   images?: string;
   stock?: number;
+  badge?: string;
 }
 
 export default function Home() {
@@ -26,7 +27,6 @@ export default function Home() {
   
   const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart } = useCart();
 
-  // Marquesina superior dinámica y profesional
   const announcements = [
     "🚀 Envíos Express asegurados a todo el país (Colombia)",
     "💳 Pagos 100% seguros con Wompi & Bancolombia",
@@ -44,6 +44,7 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchProducts() {
+      // El select("*") ya trae la columna badge automáticamente si existe en Supabase
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -83,7 +84,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[#fafafa] text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col">
-      {/* BARRA SUPERIOR DINÁMICA (MARQUESINA) */}
       <div className="bg-black text-white text-[11px] uppercase tracking-[0.2em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative">
         <div className="transition-all duration-500 ease-in-out px-4">
           {announcements[currentAnnouncement]}
@@ -280,40 +280,51 @@ export default function Home() {
                   className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    <Link href={`/product/${product.slug}`}>
-                      <div className="aspect-[3/4] bg-neutral-50 mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer">
+                    {/* IMAGEN CLICKEABLE */}
+                    <Link href={`/product/${product.slug}`} className="block">
+                      <div className="aspect-[3/4] bg-white mb-2 md:mb-4 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
                         {mainImage ? (
                           <img
                             src={mainImage}
                             alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif group-hover:scale-110 transition-transform duration-500">
+                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif">
                             [ NERKLEY ]
                           </span>
                         )}
 
                         {product.discount_percent && product.discount_percent > 0 ? (
-                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10">
+                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10 pointer-events-none">
                             -{product.discount_percent}%
                           </div>
                         ) : null}
 
-                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-black text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10">
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10 pointer-events-none">
                           Stock
                         </div>
                       </div>
                     </Link>
 
-                    {product.category && (
-                      <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
-                        {product.category}
-                      </span>
-                    )}
+                    {/* ETIQUETA Y CATEGORÍA (Reubicada fuera de la imagen para evitar bloqueos) */}
+                    <div className="flex items-center gap-2 mb-1 md:mb-1.5">
+                      {product.category && (
+                        <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
+                          {product.category}
+                        </span>
+                      )}
+                      
+                      {product.badge && product.badge.trim() !== "" && (
+                        <span className="bg-black text-white text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 animate-pulse rounded-sm">
+                          ✨ {product.badge}
+                        </span>
+                      )}
+                    </div>
                     
+                    {/* TÍTULO CLICKEABLE */}
                     <Link href={`/product/${product.slug}`}>
-                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mt-1 md:mt-1 mb-1 md:mb-2 line-clamp-1 hover:underline">
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mb-1 md:mb-2 line-clamp-1 hover:underline cursor-pointer">
                         {product.name}
                       </h4>
                     </Link>
@@ -334,7 +345,7 @@ export default function Home() {
                     <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
                       <Link
                         href={`/product/${product.slug}`}
-                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center"
+                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center cursor-pointer"
                       >
                         Detalles
                       </Link>
@@ -350,6 +361,7 @@ export default function Home() {
                             quantity: 1,
                             maxStock: product.stock || 10,
                           });
+                          // CORREGIDO: Ya no llama a setIsCartOpen(true), para que no interrumpa al cliente
                         }}
                         title="Agregar al carrito"
                         className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
