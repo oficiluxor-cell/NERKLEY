@@ -279,8 +279,9 @@ export default function Home() {
                   className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    <Link href={`/product/${product.slug}`}>
-                      <div className="aspect-[3/4] bg-neutral-50 mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
+                    {/* IMAGEN CLICKEABLE */}
+                    <Link href={`/product/${product.slug}`} className="block">
+                      <div className="aspect-[3/4] bg-white mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
                         {mainImage ? (
                           <img
                             src={mainImage}
@@ -288,25 +289,25 @@ export default function Home() {
                             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif group-hover:scale-110 transition-transform duration-500">
+                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif">
                             [ NERKLEY ]
                           </span>
                         )}
 
-                        {/* ETIQUETA ANIMADA OPCIONAL (EJ: 100% ORIGINAL) */}
+                        {/* ETIQUETA ANIMADA */}
                         {product.badge && product.badge.trim() !== "" && (
-                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 shadow-lg z-10 animate-pulse border border-neutral-700">
+                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 shadow-lg z-10 animate-pulse border border-neutral-700 pointer-events-none">
                             ✨ {product.badge}
                           </div>
                         )}
 
                         {product.discount_percent && product.discount_percent > 0 ? (
-                          <div className={`absolute ${product.badge ? 'top-10 left-2 md:top-12 md:left-3' : 'top-2 left-2 md:top-3 md:left-3'} bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10`}>
+                          <div className={`absolute ${product.badge ? 'top-10 left-2 md:top-12 md:left-3' : 'top-2 left-2 md:top-3 md:left-3'} bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10 pointer-events-none`}>
                             -{product.discount_percent}%
                           </div>
                         ) : null}
 
-                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10">
+                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-neutral-900 text-white text-[7px] md:text-[9px] uppercase tracking-widest px-1.5 md:px-2 py-0.5 md:py-1 font-semibold z-10 pointer-events-none">
                           Stock
                         </div>
                       </div>
@@ -318,8 +319,9 @@ export default function Home() {
                       </span>
                     )}
                     
+                    {/* TÍTULO CLICKEABLE */}
                     <Link href={`/product/${product.slug}`}>
-                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mt-1 md:mt-1 mb-1 md:mb-2 line-clamp-1 hover:underline">
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mt-1 md:mt-1 mb-1 md:mb-2 line-clamp-1 hover:underline cursor-pointer">
                         {product.name}
                       </h4>
                     </Link>
@@ -340,7 +342,7 @@ export default function Home() {
                     <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
                       <Link
                         href={`/product/${product.slug}`}
-                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center"
+                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center cursor-pointer"
                       >
                         Detalles
                       </Link>
@@ -356,8 +358,9 @@ export default function Home() {
                             quantity: 1,
                             maxStock: product.stock || 10,
                           });
+                          setIsCartOpen(true);
                         }}
-                        title="Agregar al carrito"
+                        title="Añadir al carrito y pagar"
                         className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
                       >
                         <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
