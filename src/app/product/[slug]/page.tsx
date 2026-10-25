@@ -106,6 +106,9 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       quantity: quantity,
       maxStock: product.stock,
     });
+
+    // Abre el carrito y la pasarela de pago inmediatamente
+    setIsCartOpen(true);
   };
 
   if (loading) {
@@ -144,7 +147,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             </Link>
             <button 
               onClick={() => setIsCartOpen(true)}
-              className="relative bg-black text-white px-5 py-2 text-[10px] uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md active:scale-95"
+              className="relative bg-black text-white px-5 py-2 text-[10px] uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md active:scale-95 cursor-pointer"
             >
               Carrito
               {cartCount > 0 && (
@@ -182,7 +185,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   <button
                     key={index}
                     onClick={() => setSelectedImage(imgUrl)}
-                    className={`w-20 h-24 border-2 transition-all flex-shrink-0 bg-neutral-50 overflow-hidden ${
+                    className={`w-20 h-24 border-2 transition-all flex-shrink-0 bg-neutral-50 overflow-hidden cursor-pointer ${
                       selectedImage === imgUrl ? "border-black scale-105" : "border-neutral-200 opacity-60 hover:opacity-100"
                     }`}
                   >
@@ -231,7 +234,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                       key={size}
                       type="button"
                       onClick={() => setSelectedSize(size)}
-                      className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider border transition-all ${
+                      className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
                         selectedSize === size
                           ? "bg-black text-white border-black shadow-md"
                           : "bg-white border-neutral-300 text-neutral-700 hover:border-black"
@@ -255,7 +258,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                       key={color}
                       type="button"
                       onClick={() => setSelectedColor(color)}
-                      className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider border transition-all ${
+                      className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
                         selectedColor === color
                           ? "bg-black text-white border-black shadow-md"
                           : "bg-white border-neutral-300 text-neutral-700 hover:border-black"
@@ -277,13 +280,13 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   <button
                     type="button"
                     onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    className="px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 font-bold"
+                    className="px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 font-bold cursor-pointer"
                   >-</button>
                   <span className="px-6 text-sm font-semibold">{quantity}</span>
                   <button
                     type="button"
                     onClick={() => setQuantity((prev) => Math.min(product.stock, prev + 1))}
-                    className="px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 font-bold"
+                    className="px-4 py-2.5 text-sm text-neutral-700 hover:bg-neutral-100 font-bold cursor-pointer"
                   >+</button>
                 </div>
                 <span className={`text-xs font-bold uppercase tracking-wider ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
@@ -296,7 +299,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
-                className="w-full bg-black text-white py-4 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-800 transition-all shadow-md active:scale-98 disabled:opacity-50"
+                className="w-full bg-black text-white py-4 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-800 transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
               >
                 {product.stock > 0 ? "Añadir al Carrito & Pagar" : "Producto Agotado"}
               </button>
