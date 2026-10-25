@@ -51,6 +51,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     email: string;
     phone: string;
     documentId: string;
+    summary: string;
   } | null>(null);
 
   // Cargar localStorage de forma segura
@@ -169,6 +170,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       email: formData.email,
       phone: formData.phone,
       documentId: formData.documentId,
+      summary: orderSummary,
     });
 
     setSubmitting(false);
@@ -229,15 +231,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir directamente a la pasarela segura con tu monto exacto.
+                Haz clic en el botón de abajo para ir a la pasarela con tu orden cargada correctamente.
               </div>
 
-              {/* FORMULARIO NATIVO DIRECTO A WOMPI */}
+              {/* FORMULARIO ESTÁNDAR COMPATIBLE CON WOMPI */}
               <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
                 <input type="hidden" name="public-key" value="pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI" />
                 <input type="hidden" name="currency" value="COP" />
                 <input type="hidden" name="amount-in-cents" value={pendingPaymentInfo.total * 100} />
                 <input type="hidden" name="reference" value={pendingPaymentInfo.reference} />
+                <input type="hidden" name="redirect-url" value="https://nerkley-m4t2.vercel.app/success" />
                 
                 <button
                   type="submit"
