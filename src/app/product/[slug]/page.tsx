@@ -44,9 +44,10 @@ export default function Home() {
 
   useEffect(() => {
     async function fetchProducts() {
+      // INCLUIDO el campo badge en la consulta para que se muestre de inmediato en el catálogo
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("id, name, slug, sale_price, original_price, discount_percent, category, images, stock, badge")
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
@@ -279,7 +280,7 @@ export default function Home() {
                   className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-2xl hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    {/* IMAGEN CLICKEABLE QUE LLEVA DIRECTO A DETALLES */}
+                    {/* IMAGEN CLICKEABLE */}
                     <Link href={`/product/${product.slug}`} className="block">
                       <div className="aspect-[3/4] bg-white mb-2 md:mb-5 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
                         {mainImage ? (
@@ -294,7 +295,7 @@ export default function Home() {
                           </span>
                         )}
 
-                        {/* ETIQUETA ANIMADA VISIBLE DIRECTAMENTE EN EL CATÁLOGO */}
+                        {/* ETIQUETA ANIMADA DIRECTA EN EL CATÁLOGO */}
                         {product.badge && product.badge.trim() !== "" && (
                           <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-black text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-1 shadow-lg z-20 animate-pulse border border-neutral-700">
                             ✨ {product.badge}
@@ -347,6 +348,7 @@ export default function Home() {
                         Detalles
                       </Link>
 
+                      {/* BOTÓN DE CARRITO: Solo añade al carrito sin abrir la pasarela de pago obligatoriamente */}
                       <button
                         onClick={() => {
                           addToCart({
@@ -358,9 +360,8 @@ export default function Home() {
                             quantity: 1,
                             maxStock: product.stock || 10,
                           });
-                          setIsCartOpen(true);
                         }}
-                        title="Añadir al carrito y pagar"
+                        title="Agregar al carrito"
                         className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
                       >
                         <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
