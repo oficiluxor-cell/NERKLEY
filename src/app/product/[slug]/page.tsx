@@ -26,6 +26,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const slug = resolvedParams.slug;
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("");
@@ -59,6 +60,19 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         if (data.colors) {
           const colorList = data.colors.split(",").map((s: string) => s.trim());
           if (colorList.length > 0) setSelectedColor(colorList[0]);
+        }
+
+        // Cargar productos relacionados de la misma categoría
+        const { data: relatedData } = await supabase
+          .from("products")
+          .select("*")
+          .eq("category", data.category)
+          .eq("is_active", true)
+          .neq("id", data.id)
+          .limit(4);
+
+        if (relatedData) {
+          setRelatedProducts(relatedData);
         }
       }
       setLoading(false);
@@ -313,7 +327,101 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         </div>
       </main>
 
-      <footer className="border-t border-neutral-200 py-8 text-center text-xs text-neutral-400 uppercase tracking-widest bg-white">
+      {/* SECCIÓN DE PRODUCTOS RELACIONADOS */}
+      {relatedProducts.length > 0 && (
+        <section className="max-w-7xl mx-auto px-6 py-12 w-full border-t border-neutral-200/80 mt-8">
+          <h3 className="text-xl md:text-2xl font-serif font-light uppercase tracking-wider text-neutral-900 mb-8 text-center md:text-left">
+            También te podría interesar
+          </h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
+            {relatedProducts.map((rp) => {
+              const rpImage = rp.images ? rp.images.split(",")[0].trim() : null;
+              return (
+                <div key={rp.id} className="group bg-white border border-neutral-200/80 p-2 md:p-5 transition-all duration-500 hover:shadow-xl hover:-translate-y-1 flex flex-col justify-between relative">
+                  <div>
+                    <Link href={`/product/${rp.slug}`} className="block">
+                      <div className="aspect-[3/4] bg-white mb-2 md:mb-4 flex items-center justify-center relative overflow-hidden border border-neutral-100 group-hover:border-neutral-300 transition-colors cursor-pointer p-2">
+                        {rpImage ? (
+                          <img src={rpImage} alt={rp.name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <span className="text-[8px] md:text-xs text-neutral-300 uppercase tracking-[0.3em] font-serif">[ NERKLEY ]</span>
+                        )}
+                        {rp.discount_percent && rp.discount_percent > 0 ? (
+                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 md:py-1 shadow-md z-10 pointer-events-none">
+                            -{rp.discount_percent}%
+                          </div>
+                        ) : null}
+                      </div>
+                    </Link>
+
+                    <div className="flex items-center gap-2 mb-1 md:mb-1.5">
+                      {rp.category && (
+                        <span className="text-[8px] md:text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
+                          {rp.category}
+                        </span>
+                      )}
+                      {rp.badge && rp.badge.trim() !== "" && (
+                        <span className="bg-black text-white text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 animate-pulse rounded-sm">
+                          ✨ {rp.badge}
+                        </span>
+                      )}
+                    </div>
+                    
+                    <Link href={`/product/${rp.slug}`}>
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-neutral-900 mb-1 md:mb-2 line-clamp-1 hover:underline cursor-pointer">
+                        {rp.name}
+                      </h4>
+                    </Link>
+                  </div>
+
+                  <div className="pt-2 md:pt-4 border-t border-neutral-100 flex flex-col justify-between mt-2 md:mt-4 gap-2">
+                    <div>
+                      {rp.discount_percent && rp.discount_percent > 0 && rp.original_price ? (
+                        <span className="text-[9px] md:text-[11px] line-through text-neutral-400 block font-light">
+                          $ {Number(rp.original_price).toLocaleString()}
+                        </span>
+                      ) : null}
+                      <p className="text-xs md:text-base font-bold text-neutral-900 tracking-tight">
+                        $ {Number(rp.sale_price).toLocaleString()} <span className="text-[8px] md:text-[10px] font-normal text-neutral-400">COP</span>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
+                      <Link
+                        href={`/product/${rp.slug}`}
+                        className="bg-neutral-100 text-neutral-900 py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-neutral-200 transition-all text-center flex items-center justify-center cursor-pointer"
+                      >
+                        Detalles
+                      </Link>
+                      <button
+                        onClick={() => {
+                          addToCart({
+                            id: rp.id,
+                            product_id: rp.id,
+                            name: rp.name,
+                            price: rp.sale_price,
+                            image: rpImage,
+                            quantity: 1,
+                            maxStock: rp.stock || 10,
+                          });
+                        }}
+                        title="Agregar al carrito"
+                        className="bg-black text-white p-2.5 hover:bg-neutral-800 transition-all flex items-center justify-center rounded shadow-sm active:scale-90 group/btn cursor-pointer"
+                      >
+                        <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <footer className="border-t border-neutral-200 py-8 text-center text-xs text-neutral-400 uppercase tracking-widest bg-white mt-auto">
         &copy; {new Date().getFullYear()} NERKLEY STORES. Todos los derechos reservados.
       </footer>
     </div>
