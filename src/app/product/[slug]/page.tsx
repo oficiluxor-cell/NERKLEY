@@ -35,7 +35,6 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
 
   useEffect(() => {
     async function fetchProduct() {
-      console.log("Buscando producto con slug:", slug);
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -47,7 +46,6 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       }
 
       if (data) {
-        console.log("Datos del producto obtenidos:", data);
         setProduct(data);
         if (data.images) {
           const imgList = data.images.split(",").map((s: string) => s.trim());
@@ -107,7 +105,6 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       maxStock: product.stock,
     });
 
-    // Abre el carrito y la pasarela de pago inmediatamente
     setIsCartOpen(true);
   };
 
@@ -163,9 +160,10 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       <main className="max-w-7xl mx-auto px-6 py-12 w-full flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <div className="space-y-4">
-            <div className="aspect-[3/4] bg-neutral-100 border border-neutral-200 flex items-center justify-center relative overflow-hidden shadow-sm">
+            {/* CONTENEDOR DE IMAGEN PRINCIPAL (CAMBIADO A object-contain PARA MOSTRARLA COMPLETA) */}
+            <div className="aspect-[3/4] bg-white border border-neutral-200 flex items-center justify-center relative overflow-hidden shadow-sm p-4">
               {selectedImage ? (
-                <img src={selectedImage} alt={product.name} className="w-full h-full object-cover" />
+                <img src={selectedImage} alt={product.name} className="w-full h-full object-contain" />
               ) : (
                 <span className="text-xl font-serif text-neutral-300 uppercase tracking-[0.4em]">
                   [ NERKLEY ]
@@ -185,11 +183,11 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   <button
                     key={index}
                     onClick={() => setSelectedImage(imgUrl)}
-                    className={`w-20 h-24 border-2 transition-all flex-shrink-0 bg-neutral-50 overflow-hidden cursor-pointer ${
+                    className={`w-20 h-24 border-2 transition-all flex-shrink-0 bg-white overflow-hidden cursor-pointer p-1 ${
                       selectedImage === imgUrl ? "border-black scale-105" : "border-neutral-200 opacity-60 hover:opacity-100"
                     }`}
                   >
-                    <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={imgUrl} alt="" className="w-full h-full object-contain" />
                   </button>
                 ))}
               </div>
