@@ -66,22 +66,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const [pendingPaymentInfo, setPendingPaymentInfo] = useState<{
-    reference: string;
-    total: number;
-    customerName: string;
-    email: string;
-    phone: string;
-    documentId: string;
-  } | null>(null);
-
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         const storedCart = localStorage.getItem("NERKLEY_cart");
         if (storedCart) setCartItems(JSON.parse(storedCart));
 
-        // Cargar pedidos guardados previamente en este navegador
         const savedEmail = localStorage.getItem("NERKLEY_client_email");
         if (savedEmail) {
           fetchCustomerOrders(savedEmail);
@@ -160,6 +150,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // REDIRECCIÓN AUTOMÁTICA PROFESIONAL A WOMPI (IGUAL A LA COMPETENCIA)
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
@@ -193,29 +184,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
     try {
       await supabase.from("orders").insert([pendingOrderData]);
-      // Guardar identificador localmente para consultar sus pedidos luego
       localStorage.setItem("NERKLEY_client_email", formData.email);
       fetchCustomerOrders(formData.email);
     } catch (err) {
       console.error("Error guardando orden en Supabase:", err);
     }
 
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("NERKLEY_pending_order", JSON.stringify(pendingOrderData));
-      } catch (e) {}
-    }
-    
-    setPendingPaymentInfo({
-      reference: uniqueRef,
-      total: cartTotal,
-      customerName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      documentId: formData.documentId,
-    });
+    // CONSTRUCCIÓN DINÁMICA DE LA URL DE WOMPI CON EL MONTO EXACTO EN CENTAVOS
+    const publicKey = "pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG";
+    const currency = "COP";
+    const amountInCents = cartTotal * 100;
+    const wompiCheckoutUrl = `https://checkout.wompi.co/p/?public-key=${publicKey}&currency=${currency}&amount-in-cents=${amountInCents}&reference=${uniqueRef}`;
 
     setSubmitting(false);
+
+    // REDIRIGE DIRECTAMENTE A WOMPI CON EL PRECIO CARGADO
+    window.location.href = wompiCheckoutUrl;
   };
 
   return (
@@ -252,7 +236,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Formulario rápido para consultar por cédula o correo si no hay cargados */}
           <div className="bg-[#fafafa] p-4 border border-neutral-200 space-y-3">
             <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-700 block">¿No ves tus pedidos recientes?</span>
             <div className="flex gap-2">
@@ -326,25 +309,14 @@ export function CartProvider({ children }: { children: ReactNode }) {
               ))
             )}
           </div>
-
-          <div className="bg-neutral-900 text-white p-4 text-[10px] space-y-2 uppercase tracking-wider">
-            <p className="font-bold text-emerald-400 flex items-center gap-1.5">
-              <span>🛡️</span> Compra 100% Garantizada & Segura
-            </p>
-            <p className="text-neutral-400 font-light leading-relaxed">
-              Todos nuestros envíos en Colombia están respaldados con guía de rastreo oficial y soporte directo en caso de novedades.
-            </p>
-          </div>
         </div>
       </div>
 
-      {/* CARRITO Y CHECKOUT LATERAL (EXISTENTE) */}
+      {/* CARRITO Y CHECKOUT LATERAL */}
       {isCartOpen && (
         <div 
           className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] transition-opacity"
-          onClick={() => {
-            if (!pendingPaymentInfo) setIsCartOpen(false);
-          }}
+          onClick={() => setIsCartOpen(false)}
         />
       )}
 
@@ -355,62 +327,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
       >
         <div className="flex items-center justify-between p-6 border-b border-neutral-200">
           <h2 className="text-xl font-serif uppercase tracking-widest font-bold text-black">
-            {pendingPaymentInfo ? "Pasarela de Pago Wompi" : `Tu Carrito (${cartCount})`}
+            Tu Carrito ({cartCount})
           </h2>
-          {!pendingPaymentInfo && (
-            <button onClick={() => setIsCartOpen(false)} className="text-neutral-500 hover:text-black text-2xl leading-none cursor-pointer">
-              &times;
-            </button>
-          )}
+          <button onClick={() => setIsCartOpen(false)} className="text-neutral-500 hover:text-black text-2xl leading-none cursor-pointer">
+            &times;
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {pendingPaymentInfo ? (
-            <div className="space-y-6 text-center py-4">
-              <div className="w-16 h-16 bg-neutral-950 text-white rounded-full flex items-center justify-center mx-auto text-2xl font-bold shadow-lg">
-                $
-              </div>
-              <div>
-                <span className="text-[10px] uppercase tracking-[0.3em] text-neutral-500 font-semibold block mb-1">Orden Registrada en NERKLEY</span>
-                <h3 className="text-xl font-serif uppercase tracking-wider font-bold text-black">¡Hola, {pendingPaymentInfo.customerName}!</h3>
-              </div>
-
-              <div className="bg-[#fafafa] border border-neutral-200 p-6 space-y-4 text-left shadow-sm">
-                <div className="flex justify-between items-center border-b border-neutral-200 pb-3">
-                  <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Referencia:</span>
-                  <span className="text-sm font-mono font-bold bg-black text-white px-3 py-1 tracking-widest">{pendingPaymentInfo.reference}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs uppercase tracking-wider text-neutral-600 font-medium">Total a Pagar:</span>
-                  <span className="text-lg font-bold text-black">$ {pendingPaymentInfo.total.toLocaleString()} COP</span>
-                </div>
-              </div>
-
-              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full">
-                <input type="hidden" name="public-key" value="pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG" />
-                <input type="hidden" name="currency" value="COP" />
-                <input type="hidden" name="amount-in-cents" value={pendingPaymentInfo.total * 100} />
-                <input type="hidden" name="reference" value={pendingPaymentInfo.reference} />
-                
-                <button
-                  type="submit"
-                  className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
-                >
-                  Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
-                </button>
-              </form>
-
-              <button
-                onClick={() => {
-                  setPendingPaymentInfo(null);
-                  setIsCartOpen(false);
-                }}
-                className="text-[10px] text-neutral-500 uppercase tracking-widest underline hover:text-black block mx-auto pt-2 cursor-pointer"
-              >
-                Modificar datos o carrito
-              </button>
-            </div>
-          ) : cartItems.length === 0 ? (
+          {cartItems.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-xs uppercase tracking-widest text-neutral-500 mb-6">Tu carrito está vacío</p>
               <button onClick={() => setIsCartOpen(false)} className="bg-black text-white px-6 py-3 text-xs uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md cursor-pointer">
@@ -496,7 +421,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-white text-black border border-neutral-300 px-4 py-2.5 text-xs focus:outline-none focus:border-black placeholder-neutral-400" />
                   
                   <button type="submit" disabled={submitting} className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
-                    {submitting ? "Procesando..." : "Proceder al Pago con Wompi"}
+                    {submitting ? "Redirigiendo a Wompi..." : "Proceder al Pago con Wompi"}
                   </button>
                   <p className="text-[9px] text-center text-neutral-500 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
                 </form>
