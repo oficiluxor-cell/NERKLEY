@@ -62,17 +62,49 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
           if (colorList.length > 0) setSelectedColor(colorList[0]);
         }
 
-        // Cargar productos relacionados de la misma categoría
-        const { data: relatedData } = await supabase
+        // --- ALGORITMO INTELIGENTE DE PRODUCTOS RELACIONADOS ---
+        const { data: categoryData } = await supabase
           .from("products")
           .select("*")
           .eq("category", data.category)
           .eq("is_active", true)
           .neq("id", data.id)
-          .limit(4);
+          .limit(50); // Traemos hasta 50 para tener variedad de donde escoger
 
-        if (relatedData) {
-          setRelatedProducts(relatedData);
+        if (categoryData && categoryData.length > 0) {
+          // 1. Extraer palabras clave del producto actual ignorando palabras genéricas
+          const stopWords = ["perfume", "locion", "para", "hombre", "mujer", "unisex", "the", "and", "del", "con"];
+          const keywords = data.name
+            .toLowerCase()
+            .split(" ")
+            .filter((w: string) => w.length > 2 && !stopWords.includes(w));
+
+          // 2. Dar una puntuación a cada producto basándose en el nombre
+          const scoredProducts = categoryData.map((p: Product) => {
+            let score = 0;
+            const pName = p.name.toLowerCase();
+            
+            // Si comparten palabras clave (ej: misma marca), sube la prioridad
+            keywords.forEach((kw: string) => {
+              if (pName.includes(kw)) score += 10; 
+            });
+
+            // Agregamos un número aleatorio decimal para desempatar y variar
+            score += Math.random(); 
+
+            return { product: p, score };
+          });
+
+          // 3. Ordenar de mayor a menor puntuación
+          scoredProducts.sort((a: any, b: any) => b.score - a.score);
+
+          // 4. Tomar los 4 mejores y mezclarlos al azar para que sus posiciones varíen
+          const top4 = scoredProducts
+            .slice(0, 4)
+            .map((s: any) => s.product)
+            .sort(() => 0.5 - Math.random());
+
+          setRelatedProducts(top4);
         }
       }
       setLoading(false);
@@ -327,7 +359,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         </div>
       </main>
 
-      {/* SECCIÓN DE PRODUCTOS RELACIONADOS */}
+      {/* SECCIÓN DE PRODUCTOS RELACIONADOS (INTELIGENTE Y ALEATORIA) */}
       {relatedProducts.length > 0 && (
         <section className="max-w-7xl mx-auto px-6 py-12 w-full border-t border-neutral-200/80 mt-8">
           <h3 className="text-xl md:text-2xl font-serif font-light uppercase tracking-wider text-neutral-900 mb-8 text-center md:text-left">
