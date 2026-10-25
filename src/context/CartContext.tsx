@@ -180,9 +180,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Redirección directa al Link de Pago oficial de Wompi que creaste
+  // Redirección pasando el monto exacto por parámetro a Wompi
   const handleWompiRedirect = () => {
-    window.location.href = "https://checkout.wompi.co/l/VPOS_f57eYA";
+    if (!pendingPaymentInfo) return;
+    const wompiUrl = `https://checkout.wompi.co/l/VPOS_f57eYA?amount=${pendingPaymentInfo.total}&reference=${pendingPaymentInfo.reference}`;
+    window.location.href = wompiUrl;
   };
 
   return (
@@ -240,7 +242,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
               <div className="bg-emerald-50 border border-emerald-200 p-4 text-xs text-emerald-900 leading-relaxed text-left">
                 <p className="font-bold mb-1 uppercase tracking-wider">Pago Seguro Wompi (Bancolombia):</p>
-                Haz clic en el botón de abajo para ir directamente al enlace de pago oficial de tu pasarela.
+                Haz clic en el botón de abajo para ir a Wompi con tu monto exacto predefinido.
               </div>
 
               <button
@@ -248,7 +250,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 onClick={handleWompiRedirect}
                 className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all text-center shadow-md cursor-pointer"
               >
-                Ir a Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
+                Pagar $ {pendingPaymentInfo.total.toLocaleString()} COP en Wompi &rarr;
               </button>
 
               <button
