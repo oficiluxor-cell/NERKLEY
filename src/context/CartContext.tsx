@@ -174,38 +174,55 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setSubmitting(false);
   };
 
-  // Función directa para abrir el Widget de Wompi de manera inmediata
+  // Función inteligente con reintento automático para abrir Wompi al instante
   const openWompiWidget = () => {
     if (!pendingPaymentInfo) return;
 
-    // @ts-ignore
-    if (typeof window !== "undefined" && window.CheckoutWidget) {
+    const lanzarWidget = () => {
       // @ts-ignore
-      const checkout = new window.CheckoutWidget({
-        publicKey: "pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI",
-        currency: "COP",
-        amountInCents: pendingPaymentInfo.total * 100,
-        reference: pendingPaymentInfo.reference,
-        customerData: {
-          email: pendingPaymentInfo.email,
-          fullName: pendingPaymentInfo.customerName,
-          phoneNumber: pendingPaymentInfo.phone,
-          phoneNumberPrefix: "+57",
-          legalId: pendingPaymentInfo.documentId,
-          legalIdType: "CC"
-        }
-      });
+      if (typeof window !== "undefined" && window.CheckoutWidget) {
+        // @ts-ignore
+        const checkout = new window.CheckoutWidget({
+          publicKey: "pub_test_b1Y0m1GkrxaRtibHpoNDfoWiBY77ggeI",
+          currency: "COP",
+          amountInCents: pendingPaymentInfo.total * 100,
+          reference: pendingPaymentInfo.reference,
+          customerData: {
+            email: pendingPaymentInfo.email,
+            fullName: pendingPaymentInfo.customerName,
+            phoneNumber: pendingPaymentInfo.phone,
+            phoneNumberPrefix: "+57",
+            legalId: pendingPaymentInfo.documentId,
+            legalIdType: "CC"
+          }
+        });
 
-      checkout.open(function (result: any) {
-        const transaction = result.transaction;
-        console.log("Transacción Wompi:", transaction);
-        if (transaction && transaction.status === "APPROVED") {
-          window.location.href = `/success?id=${transaction.id}`;
+        checkout.open(function (result: any) {
+          const transaction = result.transaction;
+          console.log("Transacción Wompi:", transaction);
+          if (transaction && transaction.status === "APPROVED") {
+            window.location.href = `/success?id=${transaction.id}`;
+          }
+        });
+        return true;
+      }
+      return false;
+    };
+
+    // Si ya está listo, lo abre de una vez
+    if (lanzarWidget()) return;
+
+    // Si está cargando, reintenta automáticamente durante un par de segundos
+    let intentos = 0;
+    const intervalo = setInterval(() => {
+      intentos++;
+      if (lanzarWidget() || intentos > 10) {
+        clearInterval(intervalo);
+        if (intentos > 10) {
+          alert("No se pudo conectar con la pasarela de Wompi. Por favor recarga la página.");
         }
-      });
-    } else {
-      alert("Cargando pasarela de pago, por favor intenta de nuevo en un momento.");
-    }
+      }
+    }, 300);
   };
 
   return (
