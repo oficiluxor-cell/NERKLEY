@@ -10,59 +10,48 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handlePayment(e: React.MouseEvent<HTMLButtonElement>) {
-    e.preventDefault(); // Evitamos cualquier comportamiento extraño de recarga o enlace vacío
+  async function handlePayment() {
     setLoading(true);
     setError("");
 
     try {
-      console.log("Iniciando petición de firma para la orden:", orderId);
+      console.log("-> Solicitando firma al backend para orderId:", orderId);
 
-      const response = await fetch("/api/wompi-signature", {
+      const res = await fetch("/api/wompi-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
 
-      const data = await response.json();
-      console.log("Respuesta recibida del servidor:", data);
+      const data = await res.json();
+      console.log("-> Respuesta del backend:", data);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Error al conectar con el servidor de pagos.");
+      if (!res.ok) {
+        throw new Error(data.error || "Error al generar la firma en el servidor.");
       }
 
       if (!data.publicKey || !data.amountInCents || !data.reference || !data.signature) {
-        throw new Error("El servidor no devolvió las credenciales completas de Wompi.");
+        throw new Error("El servidor devolvió datos incompletos.");
       }
 
-      // Creamos el formulario POST de forma dinámica y limpia
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "https://checkout.wompi.co/p/";
+      // Construimos la URL de pago con GET tradicional limpio hacia Wompi
+      const wompiUrl = `https://checkout.wompi.co/p/?public-key=${encodeURIComponent(
+        data.publicKey
+      )}&currency=${encodeURIComponent(
+        data.currency || "COP"
+      )}&amount-in-cents=${encodeURIComponent(
+        data.amountInCents
+      )}&reference=${encodeURIComponent(
+        data.reference
+      )}&signature:integrity=${encodeURIComponent(data.signature)}`;
 
-      const fields: Record<string, string> = {
-        "public-key": data.publicKey,
-        currency: data.currency || "COP",
-        "amount-in-cents": String(data.amountInCents),
-        reference: data.reference,
-        "signature:integrity": data.signature,
-      };
+      console.log("-> Redirigiendo a Wompi URL:", wompiUrl);
 
-      for (const [key, value] of Object.entries(fields)) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
+      // Redirección directa por ubicación
+      window.location.href = wompiUrl;
     } catch (err) {
-      console.error("Error crítico en el proceso de pago:", err);
-      setError(
-        err instanceof Error ? err.message : "Ocurrió un error inesperado al procesar el pago."
-      );
+      console.error("-> Error capturado:", err);
+      setError(err instanceof Error ? err.message : "Error al conectar con la pasarela.");
       setLoading(false);
     }
   }
