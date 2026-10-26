@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 type Props = {
   orderId: string;
@@ -15,82 +15,76 @@ type PaymentData = {
 };
 
 export default function WompiCheckoutForm({ orderId }: Props) {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
-  useEffect(() => {
-    async function fetchSignature() {
-      try {
-        const response = await fetch("/api/wompi-signature", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderId }),
-        });
+  async function handlePayment() {
+    setLoading(true);
+    setError("");
 
-        const data = await response.json();
+    try {
+      const response = await fetch("/api/wompi-signature", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId }),
+      });
 
-        if (!response.ok) {
-          throw new Error(data.error || "No se pudo obtener la firma de pago.");
-        }
+      const data = await response.json();
 
-        setPaymentData(data);
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Error al preparar el botón de pago."
-        );
-      } finally {
-        setLoading(false);
+      if (!response.ok) {
+        throw new Error(data.error || "No se pudo generar la firma de pago.");
       }
-    }
 
-    fetchSignature();
-  }, [orderId]);
+      const payment = data as PaymentData;
 
-  useEffect(() => {
-    if (!paymentData) return;
-
-    const container = document.getElementById("wompi-button-container");
-    if (container) {
-      container.innerHTML = "";
-
+      // Creamos un formulario POST dinámico limpio y lo enviamos de inmediato a Wompi
       const form = document.createElement("form");
-      const script = document.createElement("script");
+      form.method = "POST";
+      form.action = "https://checkout.wompi.co/p/";
 
-      script.src = "https://checkout.wompi.co/widget.js";
-      script.async = true;
-      script.dataset.publicKey = paymentData.publicKey;
-      script.dataset.currency = paymentData.currency;
-      script.dataset.amountInCents = String(paymentData.amountInCents);
-      script.dataset.reference = paymentData.reference;
-      script.dataset.signature = paymentData.signature; // Atributo estándar de firma en el widget oficial
+      const fields: Record<string, string> = {
+        "public-key": payment.publicKey,
+        currency: payment.currency,
+        "amount-in-cents": String(payment.amountInCents),
+        reference: payment.reference,
+        "signature:integrity": payment.signature,
+      };
 
-      form.appendChild(script);
-      container.appendChild(form);
+      for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Ocurrió un error al procesar el pago."
+      );
+      setLoading(false);
     }
-  }, [paymentData]);
-
-  if (loading) {
-    return (
-      <div className="py-6 text-center">
-        <p className="text-xs uppercase tracking-widest text-neutral-500 animate-pulse">
-          Cargando pasarela segura...
-        </p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <p role="alert" className="text-xs text-red-600 font-semibold text-center">
-        {error}
-      </p>
-    );
   }
 
   return (
-    <div className="w-full flex flex-col items-center justify-center space-y-4 py-2">
-      <div id="wompi-button-container" className="w-full flex justify-center"></div>
+    <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
+      <button
+        type="button"
+        onClick={handlePayment}
+        disabled={loading}
+        className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50"
+      >
+        {loading ? "Conectando con Wompi..." : "Pagar con Wompi Ahora"}
+      </button>
+
+      {error && (
+        <p role="alert" className="text-xs text-red-600 font-semibold text-center">
+          {error}
+        </p>
+      )}
+
       <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
         Pasarela oficial Wompi &bull; Transacción cifrada
       </p>
