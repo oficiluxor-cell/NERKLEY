@@ -17,43 +17,40 @@ type PaymentData = {
 export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
-  // Al hacer clic, primero pedimos los datos al servidor y los guardamos en estado
-  async function handlePreparePayment(e: React.MouseEvent<HTMLButtonElement>) {
-    e.preventDefault();
+  async function handlePayment() {
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/wompi-signature", {
+      const res = await fetch("/api/wompi-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orderId }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "No se pudo obtener la información de pago.");
+      if (!res.ok) {
+        throw new Error(data.error || "Error al preparar el pago.");
       }
 
-      setPaymentData(data as PaymentData);
+      const payment = data as PaymentData;
 
-      // Creamos el formulario de manera segura con los datos ya listos y lo enviamos de inmediato
+      // Creamos un formulario POST síncrono limpio hacia Wompi
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
 
-      const fields = {
-        "public-key": data.publicKey,
-        currency: data.currency || "COP",
-        "amount-in-cents": String(data.amountInCents),
-        reference: data.reference,
-        "signature:integrity": data.signature,
+      const payload: Record<string, string> = {
+        "public-key": payment.publicKey,
+        currency: payment.currency || "COP",
+        "amount-in-cents": String(payment.amountInCents),
+        reference: payment.reference,
+        "signature:integrity": payment.signature,
       };
 
-      for (const [key, value] of Object.entries(fields)) {
+      for (const [key, value] of Object.entries(payload)) {
         const input = document.createElement("input");
         input.type = "hidden";
         input.name = key;
@@ -64,9 +61,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Ocurrió un error al procesar el pago."
-      );
+      setError(err instanceof Error ? err.message : "Error inesperado.");
       setLoading(false);
     }
   }
@@ -75,11 +70,11 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
       <button
         type="button"
-        onClick={handlePreparePayment}
+        onClick={handlePayment}
         disabled={loading}
         className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-2"
       >
-        <span>{loading ? "Conectando con Wompi..." : "Pagar con Wompi (Automático)"}</span>
+        <span>{loading ? "Conectando con Wompi..." : "Pagar con Wompi"}</span>
       </button>
 
       {error && (
