@@ -17,13 +17,15 @@ type PaymentData = {
 export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
-  async function handleStandardCheckout() {
+  // Al hacer clic, primero pedimos los datos al servidor y los guardamos en estado
+  async function handlePreparePayment(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault();
     setLoading(true);
     setError("");
 
     try {
-      // 1. Solicitamos el monto exacto, la referencia y la firma segura a tu API de Supabase
       const response = await fetch("/api/wompi-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,22 +35,22 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "No se pudo preparar el pago.");
+        throw new Error(data.error || "No se pudo obtener la información de pago.");
       }
 
-      const payment = data as PaymentData;
+      setPaymentData(data as PaymentData);
 
-      // 2. Creamos dinámicamente un formulario POST hacia la pasarela oficial de pago de Wompi
+      // Creamos el formulario de manera segura con los datos ya listos y lo enviamos de inmediato
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
 
-      const fields: Record<string, string> = {
-        "public-key": payment.publicKey,
-        currency: payment.currency || "COP",
-        "amount-in-cents": String(payment.amountInCents),
-        reference: payment.reference,
-        "signature:integrity": payment.signature,
+      const fields = {
+        "public-key": data.publicKey,
+        currency: data.currency || "COP",
+        "amount-in-cents": String(data.amountInCents),
+        reference: data.reference,
+        "signature:integrity": data.signature,
       };
 
       for (const [key, value] of Object.entries(fields)) {
@@ -60,10 +62,10 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       }
 
       document.body.appendChild(form);
-      form.submit(); // Envía al usuario a Wompi con el monto automático y seguro
+      form.submit();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Ocurrió un error al conectar con Wompi."
+        err instanceof Error ? err.message : "Ocurrió un error al procesar el pago."
       );
       setLoading(false);
     }
@@ -73,11 +75,11 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
       <button
         type="button"
-        onClick={handleStandardCheckout}
+        onClick={handlePreparePayment}
         disabled={loading}
         className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-2"
       >
-        <span>{loading ? "Calculando total y abriendo Wompi..." : "Pagar con Wompi (Automático)"}</span>
+        <span>{loading ? "Conectando con Wompi..." : "Pagar con Wompi (Automático)"}</span>
       </button>
 
       {error && (
@@ -87,7 +89,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       )}
 
       <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
-        Pasarela oficial Wompi &bull; Monto exacto calculado por el sistema
+        Pasarela oficial Wompi &bull; Transacción cifrada
       </p>
     </div>
   );
