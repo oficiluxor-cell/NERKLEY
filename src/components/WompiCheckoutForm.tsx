@@ -37,16 +37,29 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      // Construimos la URL de redirección exacta con los parámetros limpios para Wompi
-      const wompiUrl = new URL("https://checkout.wompi.co/p/");
-      wompiUrl.searchParams.append("public-key", payment.publicKey);
-      wompiUrl.searchParams.append("currency", payment.currency);
-      wompiUrl.searchParams.append("amount-in-cents", String(payment.amountInCents));
-      wompiUrl.searchParams.append("reference", payment.reference);
-      wompiUrl.searchParams.append("signature:integrity", payment.signature);
+      // Creamos un formulario POST real en el DOM para enviarlo de forma limpia a Wompi
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://checkout.wompi.co/p/";
 
-      // Redirigimos directamente
-      window.location.href = wompiUrl.toString();
+      const fields: Record<string, string> = {
+        "public-key": payment.publicKey,
+        currency: payment.currency,
+        "amount-in-cents": String(payment.amountInCents),
+        reference: payment.reference,
+        "signature:integrity": payment.signature,
+      };
+
+      for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
       setError(
         err instanceof Error
