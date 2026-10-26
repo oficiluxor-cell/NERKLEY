@@ -37,7 +37,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      // Creamos un formulario POST dinámico limpio y lo enviamos de inmediato a Wompi
+      // Creamos el formulario POST oculto que envía todos los parámetros limpios a Wompi
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
