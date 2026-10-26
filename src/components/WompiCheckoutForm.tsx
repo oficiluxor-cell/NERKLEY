@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type Props = {
   orderId: string;
@@ -15,76 +15,82 @@ type PaymentData = {
 };
 
 export default function WompiCheckoutForm({ orderId }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
+  const [payment, setPayment] = useState<PaymentData | null>(null);
 
-  async function handlePayment() {
-    setLoading(true);
-    setErrorMsg("");
+  // Apenas carga el componente, consultamos los datos seguros en la API
+  useEffect(() => {
+    async function loadPaymentData() {
+      try {
+        const res = await fetch("/api/wompi-signature", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
 
-    try {
-      const res = await fetch("/api/wompi-signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
+        const data = await res.json();
 
-      const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "No se pudo obtener la información del pedido.");
+        }
 
-      if (!res.ok) {
-        throw new Error(data.error || "Error al conectar con la base de datos.");
+        setPayment(data);
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : "Error al conectar con la base de datos.");
+      } finally {
+        setLoading(false);
       }
-
-      const payment = data as PaymentData;
-
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "https://checkout.wompi.co/p/";
-
-      const payload: Record<string, string> = {
-        "public-key": payment.publicKey,
-        currency: payment.currency || "COP",
-        "amount-in-cents": String(payment.amountInCents),
-        reference: payment.reference,
-        "signature:integrity": payment.signature,
-      };
-
-      for (const [key, value] of Object.entries(payload)) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = value;
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Error inesperado.");
-      setLoading(false);
     }
+
+    if (orderId) {
+      loadPaymentData();
+    }
+  }, [orderId]);
+
+  if (loading) {
+    return (
+      <div className="w-full py-4 text-center">
+        <p className="text-xs uppercase tracking-widest text-neutral-400 animate-pulse">
+          Preparando pasarela segura...
+        </p>
+      </div>
+    );
   }
 
+  if (errorMsg) {
+    return (
+      <div className="w-full bg-red-50 border border-red-200 p-3 rounded text-center">
+        <p className="text-xs text-red-600 font-bold">{errorMsg}</p>
+      </div>
+    );
+  }
+
+  if (!payment) return null;
+
+  // Formulario HTML nativo hacia Wompi con PSE y todos los medios de pago habilitados
   return (
-    <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
+    <form
+      action="https://checkout.wompi.co/p/"
+      method="POST"
+      className="w-full flex flex-col items-center justify-center space-y-3 py-2"
+    >
+      <input type="hidden" name="public-key" value={payment.publicKey} />
+      <input type="hidden" name="currency" value={payment.currency || "COP"} />
+      <input type="hidden" name="amount-in-cents" value={payment.amountInCents} />
+      <input type="hidden" name="reference" value={payment.reference} />
+      <input type="hidden" name="signature:integrity" value={payment.signature} />
+
       <button
-        type="button"
-        onClick={handlePayment}
-        disabled={loading}
-        className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-2"
+        type="submit"
+        className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer flex items-center justify-center space-x-2"
       >
-        <span>{loading ? "Conectando con Wompi..." : "Pagar con Wompi"}</span>
+        <span>Pagar con PSE / Tarjeta (Wompi)</span>
       </button>
 
-      {errorMsg && (
-        <div className="w-full bg-red-50 border border-red-200 p-2 rounded text-center">
-          <p className="text-xs text-red-600 font-bold">{errorMsg}</p>
-        </div>
-      )}
-
       <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
-        Pasarela oficial Wompi &bull; Transacción cifrada
+        Incluye PSE, Nequi, Tarjetas y Bancolombia &bull; Transacción cifrada
       </p>
-    </div>
+    </form>
   );
 }
