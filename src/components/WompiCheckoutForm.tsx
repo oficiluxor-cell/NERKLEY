@@ -25,7 +25,6 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Cargar automáticamente los datos de la orden y la firma de integridad del backend
   const fetchSignature = async () => {
     if (!orderId) {
       setErrorMsg("No se proporcionó el identificador del pedido.");
@@ -64,7 +63,6 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     fetchSignature();
   }, [orderId]);
 
-  // Ejecutar el pago con monto fijo e inmodificable
   const handlePay = () => {
     if (!paymentData) return;
 
@@ -72,11 +70,36 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     setErrorMsg("");
 
     try {
-      const returnUrl = `${window.location.origin}/success?order_id=${orderId}`;
+      if (orderId && typeof window !== "undefined") {
+        localStorage.setItem("NERKLEY_pending_order_id", orderId);
+      }
 
-      // 1. Intentar abrir con el Widget interactivo oficial de Wompi si está cargado
+      // URL limpia sin parámetros para evitar conflicto al concatenar ?id=...
+      const returnUrl = `${window.location.origin}/success`;
+
+      // Preparar customerData de forma estricta según validaciones de Wompi
+      const cleanPhone = (paymentData.customerPhone || "").replace(/\D/g, "");
+      const cleanDoc = (paymentData.customerDocument || "").replace(/\D/g, "");
+
+      const customerData: Record<string, any> = {};
+      if (paymentData.customerEmail?.trim()) {
+        customerData.email = paymentData.customerEmail.trim();
+      }
+      if (paymentData.customerName?.trim()) {
+        customerData.fullName = paymentData.customerName.trim();
+      }
+      if (cleanPhone.length >= 7) {
+        customerData.phoneNumber = cleanPhone;
+        customerData.phoneNumberPrefix = "+57";
+      }
+      if (cleanDoc.length >= 5) {
+        customerData.legalId = cleanDoc;
+        customerData.legalIdType = "CC";
+      }
+
+      // 1. Intentar abrir con el Widget interactivo de Wompi
       if (typeof (window as any).WidgetCheckout === "function") {
-        const checkout = new (window as any).WidgetCheckout({
+        const checkoutConfig: any = {
           currency: paymentData.currency || "COP",
           amountInCents: paymentData.amountInCents,
           reference: paymentData.reference,
@@ -85,15 +108,13 @@ export default function WompiCheckoutForm({ orderId }: Props) {
             integrity: paymentData.signature,
           },
           redirectUrl: returnUrl,
-          customerData: {
-            email: paymentData.customerEmail,
-            fullName: paymentData.customerName,
-            phoneNumber: paymentData.customerPhone,
-            phoneNumberPrefix: "+57",
-            legalId: paymentData.customerDocument,
-            legalIdType: "CC",
-          },
-        });
+        };
+
+        if (Object.keys(customerData).length > 0) {
+          checkoutConfig.customerData = customerData;
+        }
+
+        const checkout = new (window as any).WidgetCheckout(checkoutConfig);
 
         checkout.open(function (result: any) {
           const transaction = result?.transaction;
@@ -101,7 +122,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
             transaction &&
             (transaction.status === "APPROVED" || transaction.status === "PENDING")
           ) {
-            window.location.href = `${returnUrl}&id=${transaction.id}`;
+            window.location.href = `${returnUrl}?id=${transaction.id}&order_id=${orderId}`;
           } else {
             setLoading(false);
           }
@@ -109,7 +130,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         return;
       }
 
-      // 2. Si el script no está disponible (adblocker, etc.), redireccionar de forma segura mediante GET
+      // 2. Respaldo por redirección GET directa a checkout.wompi.co
       const form = document.createElement("form");
       form.method = "GET";
       form.action = "https://checkout.wompi.co/p/";
@@ -123,15 +144,15 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         "redirect-url": returnUrl,
       };
 
-      if (paymentData.customerEmail) params["customer-data:email"] = paymentData.customerEmail;
-      if (paymentData.customerName) params["customer-data:full-name"] = paymentData.customerName;
-      if (paymentData.customerPhone) {
-        params["customer-data:phone-number"] = paymentData.customerPhone;
-        params["customer-data:phone-number-prefix"] = "+57";
+      if (customerData.email) params["customer-data:email"] = customerData.email;
+      if (customerData.fullName) params["customer-data:full-name"] = customerData.fullName;
+      if (customerData.phoneNumber) {
+        params["customer-data:phone-number"] = customerData.phoneNumber;
+        params["customer-data:phone-number-prefix"] = customerData.phoneNumberPrefix;
       }
-      if (paymentData.customerDocument) {
-        params["customer-data:legal-id"] = paymentData.customerDocument;
-        params["customer-data:legal-id-type"] = "CC";
+      if (customerData.legalId) {
+        params["customer-data:legal-id"] = customerData.legalId;
+        params["customer-data:legal-id-type"] = customerData.legalIdType;
       }
 
       for (const [key, val] of Object.entries(params)) {
