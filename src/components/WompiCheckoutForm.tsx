@@ -34,21 +34,29 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         throw new Error("El servidor devolvió datos incompletos.");
       }
 
-      // Construimos la URL de pago con GET tradicional limpio hacia Wompi
-      const wompiUrl = `https://checkout.wompi.co/p/?public-key=${encodeURIComponent(
-        data.publicKey
-      )}&currency=${encodeURIComponent(
-        data.currency || "COP"
-      )}&amount-in-cents=${encodeURIComponent(
-        data.amountInCents
-      )}&reference=${encodeURIComponent(
-        data.reference
-      )}&signature:integrity=${encodeURIComponent(data.signature)}`;
+      // Wompi exige POST para recibir los parámetros de producción sin error de 'undefined'
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://checkout.wompi.co/p/";
 
-      console.log("-> Redirigiendo a Wompi URL:", wompiUrl);
+      const fields: Record<string, string> = {
+        "public-key": data.publicKey,
+        currency: data.currency || "COP",
+        "amount-in-cents": String(data.amountInCents),
+        reference: data.reference,
+        "signature:integrity": data.signature,
+      };
 
-      // Redirección directa por ubicación
-      window.location.href = wompiUrl;
+      for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
       console.error("-> Error capturado:", err);
       setError(err instanceof Error ? err.message : "Error al conectar con la pasarela.");
