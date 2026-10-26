@@ -14,17 +14,11 @@ type PaymentData = {
   signature: string;
 };
 
-declare global {
-  interface Window {
-    WidgetCheckout: any;
-  }
-}
-
 export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleOpenWompiModal() {
+  async function handlePaymentRedirect() {
     setLoading(true);
     setError("");
 
@@ -43,41 +37,32 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      if (!window.WidgetCheckout) {
-        await new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = "https://checkout.wompi.co/widget.js";
-          script.async = true;
-          script.onload = resolve;
-          script.onerror = () => reject(new Error("No se pudo cargar el script de Wompi."));
-          document.body.appendChild(script);
-        });
+      // Creamos el formulario POST oficial que procesa la pasarela estándar de Wompi de producción
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://checkout.wompi.co/p/";
+
+      const fields: Record<string, string> = {
+        "public-key": payment.publicKey,
+        currency: payment.currency || "COP",
+        "amount-in-cents": String(payment.amountInCents),
+        reference: payment.reference,
+        "signature:integrity": payment.signature,
+      };
+
+      for (const [key, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = key;
+        input.value = value;
+        form.appendChild(input);
       }
 
-      // Estructura oficial requerida por el WidgetCheckout de Wompi
-      const checkout = new window.WidgetCheckout({
-        currency: payment.currency || "COP",
-        amountInCents: payment.amountInCents,
-        reference: payment.reference,
-        publicKey: payment.publicKey,
-        signature: {
-          integrity: payment.signature,
-        },
-      });
-
-      checkout.open((result: { transaction: { status: string; id: string } }) => {
-        const transaction = result.transaction;
-        if (transaction && transaction.status === "APPROVED") {
-          window.location.href = `/success?id=${transaction.id}`;
-        } else {
-          setLoading(false);
-        }
-      });
-
-      setLoading(false);
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : "Ocurrió un error al abrir el pago."
+        err instanceof Error ? err.message : "Ocurrió un error al procesar el pago."
       );
       setLoading(false);
     }
@@ -87,11 +72,11 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
       <button
         type="button"
-        onClick={handleOpenWompiModal}
+        onClick={handlePaymentRedirect}
         disabled={loading}
         className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center space-x-2"
       >
-        <span>{loading ? "Abriendo pasarela..." : "Seleccionar y Pagar con Wompi"}</span>
+        <span>{loading ? "Conectando con Wompi..." : "Seleccionar y Pagar con Wompi"}</span>
       </button>
 
       {error && (
