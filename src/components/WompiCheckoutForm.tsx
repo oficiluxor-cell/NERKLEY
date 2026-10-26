@@ -37,20 +37,29 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      // El Web Checkout estándar de Wompi /p/ recibe el monto directo en pesos (amount-in-cents / 100) o el valor entero
-      const amountInPesos = Math.round(payment.amountInCents / 100);
+      // Creamos un formulario POST oculto en el DOM. Wompi exige POST para procesar el Web Checkout seguro con firma.
+      const form = document.createElement("form");
+      form.method = "POST";
+      form.action = "https://checkout.wompi.co/p/";
 
-      const wompiCheckoutUrl = `https://checkout.wompi.co/p/?public-key=${encodeURIComponent(
-        payment.publicKey
-      )}&currency=${encodeURIComponent(
-        payment.currency
-      )}&amount-in-cents=${encodeURIComponent(
-        payment.amountInCents
-      )}&reference=${encodeURIComponent(
-        payment.reference
-      )}&signature:integrity=${encodeURIComponent(payment.signature)}`;
+      const fields: Record<string, string> = {
+        "public-key": payment.publicKey,
+        currency: payment.currency,
+        "amount-in-cents": String(payment.amountInCents),
+        reference: payment.reference,
+        "signature:integrity": payment.signature,
+      };
 
-      window.location.href = wompiCheckoutUrl;
+      for (const [name, value] of Object.entries(fields)) {
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
+      }
+
+      document.body.appendChild(form);
+      form.submit();
     } catch (err) {
       setError(
         err instanceof Error
