@@ -29,6 +29,7 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [sortBy, setSortBy] = useState<string>("featured");
   const [loading, setLoading] = useState(true);
   
   const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart } = useCart();
@@ -240,39 +241,66 @@ export default function Home() {
       </section>
 
       <section id="catalogo" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-24 w-full relative z-10">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-10 border-b border-neutral-300/50 pb-6 gap-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-8 md:mb-10 border-b border-neutral-300/50 pb-6 gap-6">
           <div>
             <h3 className="text-2xl md:text-3xl font-serif font-light uppercase tracking-wider text-neutral-900">
               Catálogo
             </h3>
             <p className="text-[10px] md:text-xs text-neutral-500 mt-1 md:mt-2 tracking-wide font-medium">
-              {filteredProducts.length} {filteredProducts.length === 1 ? "producto" : "productos"}
+              {filteredProducts.length} {filteredProducts.length === 1 ? "producto encontrado" : "productos encontrados"}
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Buscar producto..."
-                className="w-full bg-white/60 backdrop-blur-md border border-neutral-200 px-3 md:px-4 py-2 md:py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-black focus:bg-white transition-all tracking-wider shadow-sm"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black text-sm font-bold"
+          <div className="flex flex-col gap-3 w-full lg:w-auto">
+            {/* Buscador + Ordenamiento Dinámico */}
+            <div className="flex flex-col sm:flex-row gap-2.5 w-full">
+              <div className="relative flex-1 sm:w-64 md:w-72">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar producto..."
+                  className="w-full bg-white/70 backdrop-blur-md border border-neutral-200 px-3 md:px-4 py-2 md:py-2.5 text-xs text-neutral-900 focus:outline-none focus:border-black focus:bg-white transition-all tracking-wider shadow-sm"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-black text-sm font-bold cursor-pointer"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+
+              {/* Menú de Ordenamiento */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="w-full sm:w-auto bg-white/70 backdrop-blur-md border border-neutral-200 pl-3 md:pl-4 pr-8 py-2 md:py-2.5 text-[10px] md:text-xs text-neutral-900 uppercase tracking-widest font-semibold focus:outline-none focus:border-black focus:bg-white transition-all cursor-pointer shadow-sm appearance-none"
                 >
-                  &times;
-                </button>
-              )}
+                  <option value="featured">✨ Destacados</option>
+                  <option value="price-asc">💵 Precio: Menor a Mayor</option>
+                  <option value="price-desc">💎 Precio: Mayor a Menor</option>
+                  <option value="discount">🔥 Mayor Descuento</option>
+                  <option value="name-asc">🔤 Nombre: A - Z</option>
+                </select>
+                <svg
+                  className="w-3.5 h-3.5 text-neutral-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
 
+            {/* Categorías */}
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setSelectedCategory("Todas")}
-                className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm ${
+                className={`px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm cursor-pointer ${
                   selectedCategory === "Todas"
                     ? "bg-black text-white"
                     : "bg-white/60 backdrop-blur-md border border-neutral-200 text-neutral-600 hover:border-black hover:bg-white"
@@ -284,7 +312,7 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-2 md:px-4 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm ${
+                  className={`px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm cursor-pointer ${
                     selectedCategory === cat
                       ? "bg-black text-white"
                       : "bg-white/60 backdrop-blur-md border border-neutral-200 text-neutral-600 hover:border-black hover:bg-white"
@@ -311,7 +339,7 @@ export default function Home() {
               No encontramos coincidencias para <strong className="text-neutral-900">"{searchQuery}"</strong>.
             </p>
             <button
-              onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); }}
+              onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); setSortBy("featured"); }}
               className="bg-black text-white px-4 md:px-6 py-2 md:py-2.5 text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-neutral-800 transition-all shadow-md"
             >
               Ver Todo el Catálogo
