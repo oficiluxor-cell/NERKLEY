@@ -54,13 +54,15 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         });
       }
 
-      // Inicializamos el widget oficial de Wompi con la estructura exacta de producción
+      // Estructura oficial requerida por el WidgetCheckout de Wompi
       const checkout = new window.WidgetCheckout({
         currency: payment.currency || "COP",
         amountInCents: payment.amountInCents,
         reference: payment.reference,
         publicKey: payment.publicKey,
-        signature: payment.signature, // Wompi en algunas versiones acepta el string directo o el objeto
+        signature: {
+          integrity: payment.signature,
+        },
       });
 
       checkout.open((result: { transaction: { status: string; id: string } }) => {

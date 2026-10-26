@@ -6,11 +6,8 @@ export async function POST(request: Request) {
   try {
     const { orderId } = await request.json();
 
-    if (!orderId || typeof orderId !== "string") {
-      return NextResponse.json(
-        { error: "Identificador de pedido inválido." },
-        { status: 400 }
-      );
+    if (!orderId) {
+      return NextResponse.json({ error: "Falta el ID del pedido." }, { status: 400 });
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,43 +16,28 @@ export async function POST(request: Request) {
     const publicKey = process.env.WOMPI_PUBLIC_KEY;
 
     if (!supabaseUrl || !serviceRoleKey || !integritySecret || !publicKey) {
-      console.error("Falta configurar una variable de entorno.");
-      return NextResponse.json(
-        { error: "El servicio de pagos no está configurado." },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Faltan credenciales en el servidor." }, { status: 500 });
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
+      auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // Consultamos la tabla orders adaptada a tus columnas reales
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, reference, total_price, status")
+      .select("id, reference, total_price")
       .eq("id", orderId)
       .single();
 
     if (error || !order) {
-      return NextResponse.json(
-        { error: "No se encontró el pedido." },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "No se encontró el pedido en la base de datos." }, { status: 404 });
     }
 
     const currency = "COP";
-    // Wompi exige el monto en centavos (multiplicado por 100)
     const amountInCents = Math.round(Number(order.total_price) * 100);
 
     const signature = createHash("sha256")
-      .update(
-        `${order.reference}${amountInCents}${currency}${integritySecret}`,
-        "utf8"
-      )
+      .update(`${order.reference}${amountInCents}${currency}${integritySecret}`, "utf8")
       .digest("hex");
 
     return NextResponse.json({
@@ -65,10 +47,9 @@ export async function POST(request: Request) {
       currency,
       signature,
     });
-  } catch (error) {
-    console.error("Error preparando el pago:", error);
+  } catch (err) {
     return NextResponse.json(
-      { error: "No se pudo preparar el pago." },
+      { error: err instanceof Error ? err.message : "Error interno." },
       { status: 500 }
     );
   }
