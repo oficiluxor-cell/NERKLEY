@@ -37,15 +37,19 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      // Usamos tu enlace de pago oficial de Wompi pasando el parámetro amount o amount-in-cents
-      const wompiPaymentLink = `https://checkout.wompi.co/l/VPOS_f57eYA?amount=${encodeURIComponent(
+      // Usamos el Web Checkout oficial de Wompi que procesa montos fijos y firma de integridad
+      const wompiCheckoutUrl = `https://checkout.wompi.co/p/?public-key=${encodeURIComponent(
+        payment.publicKey
+      )}&currency=${encodeURIComponent(
+        payment.currency
+      )}&amount-in-cents=${encodeURIComponent(
         payment.amountInCents
       )}&reference=${encodeURIComponent(
         payment.reference
       )}&signature:integrity=${encodeURIComponent(payment.signature)}`;
 
-      // Redirigimos al enlace de pago oficial
-      window.location.href = wompiPaymentLink;
+      // Redirigimos al checkout oficial con el monto fijo ya calculado
+      window.location.href = wompiCheckoutUrl;
     } catch (err) {
       setError(
         err instanceof Error
@@ -64,7 +68,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         disabled={loading}
         className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50"
       >
-        {loading ? "Abriendo enlace de pago..." : "Proceder al Pago con Wompi"}
+        {loading ? "Preparando pago seguro..." : "Proceder al Pago con Wompi"}
       </button>
 
       {error && (
