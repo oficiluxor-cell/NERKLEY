@@ -16,13 +16,15 @@ type PaymentData = {
 
 export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   async function handlePayment() {
     setLoading(true);
-    setError("");
+    setErrorMsg("");
 
     try {
+      console.log("Enviando orderId a la API:", orderId);
+      
       const res = await fetch("/api/wompi-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -30,14 +32,19 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       });
 
       const data = await res.json();
+      console.log("Respuesta de la API:", data);
 
       if (!res.ok) {
-        throw new Error(data.error || "Error al preparar el pago.");
+        throw new Error(data.error || "Error al conectar con la base de datos.");
       }
 
       const payment = data as PaymentData;
 
-      // Creamos un formulario POST síncrono limpio hacia Wompi
+      if (!payment.publicKey || !payment.reference || !payment.amountInCents) {
+        throw new Error("La API respondió pero faltan datos obligatorios.");
+      }
+
+      // Creamos y enviamos el formulario con los datos reales
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
@@ -61,7 +68,8 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error inesperado.");
+      console.error("Error en el pago:", err);
+      setErrorMsg(err instanceof Error ? err.message : "Error inesperado al procesar.");
       setLoading(false);
     }
   }
@@ -77,10 +85,10 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         <span>{loading ? "Conectando con Wompi..." : "Pagar con Wompi"}</span>
       </button>
 
-      {error && (
-        <p role="alert" className="text-xs text-red-600 font-semibold text-center px-2">
-          {error}
-        </p>
+      {errorMsg && (
+        <div className="w-full bg-red-50 border border-red-200 p-2 rounded text-center">
+          <p className="text-xs text-red-600 font-bold">{errorMsg}</p>
+        </div>
       )}
 
       <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
