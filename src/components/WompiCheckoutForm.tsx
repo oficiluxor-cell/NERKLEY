@@ -17,7 +17,7 @@ type PaymentData = {
 export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [payment, setPayment] = useState<PaymentData | null>(null);
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
   useEffect(() => {
     async function fetchSignature() {
@@ -29,39 +29,75 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         });
 
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setPayment(data);
+
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudo obtener la firma de pago.");
+        }
+
+        setPaymentData(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar pago.");
+        setError(
+          err instanceof Error ? err.message : "Error al preparar el botón de pago."
+        );
       } finally {
         setLoading(false);
       }
     }
+
     fetchSignature();
   }, [orderId]);
 
-  if (loading) return <p className="text-xs text-center text-neutral-400 py-3">Cargando pasarela...</p>;
-  if (error) return <p className="text-xs text-red-600 text-center">{error}</p>;
-  if (!payment) return null;
+  useEffect(() => {
+    if (!paymentData) return;
+
+    const container = document.getElementById("wompi-widget-container");
+    if (container) {
+      container.innerHTML = "";
+
+      // Creamos el formulario exacto que indica la documentación oficial de Wompi para el Widget
+      const form = document.createElement("form");
+      const script = document.createElement("script");
+
+      script.src = "https://checkout.wompi.co/widget.js";
+      script.async = true;
+      script.setAttribute("data-render", "button");
+      script.setAttribute("data-public-key", paymentData.publicKey);
+      script.setAttribute("data-currency", paymentData.currency);
+      script.setAttribute("data-amount-in-cents", String(paymentData.amountInCents));
+      script.setAttribute("data-reference", paymentData.reference);
+      script.setAttribute("data-signature:integrity", paymentData.signature);
+
+      form.appendChild(script);
+      container.appendChild(form);
+    }
+  }, [paymentData]);
+
+  if (loading) {
+    return (
+      <div className="py-4 text-center">
+        <p className="text-xs uppercase tracking-widest text-neutral-400 animate-pulse">
+          Preparando pasarela segura...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p role="alert" className="text-xs text-red-600 font-semibold text-center px-2">
+        {error}
+      </p>
+    );
+  }
 
   return (
-    <form action="https://checkout.wompi.co/p/" method="GET" className="w-full space-y-3">
-      <input type="hidden" name="public-key" value={payment.publicKey} />
-      <input type="hidden" name="currency" value={payment.currency} />
-      <input type="hidden" name="amount-in-cents" value={payment.amountInCents} />
-      <input type="hidden" name="reference" value={payment.reference} />
-      <input type="hidden" name="signature:integrity" value={payment.signature} />
-
-      <button
-        type="submit"
-        className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer"
-      >
-        Seleccionar y Pagar con Wompi
-      </button>
+    <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
+      {/* Contenedor donde Wompi inyectará su botón oficial interactivo */}
+      <div id="wompi-widget-container" className="w-full flex justify-center"></div>
 
       <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
         Pasarela oficial Wompi &bull; Transacción cifrada
       </p>
-    </form>
+    </div>
   );
 }
