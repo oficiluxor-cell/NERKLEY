@@ -23,8 +23,6 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     setErrorMsg("");
 
     try {
-      console.log("Enviando orderId a la API:", orderId);
-      
       const res = await fetch("/api/wompi-signature", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -32,7 +30,6 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       });
 
       const data = await res.json();
-      console.log("Respuesta de la API:", data);
 
       if (!res.ok) {
         throw new Error(data.error || "Error al conectar con la base de datos.");
@@ -40,11 +37,6 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      if (!payment.publicKey || !payment.reference || !payment.amountInCents) {
-        throw new Error("La API respondió pero faltan datos obligatorios.");
-      }
-
-      // Creamos y enviamos el formulario con los datos reales
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
@@ -68,8 +60,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      console.error("Error en el pago:", err);
-      setErrorMsg(err instanceof Error ? err.message : "Error inesperado al procesar.");
+      setErrorMsg(err instanceof Error ? err.message : "Error inesperado.");
       setLoading(false);
     }
   }

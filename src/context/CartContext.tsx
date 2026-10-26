@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import WompiCheckoutForm from "@/components/WompiCheckoutForm";
+import WompiCheckoutForm from "../components/WompiCheckoutForm";
 
 interface CartItem {
   id: string;
