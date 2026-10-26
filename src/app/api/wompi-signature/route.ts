@@ -11,12 +11,15 @@ export async function POST(request: Request) {
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
     const integritySecret = process.env.WOMPI_INTEGRITY_SECRET;
-    const publicKey = process.env.WOMPI_PUBLIC_KEY;
+    const publicKey = process.env.WOMPI_PUBLIC_KEY || process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY;
 
     if (!supabaseUrl || !serviceRoleKey || !integritySecret || !publicKey) {
-      return NextResponse.json({ error: "Faltan credenciales en el servidor." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Faltan credenciales del servidor para firmar la transacción." },
+        { status: 500 }
+      );
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey, {
@@ -25,31 +28,50 @@ export async function POST(request: Request) {
 
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, reference, total_price")
+      .select("*")
       .eq("id", orderId)
       .single();
 
     if (error || !order) {
+      console.error("Error consultando pedido para Wompi:", error);
       return NextResponse.json({ error: "No se encontró el pedido en la base de datos." }, { status: 404 });
     }
 
     const currency = "COP";
     const amountInCents = Math.round(Number(order.total_price) * 100);
 
+    // Obtener o inferir la referencia única
+    let reference = order.reference;
+    if (!reference && order.product_name) {
+      const match = order.product_name.match(/\[Ref:\s*([^\]]+)\]/);
+      if (match) reference = match[1].trim();
+    }
+    if (!reference) {
+      reference = `NRK-${String(order.id).replace(/[^a-zA-Z0-9]/g, "").slice(0, 10)}`;
+    }
+
+    // Fórmula oficial de Wompi: reference + amountInCents + currency + integritySecret
+    const cleanSecret = integritySecret.trim();
     const signature = createHash("sha256")
-      .update(`${order.reference}${amountInCents}${currency}${integritySecret}`, "utf8")
+      .update(`${reference}${amountInCents}${currency}${cleanSecret}`, "utf8")
       .digest("hex");
 
     return NextResponse.json({
-      publicKey,
-      reference: order.reference,
+      publicKey: publicKey.trim(),
+      reference,
       amountInCents,
       currency,
       signature,
+      totalPrice: Number(order.total_price),
+      customerEmail: order.customer_email || "",
+      customerName: order.customer_name || "",
+      customerPhone: order.customer_phone || "",
+      customerDocument: order.customer_document || "",
     });
   } catch (err) {
+    console.error("Error en /api/wompi-signature:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Error interno." },
+      { error: err instanceof Error ? err.message : "Error interno del servidor." },
       { status: 500 }
     );
   }

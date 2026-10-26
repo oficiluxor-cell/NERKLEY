@@ -7,7 +7,8 @@ import { supabase } from "@/lib/supabase";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
-  const transactionId = searchParams.get("id") || searchParams.get("order_id");
+  const transactionId = searchParams.get("id");
+  const orderIdParam = searchParams.get("order_id");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,18 +18,36 @@ function SuccessContent() {
           // 1. Limpiar el carrito de compras local ya que se pagó con éxito
           localStorage.removeItem("NERKLEY_cart");
 
-          // 2. Recuperar la última orden pendiente que el usuario guardó antes de ir a Wompi
+          // 2. Si recibimos order_id en la URL, actualizar directamente esa orden a Pagado
+          if (orderIdParam) {
+            const { data: orderData } = await supabase
+              .from("orders")
+              .select("id, notes")
+              .eq("id", orderIdParam)
+              .single();
+
+            if (orderData) {
+              const currentNotes = orderData.notes || "";
+              await supabase
+                .from("orders")
+                .update({
+                  status: "Pagado",
+                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`,
+                })
+                .eq("id", orderIdParam);
+            }
+          }
+
+          // 3. Fallback: Recuperar la orden pendiente guardada localmente
           const pendingOrderString = localStorage.getItem("NERKLEY_pending_order");
-          
           if (pendingOrderString) {
             const pendingOrder = JSON.parse(pendingOrderString);
 
-            // 3. Buscar la orden en Supabase (por ejemplo, por correo y estado pendiente) y actualizarla a "Pagado"
             const { data: existingOrders } = await supabase
               .from("orders")
               .select("id, notes")
               .eq("customer_email", pendingOrder.customer_email)
-              .eq("status", "Pendiente de Pago")
+              .or("status.eq.pending,status.eq.Pendiente de Pago")
               .order("id", { ascending: false })
               .limit(1);
 
@@ -36,24 +55,15 @@ function SuccessContent() {
               const orderId = existingOrders[0].id;
               const currentNotes = existingOrders[0].notes || "";
 
-              // Actualizamos el estado a Pagado y agregamos el ID de Wompi a las notas
               await supabase
                 .from("orders")
                 .update({
                   status: "Pagado",
-                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`
+                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`,
                 })
                 .eq("id", orderId);
-            } else {
-              // Si no encuentra una pendiente previa, inserta la orden ya con estado Pagado
-              await supabase.from("orders").insert([{
-                ...pendingOrder,
-                status: "Pagado",
-                notes: `ID Transacción Wompi: ${transactionId || "Aprobado"}`
-              }]);
             }
 
-            // Limpiar el registro temporal local
             localStorage.removeItem("NERKLEY_pending_order");
           }
         } catch (e) {
@@ -65,17 +75,17 @@ function SuccessContent() {
 
     const timer = setTimeout(() => {
       updateOrderStatus();
-    }, 1000);
+    }, 800);
 
     return () => clearTimeout(timer);
-  }, [transactionId]);
+  }, [orderIdParam, transactionId]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center">
-         <div className="text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
-           Actualizando estado de tu orden en NERKLEY...
-         </div>
+        <div className="text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
+          Actualizando estado de tu orden en NERKLEY...
+        </div>
       </div>
     );
   }
@@ -97,17 +107,24 @@ function SuccessContent() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          
+
           <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
             Pago Exitoso &bull; Orden Actualizada
           </span>
           <h1 className="text-3xl font-serif uppercase tracking-wider text-neutral-900 font-semibold">
             ¡Gracias por tu compra!
           </h1>
-          
+
           <p className="text-sm text-neutral-600 leading-relaxed bg-neutral-50 p-4 border border-neutral-100">
-            Tu pago ha sido procesado exitosamente y el estado en tu panel administrativo se ha actualizado a <span className="font-bold text-emerald-600 uppercase">Pagado</span>. En breve prepararemos tu envío.
+            Tu pago ha sido procesado exitosamente y el estado en tu panel administrativo se ha actualizado a{" "}
+            <span className="font-bold text-emerald-600 uppercase">Pagado</span>. En breve prepararemos tu envío.
           </p>
+
+          {transactionId && (
+            <p className="text-xs text-neutral-500 font-mono">
+              Comprobante Wompi: <span className="font-semibold text-black">{transactionId}</span>
+            </p>
+          )}
 
           <div className="pt-6">
             <Link
@@ -129,13 +146,15 @@ function SuccessContent() {
 
 export default function SuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center">
-        <div className="text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
-          Cargando pasarela de NERKLEY...
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#fafafa] flex flex-col items-center justify-center">
+          <div className="text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
+            Cargando pasarela de NERKLEY...
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <SuccessContent />
     </Suspense>
   );

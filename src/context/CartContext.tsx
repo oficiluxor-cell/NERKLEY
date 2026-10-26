@@ -201,7 +201,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
 
       if (data) {
-        setCreatedOrderId(data.id);
+        setCreatedOrderId(data.id); localStorage.setItem("NERKLEY_pending_order", JSON.stringify({ ...pendingOrderData, id: data.id }));
       }
 
       localStorage.setItem("NERKLEY_client_email", formData.email);
