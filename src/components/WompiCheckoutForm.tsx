@@ -12,7 +12,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   function handleDirectPayment() {
     setLoading(true);
     // Redirección directa al enlace de pago oficial de Wompi de tu tienda NERKLEY
-    window.location.href = "https://checkout.wompi.co/l/FeML2C";
+    window.location.href = "https://checkout.wompi.co/l/VPOS_f57eYA";
   }
 
   return (
