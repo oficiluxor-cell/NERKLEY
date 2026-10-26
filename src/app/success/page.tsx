@@ -9,6 +9,7 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get("id");
   const orderIdParam = searchParams.get("order_id");
+  const refParam = searchParams.get("ref");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,23 +19,46 @@ function SuccessContent() {
           // 1. Limpiar el carrito de compras local ya que se pagó con éxito
           localStorage.removeItem("NERKLEY_cart");
 
-          // 2. Si recibimos order_id en la URL, actualizar directamente esa orden a Pagado
-          if (orderIdParam) {
+          const storedOrderId = localStorage.getItem("NERKLEY_pending_order_id");
+          const targetOrderId = orderIdParam || storedOrderId;
+
+          // 2. Si tenemos order_id, actualizar directamente
+          if (targetOrderId) {
             const { data: orderData } = await supabase
               .from("orders")
-              .select("id, notes")
-              .eq("id", orderIdParam)
+              .select("id, notes, status")
+              .eq("id", targetOrderId)
               .single();
 
             if (orderData) {
               const currentNotes = orderData.notes || "";
+              const txNote = transactionId ? `\nID Transacción Wompi: ${transactionId}` : "";
               await supabase
                 .from("orders")
                 .update({
-                  status: "Pagado",
-                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`,
+                  status: "Pagado / En Preparación",
+                  notes: currentNotes.includes(transactionId || "") ? currentNotes : `${currentNotes}${txNote}`,
                 })
-                .eq("id", orderIdParam);
+                .eq("id", targetOrderId);
+            }
+          } else if (refParam) {
+            // Actualizar por referencia
+            const { data: orderData } = await supabase
+              .from("orders")
+              .select("id, notes")
+              .eq("reference", refParam)
+              .single();
+
+            if (orderData) {
+              const currentNotes = orderData.notes || "";
+              const txNote = transactionId ? `\nID Transacción Wompi: ${transactionId}` : "";
+              await supabase
+                .from("orders")
+                .update({
+                  status: "Pagado / En Preparación",
+                  notes: currentNotes.includes(transactionId || "") ? currentNotes : `${currentNotes}${txNote}`,
+                })
+                .eq("id", orderData.id);
             }
           }
 
@@ -47,25 +71,28 @@ function SuccessContent() {
               .from("orders")
               .select("id, notes")
               .eq("customer_email", pendingOrder.customer_email)
-              .or("status.eq.pending,status.eq.Pendiente de Pago")
-              .order("id", { ascending: false })
+              .or("status.eq.pending,status.eq.Pendiente de Pago,status.eq.Pagado")
+              .order("created_at", { ascending: false })
               .limit(1);
 
             if (existingOrders && existingOrders.length > 0) {
               const orderId = existingOrders[0].id;
               const currentNotes = existingOrders[0].notes || "";
+              const txNote = transactionId ? `\nID Transacción Wompi: ${transactionId}` : "";
 
               await supabase
                 .from("orders")
                 .update({
-                  status: "Pagado",
-                  notes: `${currentNotes}\nID Transacción Wompi: ${transactionId || "Aprobado"}`,
+                  status: "Pagado / En Preparación",
+                  notes: currentNotes.includes(transactionId || "") ? currentNotes : `${currentNotes}${txNote}`,
                 })
                 .eq("id", orderId);
             }
 
             localStorage.removeItem("NERKLEY_pending_order");
           }
+
+          localStorage.removeItem("NERKLEY_pending_order_id");
         } catch (e) {
           console.error("Error al actualizar la orden en Supabase:", e);
         }
@@ -75,10 +102,10 @@ function SuccessContent() {
 
     const timer = setTimeout(() => {
       updateOrderStatus();
-    }, 800);
+    }, 500);
 
     return () => clearTimeout(timer);
-  }, [orderIdParam, transactionId]);
+  }, [orderIdParam, refParam, transactionId]);
 
   if (loading) {
     return (
@@ -109,15 +136,15 @@ function SuccessContent() {
           </div>
 
           <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
-            Pago Exitoso &bull; Orden Actualizada
+            Pago Exitoso &bull; Orden Confirmada
           </span>
           <h1 className="text-3xl font-serif uppercase tracking-wider text-white font-semibold">
             ¡Gracias por tu compra!
           </h1>
 
           <p className="text-sm text-neutral-300 leading-relaxed bg-white/5 p-4 border border-white/5">
-            Tu pago ha sido procesado exitosamente y el estado en tu panel administrativo se ha actualizado a{" "}
-            <span className="font-bold text-emerald-400 uppercase">Pagado</span>. En breve prepararemos tu envío.
+            Tu pago ha sido procesado exitosamente por Wompi y tu pedido ha pasado a estado{" "}
+            <span className="font-bold text-emerald-400 uppercase">Pagado / En Preparación</span>. En breve prepararemos tu envío y te compartiremos tu guía de despacho.
           </p>
 
           {transactionId && (

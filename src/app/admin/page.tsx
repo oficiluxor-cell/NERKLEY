@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
@@ -21,6 +21,8 @@ interface Order {
   status: string;
   shipping_guide?: string;
   transport_company?: string;
+  reference?: string;
+  cart_items?: string;
 }
 
 interface Product {
@@ -42,25 +44,60 @@ interface Product {
 }
 
 const STATUS_OPTIONS = [
-  "Pendiente de Pago",
   "Pagado / En Preparación",
   "En Despacho / Enviado",
   "Entregado",
-  "Cancelado"
+  "Pendiente de Pago",
+  "Cancelado",
+];
+
+const TRANSPORT_COMPANIES = [
+  "Interrapidísimo",
+  "Servientrega",
+  "Coordinadora",
+  "Envía",
+  "TCC",
+  "Domicilio Local / Mensajería",
+  "Otro",
 ];
 
 const ADMIN_PASSWORD = "NERKLEY2027-Kleyner.";
+
+// Reproducir tono sutil de notificación cuando entra una orden pagada
+function playChime() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {
+    // Audio no soportado o bloqueado por el navegador
+  }
+}
 
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "publicar" | "clientes">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "clientes" | "publicar">("pedidos");
+  const [orderFilter, setOrderFilter] = useState<"despachar" | "enviados" | "entregados" | "pendientes" | "todos">("despachar");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Estados del formulario de producto
+  // Estados de formulario de producto
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -75,6 +112,13 @@ export default function AdminDashboard() {
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const prevOrdersCountRef = useRef<number>(0);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
+
   useEffect(() => {
     const savedAuth = sessionStorage.getItem("NERKLEY_admin_auth");
     if (savedAuth === "true") {
@@ -84,6 +128,36 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   }, []);
+
+  // Suscripción Realtime a Supabase
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const channel = supabase
+      .channel("admin_live_updates")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            const newOrder = payload.new as Order;
+            const isPaid = (newOrder.status || "").toLowerCase().includes("pagad");
+            if (isPaid) playChime();
+            showToast(`¡Nueva orden recibida! #${newOrder.reference || newOrder.id.slice(0, 8)}`);
+          }
+          fetchData(false);
+        }
+      )
+      .subscribe();
+
+    // Auto-refresh de respaldo cada 12 segundos
+    const interval = setInterval(() => fetchData(false), 12000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,15 +171,28 @@ export default function AdminDashboard() {
     }
   };
 
-  async function fetchData() {
-    setLoading(true);
+  async function fetchData(showSpinner = true) {
+    if (showSpinner) setLoading(true);
 
     const { data: ordersData } = await supabase
       .from("orders")
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (ordersData) setOrders(ordersData);
+    if (ordersData) {
+      // Si aumentaron las órdenes pagadas, sonar
+      if (prevOrdersCountRef.current > 0 && ordersData.length > prevOrdersCountRef.current) {
+        playChime();
+      }
+      prevOrdersCountRef.current = ordersData.length;
+      setOrders(ordersData);
+
+      // Si hay una orden seleccionada en el modal, actualizar sus datos
+      if (selectedOrder) {
+        const updated = ordersData.find((o) => o.id === selectedOrder.id);
+        if (updated) setSelectedOrder(updated);
+      }
+    }
 
     const { data: productsData } = await supabase
       .from("products")
@@ -114,107 +201,287 @@ export default function AdminDashboard() {
 
     if (productsData) setProducts(productsData);
 
-    setLoading(false);
+    if (showSpinner) setLoading(false);
   }
 
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center p-6 font-sans">
-        <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 p-8 shadow-2xl text-center space-y-6">
-          <div>
-            <span className="text-3xl font-serif font-bold tracking-[0.3em] uppercase block mb-1">NERKLEY</span>
-            <span className="text-[10px] uppercase tracking-[0.3em] text-neutral-400">Acceso Restringido - Administrador</span>
-          </div>
+  // Normalización de estados
+  const isPaidOrPrep = (status: string) => {
+    const s = (status || "").toLowerCase();
+    return s.includes("pagad") || s.includes("preparaci");
+  };
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="password"
-              required
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              placeholder="Ingresa tu contraseña secreta"
-              className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-xs text-white focus:outline-none focus:border-white tracking-widest text-center"
-            />
-            <button
-              type="submit"
-              className="w-full bg-white text-black py-3 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-md cursor-pointer"
-            >
-              Ingresar al Panel
-            </button>
-          </form>
+  const isShipped = (status: string) => {
+    const s = (status || "").toLowerCase();
+    return s.includes("despacho") || s.includes("enviad");
+  };
 
-          <div className="pt-4 border-t border-neutral-800">
-            <Link href="/" className="text-[10px] text-neutral-500 uppercase tracking-widest hover:text-white transition-colors">
-              &larr; Volver a la Tienda Pública
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const isDelivered = (status: string) => {
+    const s = (status || "").toLowerCase();
+    return s.includes("entregad");
+  };
 
-  const totalIngresos = orders
-    .filter((o) => o.status === "Pagado / En Preparación" || o.status === "En Despacho / Enviado" || o.status === "Entregado")
-    .reduce((acc, o) => acc + Number(o.total_price), 0);
+  const isPending = (status: string) => {
+    const s = (status || "").toLowerCase();
+    return s === "pending" || s.includes("pendiente");
+  };
 
-  const totalPendiente = orders
-    .filter((o) => o.status === "Pendiente de Pago")
-    .reduce((acc, o) => acc + Number(o.total_price), 0);
+  const isCanceled = (status: string) => {
+    const s = (status || "").toLowerCase();
+    return s.includes("cancelad");
+  };
 
-  const totalVentasCompletadas = orders.filter((o) => o.status === "Entregado").length;
-  const totalEnProceso = orders.filter((o) => o.status === "Pagado / En Preparación" || o.status === "En Despacho / Enviado").length;
+  // Contadores para pestañas
+  const counts = useMemo(() => {
+    return {
+      despachar: orders.filter((o) => isPaidOrPrep(o.status)).length,
+      enviados: orders.filter((o) => isShipped(o.status)).length,
+      entregados: orders.filter((o) => isDelivered(o.status)).length,
+      pendientes: orders.filter((o) => isPending(o.status)).length,
+      todos: orders.length,
+    };
+  }, [orders]);
 
-  const customers = Object.values(
-    orders.reduce((acc: any, order) => {
-      const key = order.customer_document || order.customer_phone;
-      if (!key) return acc;
+  // Filtrado de órdenes
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      // 1. Filtro por sub-pestaña
+      let matchesTab = true;
+      if (orderFilter === "despachar") matchesTab = isPaidOrPrep(o.status);
+      else if (orderFilter === "enviados") matchesTab = isShipped(o.status);
+      else if (orderFilter === "entregados") matchesTab = isDelivered(o.status);
+      else if (orderFilter === "pendientes") matchesTab = isPending(o.status);
 
-      if (!acc[key]) {
-        acc[key] = {
-          id: key,
-          name: order.customer_name,
-          document: order.customer_document,
-          email: order.customer_email,
-          phone: order.customer_phone,
-          city: order.city,
-          address: order.address,
-          totalSpent: 0,
-          orderCount: 0,
-          lastOrderDate: order.created_at,
-        };
-      }
+      if (!matchesTab) return false;
 
-      if (order.status !== "Cancelado") {
-        acc[key].totalSpent += Number(order.total_price);
+      // 2. Filtro por búsqueda
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const name = (o.customer_name || "").toLowerCase();
+      const phone = (o.customer_phone || "").toLowerCase();
+      const doc = (o.customer_document || "").toLowerCase();
+      const city = (o.city || "").toLowerCase();
+      const ref = (o.reference || "").toLowerCase();
+      const notes = (o.notes || "").toLowerCase();
+      const prod = (o.product_name || "").toLowerCase();
+
+      return (
+        name.includes(q) ||
+        phone.includes(q) ||
+        doc.includes(q) ||
+        city.includes(q) ||
+        ref.includes(q) ||
+        notes.includes(q) ||
+        prod.includes(q)
+      );
+    });
+  }, [orders, orderFilter, searchQuery]);
+
+  // Métricas financieras
+  const confirmedOrders = useMemo(() => {
+    return orders.filter((o) => isPaidOrPrep(o.status) || isShipped(o.status) || isDelivered(o.status));
+  }, [orders]);
+
+  const totalIngresos = useMemo(() => {
+    return confirmedOrders.reduce((acc, o) => acc + Number(o.total_price || 0), 0);
+  }, [confirmedOrders]);
+
+  const ticketPromedio = useMemo(() => {
+    if (confirmedOrders.length === 0) return 0;
+    return Math.round(totalIngresos / confirmedOrders.length);
+  }, [confirmedOrders, totalIngresos]);
+
+  // Clientes CRM
+  const customers = useMemo(() => {
+    return Object.values(
+      orders.reduce((acc: any, order) => {
+        const key = order.customer_document || order.customer_phone;
+        if (!key) return acc;
+
+        if (!acc[key]) {
+          acc[key] = {
+            id: key,
+            name: order.customer_name,
+            document: order.customer_document,
+            email: order.customer_email,
+            phone: order.customer_phone,
+            city: order.city,
+            address: order.address,
+            totalSpent: 0,
+            orderCount: 0,
+            paidOrderCount: 0,
+            lastOrderDate: order.created_at,
+          };
+        }
+
+        const isPaid = isPaidOrPrep(order.status) || isShipped(order.status) || isDelivered(order.status);
+        if (isPaid) {
+          acc[key].totalSpent += Number(order.total_price || 0);
+          acc[key].paidOrderCount += 1;
+        }
         acc[key].orderCount += 1;
-      }
 
-      if (new Date(order.created_at) > new Date(acc[key].lastOrderDate)) {
-        acc[key].lastOrderDate = order.created_at;
-      }
+        if (new Date(order.created_at) > new Date(acc[key].lastOrderDate)) {
+          acc[key].lastOrderDate = order.created_at;
+        }
 
-      return acc;
-    }, {})
-  ).sort((a: any, b: any) => b.totalSpent - a.totalSpent);
+        return acc;
+      }, {})
+    ).sort((a: any, b: any) => b.totalSpent - a.totalSpent);
+  }, [orders]);
 
+  // Acciones sobre órdenes
   const handleOrderStatusChange = async (orderId: string, newStatus: string) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, status: newStatus });
+    }
     const { error } = await supabase.from("orders").update({ status: newStatus }).eq("id", orderId);
     if (error) {
       alert("Error al actualizar estado: " + error.message);
-      fetchData(); 
+      fetchData(false);
+    } else {
+      showToast(`Estado actualizado: ${newStatus}`);
     }
   };
 
   const handleUpdateOrderField = async (orderId: string, field: string, value: string) => {
     setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, [field]: value } : o)));
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder({ ...selectedOrder, [field]: value });
+    }
     const { error } = await supabase.from("orders").update({ [field]: value }).eq("id", orderId);
     if (error) {
-      alert("Error al actualizar la guía: " + error.message);
-      fetchData();
+      alert("Error al guardar: " + error.message);
+      fetchData(false);
+    } else {
+      showToast("Datos de logística guardados");
     }
   };
 
+  const handleDeleteOrder = async (orderId: string, orderRef: string) => {
+    if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el pedido "${orderRef}"? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    const { error } = await supabase.from("orders").delete().eq("id", orderId);
+    if (error) {
+      alert("Error al eliminar pedido: " + error.message);
+    } else {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedOrder?.id === orderId) setSelectedOrder(null);
+      showToast("Pedido eliminado correctamente");
+    }
+  };
+
+  const handlePurgeAbandoned = async () => {
+    const abandoned = orders.filter((o) => isPending(o.status));
+    if (abandoned.length === 0) {
+      alert("No hay pedidos pendientes o abandonados para depurar.");
+      return;
+    }
+
+    if (!window.confirm(`¿Deseas eliminar todos los ${abandoned.length} intentos de compra pendientes o no pagados? Solo quedarán los pedidos confirmados.`)) {
+      return;
+    }
+
+    const abandonedIds = abandoned.map((o) => o.id);
+    const { error } = await supabase.from("orders").delete().in("id", abandonedIds);
+    if (error) {
+      alert("Error depurando intentos: " + error.message);
+    } else {
+      setOrders((prev) => prev.filter((o) => !abandonedIds.includes(o.id)));
+      showToast(`Se limpiaron ${abandoned.length} pedidos no pagados`);
+    }
+  };
+
+  // WhatsApp Helpers
+  const sendWhatsAppDirect = (phone: string, text: string) => {
+    const cleanPhone = (phone || "").replace(/\D/g, "");
+    const fullPhone = cleanPhone.startsWith("57") ? cleanPhone : `57${cleanPhone}`;
+    const url = `https://wa.me/${fullPhone}?text=${encodeURIComponent(text)}`;
+    window.open(url, "_blank");
+  };
+
+  const notifyTrackingByWhatsApp = (order: Order) => {
+    const cleanPhone = (order.customer_phone || "").replace(/\D/g, "");
+    if (!cleanPhone) {
+      alert("El cliente no tiene número de teléfono registrado.");
+      return;
+    }
+
+    const message = `¡Hola ${order.customer_name}! 👋 Te saludamos de NERKLEY.\n\nTu pedido *${order.reference || "NERKLEY"}* ya ha sido despachado a través de *${order.transport_company || "la transportadora"}*.\n\n📦 *Número de Guía:* ${order.shipping_guide || "Pendiente"}\n📍 *Destino:* ${order.city}, ${order.address}\n\nPuedes rastrear tu paquete en la página oficial de la transportadora con tu número de guía. ¡Muchas gracias por tu compra en NERKLEY Concept Store! ✨`;
+
+    sendWhatsAppDirect(cleanPhone, message);
+  };
+
+  // Imprimir Rótulo de Despacho
+  const printShippingLabel = (order: Order) => {
+    const printWindow = window.open("", "_blank", "width=700,height=600");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Rótulo de Envío - ${order.reference || order.id}</title>
+          <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 24px; color: #111; }
+            .label-box { border: 2px solid #000; padding: 20px; max-width: 550px; margin: 0 auto; }
+            .header { border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+            .title { font-size: 22px; font-weight: 900; letter-spacing: 2px; }
+            .ref { font-size: 14px; font-weight: bold; font-family: monospace; }
+            .section { margin-bottom: 14px; }
+            .section-title { font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 1.5px; color: #555; margin-bottom: 4px; }
+            .content { font-size: 14px; font-weight: 600; line-height: 1.4; }
+            .dest { background: #f4f4f4; padding: 12px; border: 1px dashed #000; margin-bottom: 16px; }
+            .footer { border-top: 1px solid #ddd; padding-top: 10px; font-size: 11px; color: #666; display: flex; justify-content: space-between; }
+          </style>
+        </head>
+        <body>
+          <div class="label-box">
+            <div class="header">
+              <span class="title">NERKLEY</span>
+              <span class="ref">${order.reference || order.id.slice(0, 10)}</span>
+            </div>
+            
+            <div class="section">
+              <div class="section-title">REMITENTE:</div>
+              <div class="content">NERKLEY CONCEPTS<br/>Colombia &bull; Tienda Oficial</div>
+            </div>
+
+            <div class="dest">
+              <div class="section-title">DESTINATARIO:</div>
+              <div class="content" style="font-size: 16px; text-transform: uppercase;">${order.customer_name}</div>
+              <div class="content">C.C. / NIT: ${order.customer_document || "N/A"}</div>
+              <div class="content">Tel: ${order.customer_phone}</div>
+              <div class="content" style="margin-top: 6px;">📍 ${order.address}</div>
+              <div class="content" style="font-size: 15px; font-weight: bold;">CIUDAD: ${order.city.toUpperCase()}</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">LOGÍSTICA / TRANSPORTADORA:</div>
+              <div class="content">${order.transport_company || "Transportadora Asignada"} &bull; GUÍA: ${order.shipping_guide || "POR ASIGNAR"}</div>
+            </div>
+
+            <div class="section">
+              <div class="section-title">CONTENIDO DEL PAQUETE:</div>
+              <div class="content" style="font-size: 12px;">${order.product_name}</div>
+            </div>
+
+            <div class="footer">
+              <span>Manejar con cuidado &bull; Fragil</span>
+              <span>Total: $${Number(order.total_price).toLocaleString()} COP</span>
+            </div>
+          </div>
+          <script>
+            window.onload = function() { window.print(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  // Manejo de productos
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -249,7 +516,7 @@ export default function AdminDashboard() {
     if (error) {
       alert("Error al crear producto: " + error.message);
     } else {
-      alert("¡Producto publicado con éxito en NERKLEY!");
+      showToast("¡Producto publicado con éxito en NERKLEY!");
       setName("");
       setSlug("");
       setDescription("");
@@ -260,7 +527,7 @@ export default function AdminDashboard() {
       setColors("");
       setStock("");
       setBadge("");
-      fetchData();
+      fetchData(false);
     }
     setCreating(false);
   };
@@ -270,65 +537,20 @@ export default function AdminDashboard() {
     const { error } = await supabase.from("products").update({ [field]: value }).eq("id", id);
     if (error) {
       alert(`Error al actualizar: ${error.message}`);
-      fetchData();
+      fetchData(false);
+    } else {
+      showToast("Producto actualizado");
     }
-  };
-
-  const handleEditPrice = async (p: Product) => {
-    const currentBase = p.original_price || p.sale_price;
-    const newPriceStr = window.prompt(`Ingresa el nuevo precio base para "${p.name}" (COP):`, String(currentBase));
-    if (newPriceStr === null) return;
-
-    const newBasePrice = parseFloat(newPriceStr);
-    if (isNaN(newBasePrice) || newBasePrice <= 0) return;
-
-    const discount = p.discount_percent || 0;
-    const newSalePrice = discount > 0 ? Math.round(newBasePrice * (1 - discount / 100)) : newBasePrice;
-    const newOriginalPrice = discount > 0 ? newBasePrice : null;
-
-    const { error } = await supabase
-      .from("products")
-      .update({ sale_price: newSalePrice, original_price: newOriginalPrice })
-      .eq("id", p.id);
-
-    if (!error) fetchData();
-  };
-
-  const handleSetDiscount = async (p: Product) => {
-    const base = p.original_price || p.sale_price;
-    const newDiscountStr = window.prompt(`Ingresa el % de descuento para "${p.name}":`, p.discount_percent ? String(p.discount_percent) : "20");
-    if (newDiscountStr === null) return;
-
-    const newDiscount = parseFloat(newDiscountStr);
-    if (isNaN(newDiscount) || newDiscount <= 0) return;
-
-    const newSalePrice = Math.round(base * (1 - newDiscount / 100));
-
-    const { error } = await supabase
-      .from("products")
-      .update({ sale_price: newSalePrice, original_price: base, discount_percent: newDiscount })
-      .eq("id", p.id);
-
-    if (!error) fetchData();
-  };
-
-  const handleRemoveDiscount = async (p: Product) => {
-    if (!window.confirm(`¿Seguro que deseas quitar el descuento de "${p.name}"?`)) return;
-    const restoredPrice = p.original_price || p.sale_price;
-    
-    const { error } = await supabase
-      .from("products")
-      .update({ sale_price: restoredPrice, original_price: null, discount_percent: 0 })
-      .eq("id", p.id);
-      
-    if (!error) fetchData();
   };
 
   const handleDeleteProduct = async (id: string, productName: string) => {
     if (!window.confirm(`¿Deseas eliminar "${productName}" permanentemente?`)) return;
     setDeletingId(id);
     const { error } = await supabase.from("products").delete().eq("id", id);
-    if (!error) fetchData();
+    if (!error) {
+      fetchData(false);
+      showToast("Producto eliminado");
+    }
     setDeletingId(null);
   };
 
@@ -340,52 +562,134 @@ export default function AdminDashboard() {
     return null;
   };
 
-  return (
-    <div className="min-h-screen bg-neutral-950 text-white font-sans flex flex-col md:flex-row">
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-neutral-800 p-6 flex flex-col justify-between">
-        <div>
-          <Link href="/" className="block mb-8">
-            <span className="text-2xl font-serif font-bold tracking-[0.3em] uppercase text-white">NERKLEY</span>
-            <span className="text-[9px] block uppercase tracking-[0.3em] text-neutral-500 mt-1">Panel Admin</span>
-          </Link>
+  // Pantalla de autenticación
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center p-6 font-sans">
+        <div className="max-w-md w-full bg-[#111115] border border-white/10 p-8 md:p-10 shadow-2xl text-center space-y-6">
+          <div className="space-y-1">
+            <span className="text-3xl font-serif font-bold tracking-[0.3em] uppercase block text-white">NERKLEY</span>
+            <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-medium block">
+              Panel de Control Absoluto &bull; Modo Dios
+            </span>
+          </div>
 
-          <nav className="space-y-3 text-xs uppercase tracking-[0.2em] font-medium">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium">Contraseña Maestra</label>
+              <input
+                type="password"
+                required
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Ingresa tu clave de acceso"
+                className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-xs text-white focus:outline-none focus:border-white tracking-widest text-center"
+              />
+            </div>
             <button
-              onClick={() => setActiveTab("dashboard")}
-              className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "dashboard" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
-              }`}
+              type="submit"
+              className="w-full bg-white text-black py-3.5 text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md cursor-pointer active:scale-98"
             >
-              Métricas & Resumen
+              Acceder al Panel
             </button>
+          </form>
+
+          <div className="pt-4 border-t border-white/10">
+            <Link href="/" className="text-[10px] text-neutral-500 uppercase tracking-widest hover:text-white transition-colors">
+              &larr; Volver a la Tienda Pública
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0c] text-white font-sans flex flex-col md:flex-row selection:bg-white selection:text-black">
+      {/* Toast flotante de notificación */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-[200] bg-white text-black px-5 py-3 border border-white shadow-2xl flex items-center gap-3 animate-bounce">
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+          <span className="text-xs font-bold uppercase tracking-wider">{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Sidebar Lateral */}
+      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-white/10 p-6 flex flex-col justify-between bg-[#0e0e12]">
+        <div className="space-y-8">
+          <div>
+            <Link href="/" className="block">
+              <span className="text-2xl font-serif font-bold tracking-[0.3em] uppercase text-white">NERKLEY</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-400 font-semibold">MODO DIOS ACTIVO</span>
+              </div>
+            </Link>
+          </div>
+
+          <nav className="space-y-2 text-xs uppercase tracking-[0.2em] font-medium">
             <button
               onClick={() => setActiveTab("pedidos")}
-              className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "pedidos" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "pedidos"
+                  ? "bg-white text-black font-bold border-white shadow-lg"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
               }`}
             >
-              Pedidos Recibidos ({orders.length})
+              <span>Control de Pedidos</span>
+              {counts.despachar > 0 && (
+                <span className="bg-emerald-500 text-black px-2 py-0.5 text-[10px] font-bold rounded-xs">
+                  {counts.despachar}
+                </span>
+              )}
             </button>
+
+            <button
+              onClick={() => setActiveTab("dashboard")}
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "dashboard"
+                  ? "bg-white text-black font-bold border-white shadow-lg"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span>Finanzas & Métricas</span>
+            </button>
+
             <button
               onClick={() => setActiveTab("clientes")}
-              className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "clientes" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "clientes"
+                  ? "bg-white text-black font-bold border-white shadow-lg"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
               }`}
             >
-              Base de Clientes ({customers.length})
+              <span>Clientes & CRM</span>
+              <span className="text-neutral-500 text-[10px]">{customers.length}</span>
             </button>
+
             <button
               onClick={() => setActiveTab("publicar")}
-              className={`w-full text-left px-4 py-3 transition-all cursor-pointer ${
-                activeTab === "publicar" ? "bg-white text-black font-semibold shadow-md" : "text-neutral-400 hover:text-white hover:bg-neutral-900"
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "publicar"
+                  ? "bg-white text-black font-bold border-white shadow-lg"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
               }`}
             >
-              Catálogo e Inventario
+              <span>Catálogo & Stock</span>
+              <span className="text-neutral-500 text-[10px]">{products.length}</span>
             </button>
           </nav>
         </div>
 
-        <div className="pt-8 border-t border-neutral-800 space-y-3">
+        <div className="pt-8 border-t border-white/10 space-y-3">
+          <div className="p-3 bg-white/5 border border-white/5 space-y-1">
+            <span className="text-[9px] uppercase tracking-widest text-neutral-400 block font-medium">Sincronización:</span>
+            <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+              <span>En vivo con Wompi</span>
+            </div>
+          </div>
+
           <Link href="/" className="block text-xs uppercase tracking-[0.2em] text-neutral-400 hover:text-white transition-colors">
             &larr; Ver Tienda Pública
           </Link>
@@ -396,142 +700,323 @@ export default function AdminDashboard() {
             }}
             className="block text-xs uppercase tracking-[0.2em] text-red-400 hover:text-red-300 transition-colors text-left w-full cursor-pointer"
           >
-            Cerrar Sesión Admin
+            Cerrar Sesión
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 p-6 md:p-10 space-y-8">
-        <header className="border-b border-neutral-800 pb-6 flex justify-between items-center">
+      {/* Área Principal de Contenido */}
+      <main className="flex-1 p-6 md:p-10 space-y-8 overflow-y-auto max-h-screen">
+        {/* Cabecera Superior */}
+        <header className="border-b border-white/10 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-serif uppercase tracking-wider font-medium">
-              {activeTab === "dashboard" && "Dashboard Financiero"}
-              {activeTab === "pedidos" && "Gestión de Pedidos & Guías de Envío"}
+            <h1 className="text-2xl md:text-3xl font-serif uppercase tracking-wider font-bold text-white">
+              {activeTab === "pedidos" && "Centro de Operaciones & Despachos"}
+              {activeTab === "dashboard" && "Dashboard Financiero & Métricas Dios"}
               {activeTab === "clientes" && "Directorio de Clientes CRM"}
-              {activeTab === "publicar" && "Catálogo & Publicación"}
+              {activeTab === "publicar" && "Catálogo, Precios & Control de Stock"}
             </h1>
-            <p className="text-xs text-neutral-400 mt-1">Sincronizado en tiempo real con Supabase</p>
+            <p className="text-xs text-neutral-400 mt-1 uppercase tracking-widest">
+              NERKLEY Luxury Concepts &bull; Actualizado en tiempo real
+            </p>
           </div>
-          <button
-            onClick={fetchData}
-            className="bg-neutral-900 border border-neutral-800 hover:border-white px-4 py-2 text-xs uppercase tracking-widest transition-colors cursor-pointer"
-          >
-            Actualizar Datos
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => fetchData(true)}
+              className="bg-[#111115] border border-white/10 hover:border-white px-4 py-2 text-xs uppercase tracking-widest transition-colors cursor-pointer flex items-center gap-2"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              <span>Actualizar Ahora</span>
+            </button>
+          </div>
         </header>
 
-        {activeTab === "dashboard" && (
+        {/* ======================================================== */}
+        {/* PESTAÑA: PEDIDOS (EL CORAZÓN DEL MODO DIOS)              */}
+        {/* ======================================================== */}
+        {activeTab === "pedidos" && (
           <section className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-neutral-900 border border-neutral-800 p-6 flex flex-col justify-between h-32">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">Ingresos Totales (Confirmados)</h3>
-                <p className="text-2xl font-bold text-white">$ {totalIngresos.toLocaleString()} COP</p>
+            {/* Tarjetas Rápidas de Estado Superior */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div
+                onClick={() => setOrderFilter("despachar")}
+                className={`p-4 border transition-all cursor-pointer ${
+                  orderFilter === "despachar" ? "bg-emerald-500/10 border-emerald-500 text-white" : "bg-[#111115] border-white/10 text-neutral-400 hover:border-white/30"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-widest block font-medium">Por Despachar (Pagados)</span>
+                <span className="text-2xl font-bold font-mono text-emerald-400 mt-1 block">{counts.despachar}</span>
+                <span className="text-[9px] text-neutral-400 mt-1 block">Requieren empaque y guía hoy</span>
               </div>
-              <div className="bg-neutral-900 border border-neutral-800 p-6 flex flex-col justify-between h-32">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">Pagos Pendientes</h3>
-                <p className="text-2xl font-bold text-yellow-500">$ {totalPendiente.toLocaleString()} COP</p>
+
+              <div
+                onClick={() => setOrderFilter("enviados")}
+                className={`p-4 border transition-all cursor-pointer ${
+                  orderFilter === "enviados" ? "bg-sky-500/10 border-sky-500 text-white" : "bg-[#111115] border-white/10 text-neutral-400 hover:border-white/30"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-widest block font-medium">En Ruta / Enviados</span>
+                <span className="text-2xl font-bold font-mono text-sky-400 mt-1 block">{counts.enviados}</span>
+                <span className="text-[9px] text-neutral-400 mt-1 block">Con guía asignada</span>
               </div>
-              <div className="bg-neutral-900 border border-neutral-800 p-6 flex flex-col justify-between h-32">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">Pedidos en Proceso</h3>
-                <p className="text-2xl font-bold text-white">{totalEnProceso} Órdenes</p>
+
+              <div
+                onClick={() => setOrderFilter("entregados")}
+                className={`p-4 border transition-all cursor-pointer ${
+                  orderFilter === "entregados" ? "bg-purple-500/10 border-purple-500 text-white" : "bg-[#111115] border-white/10 text-neutral-400 hover:border-white/30"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-widest block font-medium">Entregados con Éxito</span>
+                <span className="text-2xl font-bold font-mono text-purple-400 mt-1 block">{counts.entregados}</span>
+                <span className="text-[9px] text-neutral-400 mt-1 block">Venta concluida</span>
               </div>
-              <div className="bg-neutral-900 border border-neutral-800 p-6 flex flex-col justify-between h-32">
-                <h3 className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">Entregas Completadas</h3>
-                <p className="text-2xl font-bold text-emerald-400">{totalVentasCompletadas} Órdenes</p>
+
+              <div
+                onClick={() => setOrderFilter("pendientes")}
+                className={`p-4 border transition-all cursor-pointer ${
+                  orderFilter === "pendientes" ? "bg-amber-500/10 border-amber-500 text-white" : "bg-[#111115] border-white/10 text-neutral-400 hover:border-white/30"
+                }`}
+              >
+                <span className="text-[10px] uppercase tracking-widest block font-medium">Intentos No Pagados</span>
+                <span className="text-2xl font-bold font-mono text-amber-400 mt-1 block">{counts.pendientes}</span>
+                <span className="text-[9px] text-neutral-400 mt-1 block">Carritos no completados</span>
               </div>
             </div>
-          </section>
-        )}
 
-        {activeTab === "pedidos" && (
-          <section className="space-y-4">
-            <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
-              Órdenes Registradas ({orders.length})
-            </h2>
-
-            {loading ? (
-              <div className="text-xs text-neutral-500 uppercase tracking-[0.3em] py-12 text-center animate-pulse">
-                Cargando pedidos...
+            {/* Barra de Filtros y Buscador */}
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#111115] border border-white/10 p-4">
+              {/* Selector de Pestañas de Órdenes */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setOrderFilter("despachar")}
+                  className={`px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    orderFilter === "despachar" ? "bg-emerald-500 text-black border-emerald-500 shadow-sm" : "bg-[#0a0a0c] text-neutral-300 border-white/10 hover:text-white"
+                  }`}
+                >
+                  🟢 Por Despachar ({counts.despachar})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("enviados")}
+                  className={`px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    orderFilter === "enviados" ? "bg-sky-500 text-black border-sky-500 shadow-sm" : "bg-[#0a0a0c] text-neutral-300 border-white/10 hover:text-white"
+                  }`}
+                >
+                  🚚 En Ruta ({counts.enviados})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("entregados")}
+                  className={`px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    orderFilter === "entregados" ? "bg-purple-500 text-black border-purple-500 shadow-sm" : "bg-[#0a0a0c] text-neutral-300 border-white/10 hover:text-white"
+                  }`}
+                >
+                  ✅ Entregados ({counts.entregados})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("pendientes")}
+                  className={`px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    orderFilter === "pendientes" ? "bg-amber-500 text-black border-amber-500 shadow-sm" : "bg-[#0a0a0c] text-neutral-300 border-white/10 hover:text-white"
+                  }`}
+                >
+                  ⏳ No Pagados ({counts.pendientes})
+                </button>
+                <button
+                  onClick={() => setOrderFilter("todos")}
+                  className={`px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                    orderFilter === "todos" ? "bg-white text-black border-white shadow-sm" : "bg-[#0a0a0c] text-neutral-300 border-white/10 hover:text-white"
+                  }`}
+                >
+                  Ver Todos ({counts.todos})
+                </button>
               </div>
-            ) : orders.length === 0 ? (
-              <div className="text-xs text-neutral-500 uppercase tracking-widest py-12 text-center border border-dashed border-neutral-800 bg-neutral-900/30">
-                Aún no hay pedidos registrados.
+
+              {/* Botón de Depurar Abandonados (visible si estamos en pendientes) */}
+              {orderFilter === "pendientes" && counts.pendientes > 0 && (
+                <button
+                  onClick={handlePurgeAbandoned}
+                  className="bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500 hover:text-white px-3 py-2 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Limpiar Todos los No Pagados
+                </button>
+              )}
+
+              {/* Buscador en Vivo */}
+              <div className="relative min-w-[280px]">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Buscar por cliente, tel, ref o ciudad..."
+                  className="w-full bg-[#0a0a0c] border border-white/10 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-3 top-2 text-neutral-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Tabla de Pedidos */}
+            {loading ? (
+              <div className="py-20 text-center space-y-3">
+                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-xs uppercase tracking-[0.25em] text-neutral-400">Consultando base de datos...</p>
+              </div>
+            ) : filteredOrders.length === 0 ? (
+              <div className="bg-[#111115] border border-dashed border-white/10 p-12 text-center space-y-3">
+                <p className="text-sm font-semibold uppercase tracking-wider text-neutral-300">
+                  No hay pedidos en esta sección
+                </p>
+                <p className="text-xs text-neutral-500 max-w-md mx-auto">
+                  {orderFilter === "despachar"
+                    ? "¡Excelente! No tienes pedidos pagados pendientes de despacho en este momento."
+                    : "No se encontraron registros con los filtros seleccionados."}
+                </p>
               </div>
             ) : (
-              <div className="overflow-x-auto border border-neutral-800">
+              <div className="overflow-x-auto border border-white/10 bg-[#111115]">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800 tracking-wider">
+                  <thead className="bg-[#0a0a0c] uppercase text-neutral-400 border-b border-white/10 tracking-widest text-[10px]">
                     <tr>
-                      <th className="p-4">Fecha</th>
-                      <th className="p-4">Cliente</th>
-                      <th className="p-4">Producto & Foto</th>
-                      <th className="p-4">Envío y Guía</th>
-                      <th className="p-4">Total</th>
+                      <th className="p-4">Referencia & Fecha</th>
+                      <th className="p-4">Cliente & Destino</th>
+                      <th className="p-4">Artículos</th>
+                      <th className="p-4">Total Pagado</th>
+                      <th className="p-4">Transportadora & Guía</th>
                       <th className="p-4">Estado</th>
+                      <th className="p-4 text-right">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-800">
-                    {orders.map((o) => {
+                  <tbody className="divide-y divide-white/5">
+                    {filteredOrders.map((o) => {
                       const imgUrl = getProductImageByName(o.product_name);
+                      const isPaid = isPaidOrPrep(o.status);
+                      const isEnv = isShipped(o.status);
+                      const isEnt = isDelivered(o.status);
+                      const isPend = isPending(o.status);
+
                       return (
-                        <tr key={o.id} className="hover:bg-neutral-900/60 transition-colors">
-                          <td className="p-4 text-neutral-400">{new Date(o.created_at).toLocaleDateString()}</td>
-                          <td className="p-4">
-                            <span className="font-semibold text-white block">{o.customer_name}</span>
-                            <span className="text-neutral-300 text-[11px] block mt-1">{o.customer_phone}</span>
-                            <span className="text-neutral-500 text-[10px] block">{o.customer_document}</span>
+                        <tr
+                          key={o.id}
+                          className="hover:bg-white/5 transition-colors cursor-pointer group"
+                          onClick={() => setSelectedOrder(o)}
+                        >
+                          {/* Referencia & Fecha */}
+                          <td className="p-4 space-y-1">
+                            <span className="font-mono font-bold text-white block text-sm">
+                              {o.reference || `NRK-${o.id.slice(0, 8)}`}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 block">
+                              {new Date(o.created_at).toLocaleDateString("es-CO", {
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
                           </td>
+
+                          {/* Cliente & Destino */}
+                          <td className="p-4 space-y-1">
+                            <span className="font-bold text-white block text-sm">{o.customer_name}</span>
+                            <div className="flex items-center gap-2 text-neutral-300 text-[11px]">
+                              <span>{o.customer_phone}</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  sendWhatsAppDirect(o.customer_phone, `Hola ${o.customer_name}, te saludamos de NERKLEY.`);
+                                }}
+                                className="text-emerald-400 hover:text-emerald-300 text-[10px] underline cursor-pointer"
+                              >
+                                WhatsApp
+                              </button>
+                            </div>
+                            <span className="text-[10px] text-neutral-400 block font-medium">
+                              📍 {o.city} &bull; {o.address}
+                            </span>
+                          </td>
+
+                          {/* Artículos */}
                           <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-12 h-14 bg-neutral-950 border border-neutral-800 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                            <div className="flex items-center gap-3 max-w-xs">
+                              <div className="w-10 h-12 bg-black border border-white/10 flex-shrink-0 flex items-center justify-center overflow-hidden">
                                 {imgUrl ? (
                                   <img src={imgUrl} alt="Producto" className="w-full h-full object-cover" />
                                 ) : (
-                                  <span className="text-[8px] text-neutral-600">N/A</span>
+                                  <span className="text-[8px] text-neutral-600">NERKLEY</span>
                                 )}
                               </div>
-                              <div>
-                                <span className="text-white font-medium block">{o.product_name}</span>
-                              </div>
+                              <span className="text-neutral-200 line-clamp-2 text-xs font-medium">
+                                {o.product_name}
+                              </span>
                             </div>
                           </td>
-                          <td className="p-4 space-y-2 min-w-[200px]">
-                            <span className="block text-neutral-300 font-semibold">{o.city}</span>
-                            <span className="block text-[10px] text-neutral-400">{o.address}</span>
-                            <div className="pt-2 border-t border-neutral-800/80 space-y-1.5">
-                              <input
-                                type="text"
-                                placeholder="Transportadora (Ej: Envía)"
-                                value={o.transport_company || ""}
-                                onChange={(e) => handleUpdateOrderField(o.id, "transport_company", e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 px-2 py-1 text-[10px] text-white focus:outline-none focus:border-white placeholder-neutral-600"
-                              />
-                              <input
-                                type="text"
-                                placeholder="N° de Guía de Rastreo"
-                                value={o.shipping_guide || ""}
-                                onChange={(e) => handleUpdateOrderField(o.id, "shipping_guide", e.target.value)}
-                                className="w-full bg-neutral-950 border border-neutral-800 px-2 py-1 text-[10px] text-emerald-400 font-mono font-bold focus:outline-none focus:border-white placeholder-neutral-600"
-                              />
-                            </div>
-                          </td>
-                          <td className="p-4 font-bold text-white">$ {Number(o.total_price).toLocaleString()} COP</td>
+
+                          {/* Total */}
                           <td className="p-4">
+                            <span className="font-mono font-bold text-white text-sm block">
+                              $ {Number(o.total_price).toLocaleString("es-CO")}
+                            </span>
+                            <span className="text-[9px] text-neutral-400 uppercase">COP</span>
+                          </td>
+
+                          {/* Guía & Transportadora */}
+                          <td className="p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
+                            {o.shipping_guide ? (
+                              <div className="space-y-0.5">
+                                <span className="text-[10px] text-neutral-300 font-semibold block uppercase">
+                                  {o.transport_company || "Transportadora"}
+                                </span>
+                                <span className="font-mono font-bold text-emerald-400 text-xs block">
+                                  {o.shipping_guide}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-neutral-500 italic block">Sin guía asignada</span>
+                            )}
+                          </td>
+
+                          {/* Estado */}
+                          <td className="p-4" onClick={(e) => e.stopPropagation()}>
                             <select
                               value={o.status}
                               onChange={(e) => handleOrderStatusChange(o.id, e.target.value)}
-                              className={`w-full px-3 py-2 text-[10px] font-bold uppercase tracking-wider border focus:outline-none transition-colors appearance-none cursor-pointer ${
-                                o.status === "Pendiente de Pago" ? "bg-yellow-950/30 border-yellow-900/50 text-yellow-500" :
-                                o.status === "Pagado / En Preparación" ? "bg-blue-950/30 border-blue-900/50 text-blue-400" :
-                                o.status === "En Despacho / Enviado" ? "bg-amber-950/30 border-amber-900/50 text-amber-500" :
-                                o.status === "Entregado" ? "bg-emerald-950/30 border-emerald-900/50 text-emerald-400" :
-                                "bg-neutral-900 border-neutral-700 text-white"
+                              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider border focus:outline-none transition-colors appearance-none cursor-pointer ${
+                                isPaid
+                                  ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-300"
+                                  : isEnv
+                                  ? "bg-sky-950/40 border-sky-500/50 text-sky-300"
+                                  : isEnt
+                                  ? "bg-purple-950/40 border-purple-500/50 text-purple-300"
+                                  : isPend
+                                  ? "bg-amber-950/40 border-amber-500/50 text-amber-300"
+                                  : "bg-red-950/40 border-red-500/50 text-red-300"
                               }`}
                             >
                               {STATUS_OPTIONS.map((st) => (
-                                <option key={st} value={st} className="bg-neutral-900 text-white">{st}</option>
+                                <option key={st} value={st} className="bg-[#111115] text-white">
+                                  {st}
+                                </option>
                               ))}
                             </select>
+                          </td>
+
+                          {/* Acción */}
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOrder(o);
+                              }}
+                              className="bg-white text-black px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all cursor-pointer"
+                            >
+                              Ver Detalle
+                            </button>
                           </td>
                         </tr>
                       );
@@ -543,30 +1028,156 @@ export default function AdminDashboard() {
           </section>
         )}
 
+        {/* ======================================================== */}
+        {/* PESTAÑA: DASHBOARD & FINANZAS                            */}
+        {/* ======================================================== */}
+        {activeTab === "dashboard" && (
+          <section className="space-y-8">
+            {/* Métricas Principales */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="bg-[#111115] border border-white/10 p-6 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
+                  Ingresos Confirmados
+                </span>
+                <p className="text-3xl font-bold font-mono text-emerald-400">
+                  $ {totalIngresos.toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  Total de pagos aprobados en Wompi ({confirmedOrders.length} compras)
+                </p>
+              </div>
+
+              <div className="bg-[#111115] border border-white/10 p-6 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
+                  Por Despachar Hoy
+                </span>
+                <p className="text-3xl font-bold font-mono text-white">
+                  {counts.despachar} <span className="text-xs text-neutral-400">Pedidos</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  Clientes esperando que empaques su producto
+                </p>
+              </div>
+
+              <div className="bg-[#111115] border border-white/10 p-6 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
+                  Ticket Promedio
+                </span>
+                <p className="text-3xl font-bold font-mono text-white">
+                  $ {ticketPromedio.toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  Valor medio por cada venta confirmada
+                </p>
+              </div>
+
+              <div className="bg-[#111115] border border-white/10 p-6 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
+                  Ventas Entregadas
+                </span>
+                <p className="text-3xl font-bold font-mono text-purple-400">
+                  {counts.entregados} <span className="text-xs text-neutral-400">Órdenes</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  Proceso logístico cerrado y cliente satisfecho
+                </p>
+              </div>
+            </div>
+
+            {/* Accesos Rápidos de Despacho */}
+            <div className="bg-[#111115] border border-white/10 p-6 space-y-4">
+              <div className="flex justify-between items-center border-b border-white/10 pb-4">
+                <h3 className="text-xs uppercase tracking-[0.25em] font-bold text-white">
+                  Últimos Pedidos Confirmados (Listos para Envío)
+                </h3>
+                <button
+                  onClick={() => {
+                    setActiveTab("pedidos");
+                    setOrderFilter("despachar");
+                  }}
+                  className="text-[10px] uppercase tracking-widest text-emerald-400 hover:underline cursor-pointer"
+                >
+                  Gestionar Despachos &rarr;
+                </button>
+              </div>
+
+              {confirmedOrders.slice(0, 5).map((o) => (
+                <div
+                  key={o.id}
+                  onClick={() => setSelectedOrder(o)}
+                  className="flex items-center justify-between p-3 bg-white/5 border border-white/5 hover:border-white/20 transition-all cursor-pointer"
+                >
+                  <div>
+                    <span className="font-mono font-bold text-white text-xs mr-3">
+                      {o.reference || `NRK-${o.id.slice(0, 8)}`}
+                    </span>
+                    <span className="font-semibold text-neutral-200 text-xs">{o.customer_name}</span>
+                    <span className="text-[10px] text-neutral-400 ml-2">📍 {o.city}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="font-mono font-bold text-emerald-400 text-xs">
+                      $ {Number(o.total_price).toLocaleString("es-CO")} COP
+                    </span>
+                    <span className="text-[9px] uppercase font-bold px-2 py-0.5 bg-emerald-500/20 text-emerald-300">
+                      {o.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ======================================================== */}
+        {/* PESTAÑA: CLIENTES CRM                                    */}
+        {/* ======================================================== */}
         {activeTab === "clientes" && (
-          <section className="space-y-4">
-            <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">
-              Listado de Clientes (Ranking de Compras)
-            </h2>
-            <div className="overflow-x-auto border border-neutral-800">
+          <section className="space-y-6">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-neutral-300">
+                  Directorio de Clientes ({customers.length})
+                </h2>
+                <p className="text-[10px] text-neutral-500 mt-0.5">Ordenados por volumen total de compra</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto border border-white/10 bg-[#111115]">
               <table className="w-full text-left text-xs">
-                <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800 tracking-wider">
+                <thead className="bg-[#0a0a0c] uppercase text-neutral-400 border-b border-white/10 tracking-widest text-[10px]">
                   <tr>
                     <th className="p-4">Cliente</th>
-                    <th className="p-4">Contacto</th>
-                    <th className="p-4">Ciudad</th>
-                    <th className="p-4">Total Compras</th>
-                    <th className="p-4">Inversión</th>
+                    <th className="p-4">Documento / Cédula</th>
+                    <th className="p-4">Teléfono & WhatsApp</th>
+                    <th className="p-4">Ciudad / Dirección</th>
+                    <th className="p-4 text-center">Compras Pagadas</th>
+                    <th className="p-4 text-right">Inversión Total</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-neutral-800">
+                <tbody className="divide-y divide-white/5">
                   {customers.map((c: any) => (
-                    <tr key={c.id} className="hover:bg-neutral-900/60 transition-colors">
-                      <td className="p-4 font-semibold text-white uppercase">{c.name}</td>
-                      <td className="p-4 text-neutral-300">{c.phone}</td>
-                      <td className="p-4 text-neutral-300">{c.city}</td>
-                      <td className="p-4 font-bold text-white text-center">{c.orderCount}</td>
-                      <td className="p-4 font-bold text-emerald-400">$ {c.totalSpent.toLocaleString()} COP</td>
+                    <tr key={c.id} className="hover:bg-white/5 transition-colors">
+                      <td className="p-4 font-bold text-white uppercase">{c.name}</td>
+                      <td className="p-4 text-neutral-300 font-mono">{c.document || "N/A"}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-neutral-300">{c.phone}</span>
+                          <button
+                            onClick={() => sendWhatsAppDirect(c.phone, `Hola ${c.name}, te saludamos de NERKLEY.`)}
+                            className="bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/30 px-2 py-0.5 text-[9px] uppercase font-bold transition-all cursor-pointer"
+                          >
+                            WhatsApp
+                          </button>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-white block font-medium">{c.city}</span>
+                        <span className="text-[10px] text-neutral-400 block">{c.address}</span>
+                      </td>
+                      <td className="p-4 font-mono font-bold text-white text-center">{c.paidOrderCount}</td>
+                      <td className="p-4 font-mono font-bold text-emerald-400 text-right">
+                        $ {c.totalSpent.toLocaleString("es-CO")} COP
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -575,112 +1186,249 @@ export default function AdminDashboard() {
           </section>
         )}
 
+        {/* ======================================================== */}
+        {/* PESTAÑA: CATÁLOGO & INVENTARIO                           */}
+        {/* ======================================================== */}
         {activeTab === "publicar" && (
           <div className="space-y-12">
-            <section className="bg-neutral-900 border border-neutral-800 p-8 max-w-4xl">
-              <h2 className="text-sm uppercase tracking-[0.25em] font-semibold mb-6 text-white border-b border-neutral-800 pb-3">
-                Agregar Nuevo Producto al Catálogo
+            {/* Formulario de Publicación */}
+            <section className="bg-[#111115] border border-white/10 p-8 max-w-4xl space-y-6">
+              <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white border-b border-white/10 pb-3">
+                Publicar Nuevo Producto en NERKLEY
               </h2>
+
               <form onSubmit={handleCreateProduct} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Nombre del Producto *</label>
-                    <input type="text" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Perfume Layton" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Nombre del Producto *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      placeholder="Ej: Perfume Creed Aventus / Camiseta Trapstar"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Stock Inicial *</label>
-                    <input type="number" required min="0" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="Ej: 50" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Stock Inicial *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={stock}
+                      onChange={(e) => setStock(e.target.value)}
+                      placeholder="Ej: 20"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white font-mono"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Precio Base (COP) *</label>
-                    <input type="number" required value={basePrice} onChange={(e) => setBasePrice(e.target.value)} placeholder="Ej: 140000" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Precio Base (COP) *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={basePrice}
+                      onChange={(e) => setBasePrice(e.target.value)}
+                      placeholder="Ej: 350000"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white font-mono"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Descuento %</label>
-                    <input type="number" min="0" max="90" value={discountPercent} onChange={(e) => setDiscountPercent(e.target.value)} placeholder="Ej: 20" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Descuento % (Opcional)
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="90"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(e.target.value)}
+                      placeholder="Ej: 15"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white font-mono"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Categoría *</label>
-                    <input type="text" required value={category} onChange={(e) => setCategory(e.target.value)} placeholder="Ej: Perfume" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                  <div className="space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Categoría *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={category}
+                      onChange={(e) => setCategory(e.target.value)}
+                      placeholder="Ej: Perfume, Ropa, Gorra, Zapatos, Oro"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                    />
                   </div>
+
                   <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Tallas (Separadas por comas)</label>
-                      <input type="text" value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="Ej: S, M, L, 40, 42 (Opcional)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                        Tallas Disponibles (Separadas por comas)
+                      </label>
+                      <input
+                        type="text"
+                        value={sizes}
+                        onChange={(e) => setSizes(e.target.value)}
+                        placeholder="Ej: S, M, L, XL ó 39, 40, 41, 42"
+                        className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                      />
                     </div>
-                    <div>
-                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Colores (Separados por comas)</label>
-                      <input type="text" value={colors} onChange={(e) => setColors(e.target.value)} placeholder="Ej: Rojo, Azul, Negro (Opcional)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+                    <div className="space-y-2">
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                        Colores Disponibles (Separados por comas)
+                      </label>
+                      <input
+                        type="text"
+                        value={colors}
+                        onChange={(e) => setColors(e.target.value)}
+                        placeholder="Ej: Negro Obsidiana, Blanco, Dorado"
+                        className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                      />
                     </div>
                   </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Etiqueta Destacada Opcional (Ej: 100% Original)</label>
-                    <input type="text" value={badge} onChange={(e) => setBadge(e.target.value)} placeholder="Ej: 100% Original o Edición Limitada (Déjalo en blanco si no deseas)" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+
+                  <div className="md:col-span-3 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Insignia / Etiqueta Destacada (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={badge}
+                      onChange={(e) => setBadge(e.target.value)}
+                      placeholder="Ej: 100% Original, Edición 1.1 Top, Exclusivo"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                    />
                   </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">Descripción del Producto *</label>
-                    <textarea required rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Escribe los detalles, notas aromáticas o características..." className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white focus:outline-none focus:border-white" />
+
+                  <div className="md:col-span-3 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      Descripción del Producto *
+                    </label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Detalles de lujo, materiales originales, notas de autor o procedencia..."
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
+                    />
                   </div>
-                  <div className="md:col-span-3">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 mb-2">URLs de Fotos (Comas)</label>
-                    <input type="text" value={images} onChange={(e) => setImages(e.target.value)} placeholder="https://foto1.jpg, https://foto2.jpg" className="w-full bg-neutral-950 border border-neutral-800 px-4 py-3 text-sm text-white" />
+
+                  <div className="md:col-span-3 space-y-2">
+                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
+                      URLs de Fotos (Separadas por comas)
+                    </label>
+                    <input
+                      type="text"
+                      value={images}
+                      onChange={(e) => setImages(e.target.value)}
+                      placeholder="https://...foto1.jpg, https://...foto2.jpg"
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white font-mono text-xs"
+                    />
                   </div>
                 </div>
-                <button type="submit" disabled={creating} className="bg-white text-black px-8 py-3.5 text-xs font-semibold uppercase tracking-[0.25em] cursor-pointer">
-                  {creating ? "Publicando..." : "Publicar Producto"}
+
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="bg-white text-black px-8 py-3.5 text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {creating ? "Publicando en Tienda..." : "Publicar Producto"}
                 </button>
               </form>
             </section>
 
+            {/* Listado de Inventario */}
             <section className="space-y-4">
-              <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-neutral-400">Inventario & Productos Publicados</h2>
-              <div className="overflow-x-auto border border-neutral-800">
+              <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300">
+                Inventario & Catálogo Activo ({products.length})
+              </h2>
+
+              <div className="overflow-x-auto border border-white/10 bg-[#111115]">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-neutral-900 uppercase text-neutral-400 border-b border-neutral-800">
+                  <thead className="bg-[#0a0a0c] uppercase text-neutral-400 border-b border-white/10 tracking-widest text-[10px]">
                     <tr>
                       <th className="p-4">Foto & Producto</th>
-                      <th className="p-4">Precio (COP) & Descuento</th>
+                      <th className="p-4">Categoría</th>
+                      <th className="p-4">Precio (COP)</th>
                       <th className="p-4 w-32">Stock</th>
-                      <th className="p-4 w-36">Estado</th>
+                      <th className="p-4 w-36">Visibilidad</th>
                       <th className="p-4 text-right">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-neutral-800">
+                  <tbody className="divide-y divide-white/5">
                     {products.map((p) => {
                       const firstImg = p.images ? p.images.split(",")[0].trim() : null;
                       return (
-                        <tr key={p.id} className="hover:bg-neutral-900/60">
+                        <tr key={p.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-12 h-14 bg-neutral-950 border border-neutral-800 flex items-center justify-center overflow-hidden">
-                                {firstImg ? <img src={firstImg} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-[8px]">N/A</span>}
+                              <div className="w-12 h-14 bg-black border border-white/10 flex items-center justify-center overflow-hidden">
+                                {firstImg ? (
+                                  <img src={firstImg} alt={p.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[8px] text-neutral-600">N/A</span>
+                                )}
                               </div>
-                              <span className="font-semibold text-white">{p.name}</span>
+                              <div>
+                                <span className="font-bold text-white block">{p.name}</span>
+                                {p.badge && (
+                                  <span className="text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
+                                    {p.badge}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </td>
+                          <td className="p-4 text-neutral-300 uppercase tracking-wider text-[11px] font-semibold">
+                            {p.category}
+                          </td>
                           <td className="p-4">
-                            <span className="font-bold text-white block">$ {Number(p.sale_price).toLocaleString()}</span>
+                            <span className="font-mono font-bold text-white block">
+                              $ {Number(p.sale_price).toLocaleString("es-CO")}
+                            </span>
                             {p.discount_percent && p.discount_percent > 0 && p.original_price ? (
-                              <span className="text-[10px] text-red-400 line-through block">$ {Number(p.original_price).toLocaleString()}</span>
+                              <span className="text-[10px] text-red-400 line-through block font-mono">
+                                $ {Number(p.original_price).toLocaleString("es-CO")} (-{p.discount_percent}%)
+                              </span>
                             ) : null}
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              <button onClick={() => handleEditPrice(p)} className="text-[10px] text-neutral-400 underline cursor-pointer hover:text-white">Precio</button>
-                              <button onClick={() => handleSetDiscount(p)} className="text-[10px] text-neutral-400 underline cursor-pointer hover:text-white">% Desc</button>
-                              {p.discount_percent && p.discount_percent > 0 ? (
-                                <button onClick={() => handleRemoveDiscount(p)} className="text-[10px] text-red-400 underline cursor-pointer hover:text-red-300">Quitar Desc</button>
-                              ) : null}
-                            </div>
                           </td>
                           <td className="p-4">
-                            <input type="number" value={p.stock} onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))} className="w-full bg-neutral-950 border border-neutral-700 px-3 py-2 text-white" />
+                            <input
+                              type="number"
+                              value={p.stock}
+                              onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))}
+                              className="w-24 bg-[#0a0a0c] border border-white/20 px-3 py-1.5 text-white font-mono font-bold text-center focus:outline-none focus:border-white"
+                            />
                           </td>
                           <td className="p-4">
-                            <button onClick={() => handleUpdateProductField(p.id, "is_active", !p.is_active)} className={`px-3 py-2 text-[10px] font-bold uppercase cursor-pointer ${p.is_active ? "bg-emerald-950/30 text-emerald-400" : "bg-neutral-900 text-neutral-500"}`}>
+                            <button
+                              onClick={() => handleUpdateProductField(p.id, "is_active", !p.is_active)}
+                              className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider cursor-pointer border ${
+                                p.is_active
+                                  ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-300"
+                                  : "bg-neutral-900 border-white/10 text-neutral-500"
+                              }`}
+                            >
                               {p.is_active ? "Público" : "Oculto"}
                             </button>
                           </td>
                           <td className="p-4 text-right">
-                            <button onClick={() => handleDeleteProduct(p.id, p.name)} className="bg-red-900/20 text-red-400 px-3 py-2 text-[10px] uppercase cursor-pointer">Eliminar</button>
+                            <button
+                              onClick={() => handleDeleteProduct(p.id, p.name)}
+                              disabled={deletingId === p.id}
+                              className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/30 text-red-400 px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all"
+                            >
+                              Eliminar
+                            </button>
                           </td>
                         </tr>
                       );
@@ -692,6 +1440,261 @@ export default function AdminDashboard() {
           </div>
         )}
       </main>
+
+      {/* ======================================================== */}
+      {/* MODAL DETALLE TOTAL: MODO DIOS DEL PEDIDO                */}
+      {/* ======================================================== */}
+      {selectedOrder && (
+        <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+          <div className="bg-[#111115] border border-white/20 max-w-2xl w-full max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left">
+            {/* Cabecera del Modal */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xl md:text-2xl font-mono font-bold text-white">
+                    {selectedOrder.reference || `NRK-${selectedOrder.id.slice(0, 8)}`}
+                  </span>
+                  <span
+                    className={`px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                      isPaidOrPrep(selectedOrder.status)
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : isShipped(selectedOrder.status)
+                        ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                        : isDelivered(selectedOrder.status)
+                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                        : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                    }`}
+                  >
+                    {selectedOrder.status}
+                  </span>
+                </div>
+                <p className="text-[10px] text-neutral-400 mt-1 uppercase tracking-widest">
+                  Registrado el {new Date(selectedOrder.created_at).toLocaleString("es-CO")}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setSelectedOrder(null)}
+                className="text-neutral-400 hover:text-white text-2xl leading-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Datos del Cliente */}
+            <div className="bg-white/5 border border-white/10 p-4 space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
+                Datos del Comprador & Entrega
+              </span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <span className="text-neutral-400 text-[10px] uppercase block">Nombre:</span>
+                  <span className="font-bold text-white text-sm uppercase">{selectedOrder.customer_name}</span>
+                </div>
+
+                <div>
+                  <span className="text-neutral-400 text-[10px] uppercase block">Documento / Cédula:</span>
+                  <span className="font-mono text-white">{selectedOrder.customer_document || "No registrado"}</span>
+                </div>
+
+                <div>
+                  <span className="text-neutral-400 text-[10px] uppercase block">Teléfono / WhatsApp:</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="font-mono font-bold text-white">{selectedOrder.customer_phone}</span>
+                    <button
+                      onClick={() => sendWhatsAppDirect(selectedOrder.customer_phone, `Hola ${selectedOrder.customer_name}, te saludamos de NERKLEY con respecto a tu orden ${selectedOrder.reference}.`)}
+                      className="bg-emerald-500 text-black px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider hover:bg-emerald-400 cursor-pointer"
+                    >
+                      Abrir Chat
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-neutral-400 text-[10px] uppercase block">Correo Electrónico:</span>
+                  <span className="text-neutral-200">{selectedOrder.customer_email || "No registrado"}</span>
+                </div>
+
+                <div className="md:col-span-2 pt-2 border-t border-white/5 flex flex-col md:flex-row justify-between md:items-center gap-2">
+                  <div>
+                    <span className="text-neutral-400 text-[10px] uppercase block">Dirección de Destino:</span>
+                    <span className="font-bold text-white text-sm">
+                      📍 {selectedOrder.city} &bull; {selectedOrder.address}
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${selectedOrder.customer_name} - ${selectedOrder.city} - ${selectedOrder.address} - Tel: ${selectedOrder.customer_phone}`);
+                      showToast("¡Dirección copiada para transportadora!");
+                    }}
+                    className="bg-white/10 hover:bg-white/20 text-white text-[10px] uppercase font-semibold px-3 py-1.5 border border-white/20 transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Copiar Dirección
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Artículos & Total */}
+            <div className="bg-white/5 border border-white/10 p-4 space-y-3">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
+                Contenido del Pedido
+              </span>
+
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-16 bg-black border border-white/10 flex-shrink-0 flex items-center justify-center overflow-hidden">
+                  {getProductImageByName(selectedOrder.product_name) ? (
+                    <img
+                      src={getProductImageByName(selectedOrder.product_name)!}
+                      alt="Producto"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-[8px] text-neutral-600">NERKLEY</span>
+                  )}
+                </div>
+                <div className="space-y-1 flex-1">
+                  <p className="text-white text-sm font-semibold">{selectedOrder.product_name}</p>
+                  {selectedOrder.notes && (
+                    <p className="text-[11px] text-neutral-400 italic bg-black/40 p-2 border border-white/5 font-mono">
+                      {selectedOrder.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-baseline pt-3 border-t border-white/10">
+                <span className="text-xs uppercase tracking-widest text-neutral-400 font-semibold">Total Pagado:</span>
+                <span className="text-2xl font-bold font-mono text-emerald-400">
+                  $ {Number(selectedOrder.total_price).toLocaleString("es-CO")} COP
+                </span>
+              </div>
+            </div>
+
+            {/* Módulo de Logística: Transportadora & Guía */}
+            <div className="bg-white/5 border border-white/10 p-4 space-y-4">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
+                Logística de Despacho & Guía
+              </span>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Transportadora
+                  </label>
+                  <select
+                    value={selectedOrder.transport_company || "Interrapidísimo"}
+                    onChange={(e) => handleUpdateOrderField(selectedOrder.id, "transport_company", e.target.value)}
+                    className="w-full bg-[#0a0a0c] border border-white/20 p-2.5 text-xs text-white focus:outline-none focus:border-white"
+                  >
+                    {TRANSPORT_COMPANIES.map((tc) => (
+                      <option key={tc} value={tc} className="bg-[#111115] text-white">
+                        {tc}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Número de Guía de Envío
+                  </label>
+                  <input
+                    type="text"
+                    value={selectedOrder.shipping_guide || ""}
+                    onChange={(e) => handleUpdateOrderField(selectedOrder.id, "shipping_guide", e.target.value)}
+                    placeholder="Ej: 2400981726"
+                    className="w-full bg-[#0a0a0c] border border-white/20 p-2.5 text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-white placeholder-neutral-600"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => notifyTrackingByWhatsApp(selectedOrder)}
+                  className="flex-1 bg-emerald-500 hover:bg-emerald-400 text-black py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <span>Enviar Guía por WhatsApp al Cliente</span>
+                  <span>&rarr;</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => printShippingLabel(selectedOrder)}
+                  className="bg-white/10 hover:bg-white text-white hover:text-black py-2.5 px-4 text-[10px] font-bold uppercase tracking-widest transition-all cursor-pointer border border-white/20"
+                >
+                  Imprimir Rótulo
+                </button>
+              </div>
+            </div>
+
+            {/* Cambio Rápido de Estado */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">
+                Actualizar Estado de la Orden:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  onClick={() => handleOrderStatusChange(selectedOrder.id, "Pagado / En Preparación")}
+                  className={`py-2 text-[10px] font-bold uppercase tracking-wider border cursor-pointer transition-all ${
+                    isPaidOrPrep(selectedOrder.status)
+                      ? "bg-emerald-500 text-black border-emerald-500 font-extrabold"
+                      : "bg-[#0a0a0c] text-emerald-400 border-emerald-500/30 hover:bg-emerald-950/30"
+                  }`}
+                >
+                  🟢 Pagado
+                </button>
+                <button
+                  onClick={() => handleOrderStatusChange(selectedOrder.id, "En Despacho / Enviado")}
+                  className={`py-2 text-[10px] font-bold uppercase tracking-wider border cursor-pointer transition-all ${
+                    isShipped(selectedOrder.status)
+                      ? "bg-sky-500 text-black border-sky-500 font-extrabold"
+                      : "bg-[#0a0a0c] text-sky-400 border-sky-500/30 hover:bg-sky-950/30"
+                  }`}
+                >
+                  🚚 Enviado
+                </button>
+                <button
+                  onClick={() => handleOrderStatusChange(selectedOrder.id, "Entregado")}
+                  className={`py-2 text-[10px] font-bold uppercase tracking-wider border cursor-pointer transition-all ${
+                    isDelivered(selectedOrder.status)
+                      ? "bg-purple-500 text-black border-purple-500 font-extrabold"
+                      : "bg-[#0a0a0c] text-purple-400 border-purple-500/30 hover:bg-purple-950/30"
+                  }`}
+                >
+                  ✅ Entregado
+                </button>
+                <button
+                  onClick={() => handleOrderStatusChange(selectedOrder.id, "Cancelado")}
+                  className={`py-2 text-[10px] font-bold uppercase tracking-wider border cursor-pointer transition-all ${
+                    isCanceled(selectedOrder.status)
+                      ? "bg-red-500 text-black border-red-500 font-extrabold"
+                      : "bg-[#0a0a0c] text-red-400 border-red-500/30 hover:bg-red-950/30"
+                  }`}
+                >
+                  ❌ Cancelar
+                </button>
+              </div>
+            </div>
+
+            {/* Zona de Peligro: Eliminar Pedido */}
+            <div className="pt-4 border-t border-white/10 flex justify-between items-center">
+              <span className="text-[10px] text-neutral-500 uppercase tracking-widest">
+                ID Supabase: {selectedOrder.id.slice(0, 16)}...
+              </span>
+              <button
+                onClick={() => handleDeleteOrder(selectedOrder.id, selectedOrder.reference || selectedOrder.id)}
+                className="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold tracking-widest underline cursor-pointer"
+              >
+                Eliminar Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

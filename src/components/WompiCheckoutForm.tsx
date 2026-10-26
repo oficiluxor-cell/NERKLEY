@@ -75,7 +75,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         localStorage.setItem("NERKLEY_pending_order_id", orderId);
       }
 
-      const returnUrl = `${window.location.origin}/success`;
+      const returnUrl = `${window.location.origin}/success?order_id=${orderId || ""}&ref=${paymentData.reference}`;
 
       // Limpieza y validación de datos de cliente
       const cleanPhone = (paymentData.customerPhone || "").replace(/\D/g, "");
