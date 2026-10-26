@@ -356,14 +356,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
           ) : createdOrderId ? (
-            <div className="py-8 text-center space-y-6">
-              <div className="w-16 h-16 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+            <div className="py-6 text-center space-y-4">
+              <div className="w-12 h-12 bg-black text-white rounded-full flex items-center justify-center mx-auto text-base font-serif font-bold shadow-sm">
                 ✓
               </div>
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-widest text-black">¡Pedido Registrado con Éxito!</h3>
-                <p className="text-xs text-neutral-500 mt-1">Haz clic abajo para procesar tu pago de forma segura con Wompi.</p>
-                <p className="text-xl font-bold text-black mt-2">$ {cartTotal.toLocaleString()} COP</p>
+                <h3 className="text-xs font-bold uppercase tracking-[0.25em] text-black">Pedido Registrado con Éxito</h3>
+                <p className="text-[11px] text-neutral-500 mt-1">
+                  Tu orden fue generada. Continúa a la pasarela segura con el monto oficial blindado.
+                </p>
               </div>
 
               <WompiCheckoutForm orderId={createdOrderId} />
@@ -474,3 +475,4 @@ export function useCart() {
   }
   return context;
 }
+

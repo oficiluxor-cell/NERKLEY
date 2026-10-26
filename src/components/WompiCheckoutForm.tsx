@@ -20,7 +20,7 @@ type PaymentData = {
 };
 
 export default function WompiCheckoutForm({ orderId }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
   const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
@@ -63,10 +63,11 @@ export default function WompiCheckoutForm({ orderId }: Props) {
     fetchSignature();
   }, [orderId]);
 
-  const handlePay = () => {
+  // Redirección directa y a pantalla completa a la pasarela oficial de Wompi (sin ventanas flotantes)
+  const handleProceedToPayment = () => {
     if (!paymentData) return;
 
-    setLoading(true);
+    setRedirecting(true);
     setErrorMsg("");
 
     try {
@@ -74,63 +75,13 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         localStorage.setItem("NERKLEY_pending_order_id", orderId);
       }
 
-      // URL limpia sin parámetros para evitar conflicto al concatenar ?id=...
       const returnUrl = `${window.location.origin}/success`;
 
-      // Preparar customerData de forma estricta según validaciones de Wompi
+      // Limpieza y validación de datos de cliente
       const cleanPhone = (paymentData.customerPhone || "").replace(/\D/g, "");
       const cleanDoc = (paymentData.customerDocument || "").replace(/\D/g, "");
 
-      const customerData: Record<string, any> = {};
-      if (paymentData.customerEmail?.trim()) {
-        customerData.email = paymentData.customerEmail.trim();
-      }
-      if (paymentData.customerName?.trim()) {
-        customerData.fullName = paymentData.customerName.trim();
-      }
-      if (cleanPhone.length >= 7) {
-        customerData.phoneNumber = cleanPhone;
-        customerData.phoneNumberPrefix = "+57";
-      }
-      if (cleanDoc.length >= 5) {
-        customerData.legalId = cleanDoc;
-        customerData.legalIdType = "CC";
-      }
-
-      // 1. Intentar abrir con el Widget interactivo de Wompi
-      if (typeof (window as any).WidgetCheckout === "function") {
-        const checkoutConfig: any = {
-          currency: paymentData.currency || "COP",
-          amountInCents: paymentData.amountInCents,
-          reference: paymentData.reference,
-          publicKey: paymentData.publicKey,
-          signature: {
-            integrity: paymentData.signature,
-          },
-          redirectUrl: returnUrl,
-        };
-
-        if (Object.keys(customerData).length > 0) {
-          checkoutConfig.customerData = customerData;
-        }
-
-        const checkout = new (window as any).WidgetCheckout(checkoutConfig);
-
-        checkout.open(function (result: any) {
-          const transaction = result?.transaction;
-          if (
-            transaction &&
-            (transaction.status === "APPROVED" || transaction.status === "PENDING")
-          ) {
-            window.location.href = `${returnUrl}?id=${transaction.id}&order_id=${orderId}`;
-          } else {
-            setLoading(false);
-          }
-        });
-        return;
-      }
-
-      // 2. Respaldo por redirección GET directa a checkout.wompi.co
+      // Redirección nativa oficial GET a checkout.wompi.co/p/
       const form = document.createElement("form");
       form.method = "GET";
       form.action = "https://checkout.wompi.co/p/";
@@ -144,15 +95,19 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         "redirect-url": returnUrl,
       };
 
-      if (customerData.email) params["customer-data:email"] = customerData.email;
-      if (customerData.fullName) params["customer-data:full-name"] = customerData.fullName;
-      if (customerData.phoneNumber) {
-        params["customer-data:phone-number"] = customerData.phoneNumber;
-        params["customer-data:phone-number-prefix"] = customerData.phoneNumberPrefix;
+      if (paymentData.customerEmail?.trim()) {
+        params["customer-data:email"] = paymentData.customerEmail.trim();
       }
-      if (customerData.legalId) {
-        params["customer-data:legal-id"] = customerData.legalId;
-        params["customer-data:legal-id-type"] = customerData.legalIdType;
+      if (paymentData.customerName?.trim()) {
+        params["customer-data:full-name"] = paymentData.customerName.trim();
+      }
+      if (cleanPhone.length >= 7) {
+        params["customer-data:phone-number"] = cleanPhone;
+        params["customer-data:phone-number-prefix"] = "+57";
+      }
+      if (cleanDoc.length >= 5) {
+        params["customer-data:legal-id"] = cleanDoc;
+        params["customer-data:legal-id-type"] = "CC";
       }
 
       for (const [key, val] of Object.entries(params)) {
@@ -168,18 +123,18 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      console.error("Error al abrir Wompi:", err);
-      setErrorMsg("No fue posible abrir la pasarela. Por favor intenta de nuevo.");
-      setLoading(false);
+      console.error("Error al redirigir a Wompi:", err);
+      setErrorMsg("Ocurrió un problema al abrir la pasarela. Intenta de nuevo.");
+      setRedirecting(false);
     }
   };
 
   if (fetchingData) {
     return (
-      <div className="w-full py-6 flex flex-col items-center justify-center space-y-2">
-        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-[11px] uppercase tracking-widest text-neutral-500">
-          Asegurando monto y firma oficial Wompi...
+      <div className="w-full py-8 flex flex-col items-center justify-center space-y-3">
+        <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-medium">
+          Preparando pasarela segura...
         </p>
       </div>
     );
@@ -192,7 +147,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         <button
           type="button"
           onClick={fetchSignature}
-          className="bg-black text-white px-4 py-2 text-[10px] uppercase font-bold tracking-wider hover:bg-neutral-800 cursor-pointer"
+          className="bg-black text-white px-5 py-2 text-[10px] uppercase font-bold tracking-widest hover:bg-neutral-800 transition-all cursor-pointer"
         >
           Reintentar
         </button>
@@ -203,45 +158,74 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   if (!paymentData) return null;
 
   return (
-    <div className="w-full flex flex-col items-center justify-center space-y-4 py-2">
-      {/* Resumen del Monto Bloqueado */}
-      <div className="w-full bg-neutral-50 border border-neutral-200 p-4 text-center space-y-1">
-        <span className="text-[10px] uppercase tracking-widest text-neutral-500 font-medium">
-          Monto Exacto a Pagar (No editable)
-        </span>
-        <p className="text-2xl font-bold text-black font-mono">
-          $ {paymentData.totalPrice.toLocaleString("es-CO")} COP
-        </p>
-        <p className="text-[10px] text-neutral-400 font-mono">
-          Ref: {paymentData.reference}
-        </p>
+    <div className="w-full flex flex-col items-center space-y-5 py-2 text-left">
+      {/* Tarjeta de Resumen Estética */}
+      <div className="w-full bg-neutral-50/80 border border-neutral-200 p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-neutral-200 pb-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+            Resumen de Facturación
+          </span>
+          <span className="text-[10px] font-mono font-bold text-neutral-800 bg-white px-2 py-0.5 border border-neutral-200">
+            {paymentData.reference}
+          </span>
+        </div>
+
+        <div className="space-y-1">
+          <div className="flex justify-between items-baseline">
+            <span className="text-xs text-neutral-600 uppercase tracking-wider">Total a Pagar</span>
+            <span className="text-xl font-bold text-black font-mono">
+              $ {paymentData.totalPrice.toLocaleString("es-CO")} <span className="text-xs font-normal">COP</span>
+            </span>
+          </div>
+          <p className="text-[10px] text-neutral-400 italic">
+            * Monto verificado y bloqueado contra alteraciones
+          </p>
+        </div>
+
+        {/* Canales de Pago Disponibles */}
+        <div className="pt-2 border-t border-neutral-200">
+          <span className="text-[9px] uppercase tracking-widest text-neutral-400 block mb-2 font-medium">
+            Medios habilitados en Wompi:
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {["Bancolombia", "Nequi", "PSE", "Tarjetas", "Daviplata"].map((method) => (
+              <span
+                key={method}
+                className="text-[9px] font-semibold uppercase tracking-wider bg-white text-neutral-700 border border-neutral-200 px-2.5 py-1 rounded-xs"
+              >
+                {method}
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Botón Principal de Pago Seguro */}
+      {/* Botón Principal Estético a Pantalla Completa */}
       <button
         type="button"
-        onClick={handlePay}
-        disabled={loading}
-        className="w-full bg-black text-white py-4 px-6 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2 active:scale-[0.99]"
+        onClick={handleProceedToPayment}
+        disabled={redirecting}
+        className="w-full bg-black text-white py-4 px-6 text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.99] group"
       >
-        {loading ? (
+        {redirecting ? (
           <>
-            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span>
-            <span>Abriendo pasarela segura...</span>
+            <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+            <span>Redirigiendo a Wompi Seguro...</span>
           </>
         ) : (
-          <span>Pagar con Wompi ($ {paymentData.totalPrice.toLocaleString("es-CO")} COP)</span>
+          <>
+            <span>Ir a Pagar en Wompi</span>
+            <span className="transition-transform group-hover:translate-x-1 font-serif text-sm">&rarr;</span>
+          </>
         )}
       </button>
 
-      {/* Métodos Aceptados e Integridad */}
-      <div className="w-full text-center space-y-1.5 pt-1">
-        <p className="text-[10px] font-semibold text-neutral-700 uppercase tracking-wider">
-          Bancolombia &bull; Nequi &bull; PSE &bull; Tarjetas Débito / Crédito
-        </p>
-        <p className="text-[9px] text-emerald-700 bg-emerald-50 py-1 px-2 border border-emerald-200 uppercase tracking-widest inline-block font-semibold">
-          ✓ Monto 100% Blindado con Firma Criptográfica SHA-256
-        </p>
+      {/* Sello de Garantía y Seguridad */}
+      <div className="w-full flex items-center justify-center gap-2 text-[10px] text-neutral-400 uppercase tracking-widest pt-1">
+        <svg className="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+        </svg>
+        <span>Pasarela Oficial Wompi &bull; Cifrado SHA-256</span>
       </div>
     </div>
   );

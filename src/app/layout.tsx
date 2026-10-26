@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { CartProvider } from '@/context/CartContext'
-import Script from 'next/script'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -19,8 +18,6 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
-        {/* Script oficial de Wompi cargado de forma inmediata */}
-        <Script src="https://checkout.wompi.co/widget.js" strategy="afterInteractive" />
         <CartProvider>
           {children}
         </CartProvider>
