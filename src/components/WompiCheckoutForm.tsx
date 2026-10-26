@@ -10,12 +10,13 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handlePayment() {
+  async function handlePayment(e: React.MouseEvent<HTMLButtonElement>) {
+    e.preventDefault(); // Evitamos cualquier comportamiento extraño de recarga o enlace vacío
     setLoading(true);
     setError("");
 
     try {
-      console.log("Enviando orderId a la API:", orderId);
+      console.log("Iniciando petición de firma para la orden:", orderId);
 
       const response = await fetch("/api/wompi-signature", {
         method: "POST",
@@ -24,17 +25,17 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       });
 
       const data = await response.json();
-      console.log("Respuesta de la API de firma:", data);
+      console.log("Respuesta recibida del servidor:", data);
 
       if (!response.ok) {
-        throw new Error(data.error || "No se pudo generar la firma de pago.");
+        throw new Error(data.error || "Error al conectar con el servidor de pagos.");
       }
 
       if (!data.publicKey || !data.amountInCents || !data.reference || !data.signature) {
-        throw new Error("La API respondió pero faltan datos esenciales para Wompi.");
+        throw new Error("El servidor no devolvió las credenciales completas de Wompi.");
       }
 
-      // Creamos el formulario POST con los datos reales verificados
+      // Creamos el formulario POST de forma dinámica y limpia
       const form = document.createElement("form");
       form.method = "POST";
       form.action = "https://checkout.wompi.co/p/";
@@ -58,9 +59,9 @@ export default function WompiCheckoutForm({ orderId }: Props) {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      console.error("Error en handlePayment:", err);
+      console.error("Error crítico en el proceso de pago:", err);
       setError(
-        err instanceof Error ? err.message : "Ocurrió un error al procesar el pago."
+        err instanceof Error ? err.message : "Ocurrió un error inesperado al procesar el pago."
       );
       setLoading(false);
     }
