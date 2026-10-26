@@ -132,7 +132,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   if (fetchingData) {
     return (
       <div className="w-full py-8 flex flex-col items-center justify-center space-y-3">
-        <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
         <p className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-medium">
           Preparando pasarela segura...
         </p>
@@ -142,12 +142,12 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
   if (errorMsg) {
     return (
-      <div className="w-full bg-red-50 border border-red-200 p-4 text-center space-y-3">
-        <p className="text-xs text-red-700 font-semibold">{errorMsg}</p>
+      <div className="w-full bg-red-500/10 border border-red-500/30 p-4 text-center space-y-3">
+        <p className="text-xs text-red-300 font-semibold">{errorMsg}</p>
         <button
           type="button"
           onClick={fetchSignature}
-          className="bg-black text-white px-5 py-2 text-[10px] uppercase font-bold tracking-widest hover:bg-neutral-800 transition-all cursor-pointer"
+          className="bg-white text-black px-5 py-2 text-[10px] uppercase font-bold tracking-widest hover:bg-neutral-200 transition-all cursor-pointer"
         >
           Reintentar
         </button>
@@ -160,20 +160,20 @@ export default function WompiCheckoutForm({ orderId }: Props) {
   return (
     <div className="w-full flex flex-col items-center space-y-5 py-2 text-left">
       {/* Tarjeta de Resumen Estética */}
-      <div className="w-full bg-neutral-50/80 border border-neutral-200 p-5 space-y-3">
-        <div className="flex items-center justify-between border-b border-neutral-200 pb-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
+      <div className="w-full bg-white/5 border border-white/10 p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400">
             Resumen de Facturación
           </span>
-          <span className="text-[10px] font-mono font-bold text-neutral-800 bg-white px-2 py-0.5 border border-neutral-200">
+          <span className="text-[10px] font-mono font-bold text-neutral-200 bg-[#111115] px-2 py-0.5 border border-white/10">
             {paymentData.reference}
           </span>
         </div>
 
         <div className="space-y-1">
           <div className="flex justify-between items-baseline">
-            <span className="text-xs text-neutral-600 uppercase tracking-wider">Total a Pagar</span>
-            <span className="text-xl font-bold text-black font-mono">
+            <span className="text-xs text-neutral-300 uppercase tracking-wider">Total a Pagar</span>
+            <span className="text-xl font-bold text-white font-mono">
               $ {paymentData.totalPrice.toLocaleString("es-CO")} <span className="text-xs font-normal">COP</span>
             </span>
           </div>
@@ -183,7 +183,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         </div>
 
         {/* Canales de Pago Disponibles */}
-        <div className="pt-2 border-t border-neutral-200">
+        <div className="pt-2 border-t border-white/10">
           <span className="text-[9px] uppercase tracking-widest text-neutral-400 block mb-2 font-medium">
             Medios habilitados en Wompi:
           </span>
@@ -191,7 +191,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
             {["Bancolombia", "Nequi", "PSE", "Tarjetas", "Daviplata"].map((method) => (
               <span
                 key={method}
-                className="text-[9px] font-semibold uppercase tracking-wider bg-white text-neutral-700 border border-neutral-200 px-2.5 py-1 rounded-xs"
+                className="text-[9px] font-semibold uppercase tracking-wider bg-[#111115] text-neutral-300 border border-white/10 px-2.5 py-1 rounded-xs"
               >
                 {method}
               </span>
@@ -205,7 +205,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
         type="button"
         onClick={handleProceedToPayment}
         disabled={redirecting}
-        className="w-full bg-black text-white py-4 px-6 text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.99] group"
+        className="w-full bg-white text-black py-4 px-6 text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md cursor-pointer disabled:opacity-60 flex items-center justify-center gap-3 active:scale-[0.99] group"
       >
         {redirecting ? (
           <>
@@ -222,7 +222,7 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       {/* Sello de Garantía y Seguridad */}
       <div className="w-full flex items-center justify-center gap-2 text-[10px] text-neutral-400 uppercase tracking-widest pt-1">
-        <svg className="w-3.5 h-3.5 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+        <svg className="w-3.5 h-3.5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
           <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
         </svg>
         <span>Pasarela Oficial Wompi &bull; Cifrado SHA-256</span>
