@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import WompiCheckoutForm from "@/components/WompiCheckoutForm";
 
 interface CartItem {
   id: string;
@@ -30,6 +31,7 @@ interface Order {
   status: string;
   shipping_guide?: string;
   transport_company?: string;
+  reference?: string;
 }
 
 interface CartContextType {
@@ -49,7 +51,7 @@ interface CartContextType {
   submitting: boolean;
   formData: any;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
-  pendingWompiData: { reference: string; amountInCents: number } | null;
+  createdOrderId: string | null;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -70,7 +72,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
-  const [pendingWompiData, setPendingWompiData] = useState<{ reference: string; amountInCents: number } | null>(null);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -156,7 +158,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ALMACENA LOS DATOS Y PREPARA LA ORDEN, DEJANDO EL BOTÓN NATIVO LISTO PARA ENVIAR A WOMPI
+  // REGISTRA EL PEDIDO EN SUPABASE Y OBTIENE SU ID REAL PARA FIRMARLO
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cartItems.length === 0) return;
@@ -175,6 +177,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ).join(", ");
 
     const pendingOrderData = {
+      reference: uniqueRef,
       product_name: `[Ref: ${uniqueRef}] ${orderSummary.length > 200 ? orderSummary.substring(0, 197) + "..." : orderSummary}`,
       total_price: cartTotal,
       customer_name: formData.fullName,
@@ -185,23 +188,31 @@ export function CartProvider({ children }: { children: ReactNode }) {
       city: formData.city,
       address: formData.address,
       notes: `Ref Pago: ${uniqueRef}\n${formData.notes}`,
-      status: "Pendiente de Pago",
+      status: "pending", // Importante que sea "pending" tal cual pide la validación del servidor
     };
 
     try {
-      await supabase.from("orders").insert([pendingOrderData]);
+      // Hacemos el insert devolviendo el registro creado para capturar su ID de Supabase
+      const { data, error } = await supabase
+        .from("orders")
+        .insert([pendingOrderData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setCreatedOrderId(data.id);
+      }
+
       localStorage.setItem("NERKLEY_client_email", formData.email);
       fetchCustomerOrders(formData.email);
     } catch (err) {
       console.error("Error guardando orden en Supabase:", err);
+      alert("Hubo un error al registrar tu pedido. Inténtalo de nuevo.");
+    } finally {
+      setSubmitting(false);
     }
-
-    setSubmitting(false);
-    // Activamos el estado que muestra el botón directo de pago de Wompi con el precio exacto
-    setPendingWompiData({
-      reference: uniqueRef,
-      amountInCents: cartTotal * 100,
-    });
   };
 
   return (
@@ -210,7 +221,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems, addToCart, removeFromCart, updateQuantity, 
         cartCount, cartTotal, isCartOpen, setIsCartOpen, 
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
-        handleCheckout, submitting, formData, handleInputChange, pendingWompiData
+        handleCheckout, submitting, formData, handleInputChange, createdOrderId
       }}
     >
       {children}
@@ -274,7 +285,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     <span className="text-[10px] font-mono text-neutral-400">{new Date(ord.created_at).toLocaleDateString()}</span>
                     <span className={`px-2.5 py-0.5 text-[9px] font-bold uppercase tracking-widest ${
                       ord.status === "Pagado" || ord.status === "Entregado" ? "bg-emerald-100 text-emerald-800" :
-                      ord.status === "Pendiente de Pago" ? "bg-amber-100 text-amber-800" :
+                      ord.status === "pending" ? "bg-amber-100 text-amber-800" :
                       "bg-neutral-100 text-neutral-800"
                     }`}>
                       {ord.status}
@@ -345,34 +356,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 Explorar Catálogo
               </button>
             </div>
-          ) : pendingWompiData ? (
-            /* BOTÓN DE PAGO NATIVO DE WOMPI CON EL PRECIO EXACTO (APARECE DE INMEDIATO AL LLENAR LOS DATOS) */
+          ) : createdOrderId ? (
+            /* SECCIÓN QUE APARECE AUTOMÁTICAMENTE UNA VEZ GUARDADO EL PEDIDO PARA PAGAR CON SEGURIDAD */
             <div className="py-8 text-center space-y-6">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
                 ✓
               </div>
               <div>
-                <h3 className="text-sm font-bold uppercase tracking-widest text-black">¡Datos Guardados con Éxito!</h3>
-                <p className="text-xs text-neutral-500 mt-1">Referencia: <span className="font-mono font-bold text-black">{pendingWompiData.reference}</span></p>
-                <p className="text-lg font-bold text-black mt-2">$ {(pendingWompiData.amountInCents / 100).toLocaleString()} COP</p>
+                <h3 className="text-sm font-bold uppercase tracking-widest text-black">¡Pedido Registrado con Éxito!</h3>
+                <p className="text-xs text-neutral-500 mt-1">Haz clic abajo para procesar tu pago de forma segura con Wompi.</p>
+                <p className="text-xl font-bold text-black mt-2">$ {cartTotal.toLocaleString()} COP</p>
               </div>
 
-              <form action="https://checkout.wompi.co/p/" method="GET" className="w-full space-y-3">
-                <input type="hidden" name="public-key" value="pub_prod_Y4gYBwGlAk98UoZRPbtpCIESjkMsMVG" />
-                <input type="hidden" name="currency" value="COP" />
-                <input type="hidden" name="amount-in-cents" value={pendingWompiData.amountInCents} />
-                <input type="hidden" name="reference" value={pendingWompiData.reference} />
-
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-emerald-700 transition-all shadow-lg cursor-pointer"
-                >
-                  Pagar Ahora en Wompi &rarr;
-                </button>
-              </form>
+              {/* Aquí cargamos el componente seguro que genera la firma en el servidor */}
+              <WompiCheckoutForm orderId={createdOrderId} />
 
               <button
-                onClick={() => setPendingWompiData(null)}
+                onClick={() => setCreatedOrderId(null)}
                 className="text-[10px] text-neutral-500 uppercase tracking-widest underline hover:text-black cursor-pointer block mx-auto pt-2"
               >
                 &larr; Modificar datos o carrito
