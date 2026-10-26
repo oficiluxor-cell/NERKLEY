@@ -37,8 +37,8 @@ export default function WompiCheckoutForm({ orderId }: Props) {
 
       const payment = data as PaymentData;
 
-      // Usamos tu enlace de pago oficial de Wompi como base y le adjuntamos los parámetros de la orden
-      const wompiPaymentLink = `https://checkout.wompi.co/l/VPOS_f57eYA?amount-in-cents=${encodeURIComponent(
+      // Usamos tu enlace de pago oficial de Wompi pasando el parámetro amount o amount-in-cents
+      const wompiPaymentLink = `https://checkout.wompi.co/l/VPOS_f57eYA?amount=${encodeURIComponent(
         payment.amountInCents
       )}&reference=${encodeURIComponent(
         payment.reference
