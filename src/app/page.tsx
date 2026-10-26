@@ -116,12 +116,34 @@ export default function Home() {
     };
   }, [products]);
 
-  const filteredProducts = products.filter((p) => {
-    const matchesCategory = selectedCategory === "Todas" || p.category === selectedCategory;
-    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) || 
-                          (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase().trim()));
-    return matchesCategory && matchesSearch;
-  });
+  const filteredProducts = [...products]
+    .filter((p) => {
+      const matchesCategory = selectedCategory === "Todas" || p.category === selectedCategory;
+      const matchesSearch =
+        p.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase().trim()));
+      return matchesCategory && matchesSearch;
+    })
+    .sort((a, b) => {
+      const priceA = Number(a.sale_price) || 0;
+      const priceB = Number(b.sale_price) || 0;
+
+      if (sortBy === "price-asc") {
+        return priceA - priceB;
+      }
+      if (sortBy === "price-desc") {
+        return priceB - priceA;
+      }
+      if (sortBy === "discount") {
+        const discA = Number(a.discount_percent) || 0;
+        const discB = Number(b.discount_percent) || 0;
+        return discB - discA;
+      }
+      if (sortBy === "name-asc") {
+        return (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" });
+      }
+      return 0;
+    });
 
   return (
     <div className="min-h-screen bg-transparent text-neutral-900 font-sans selection:bg-black selection:text-white flex flex-col relative overflow-hidden">
