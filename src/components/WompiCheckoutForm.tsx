@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Props = {
   orderId: string;
@@ -15,77 +16,88 @@ type PaymentData = {
 };
 
 export default function WompiCheckoutForm({ orderId }: Props) {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [paymentData, setPaymentData] = useState<PaymentData | null>(null);
 
-  async function preparePayment() {
-    setLoading(true);
-    setError("");
+  useEffect(() => {
+    async function fetchSignature() {
+      try {
+        const response = await fetch("/api/wompi-signature", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId }),
+        });
 
-    try {
-      const response = await fetch("/api/wompi-signature", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId }),
-      });
+        const data = await response.json();
 
-      const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "No se pudo obtener la firma de pago.");
+        }
 
-      if (!response.ok) {
-        throw new Error(data.error || "No se pudo preparar el pago.");
+        setPaymentData(data);
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Error al preparar el botón de pago."
+        );
+      } finally {
+        setLoading(false);
       }
-
-      const payment = data as PaymentData;
-
-      // Creamos un formulario POST oculto en el DOM. Wompi exige POST para procesar el Web Checkout seguro con firma.
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = "https://checkout.wompi.co/p/";
-
-      const fields: Record<string, string> = {
-        "public-key": payment.publicKey,
-        currency: payment.currency,
-        "amount-in-cents": String(payment.amountInCents),
-        reference: payment.reference,
-        "signature:integrity": payment.signature,
-      };
-
-      for (const [name, value] of Object.entries(fields)) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = name;
-        input.value = value;
-        form.appendChild(input);
-      }
-
-      document.body.appendChild(form);
-      form.submit();
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Ocurrió un error al preparar el pago."
-      );
-      setLoading(false);
     }
+
+    fetchSignature();
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!paymentData) return;
+
+    // Limpiamos cualquier botón previo si existiera
+    const container = document.getElementById("wompi-button-container");
+    if (container) {
+      container.innerHTML = "";
+
+      // Creamos el formulario y el script oficial del botón de Wompi
+      const form = document.createElement("form");
+
+      const script = document.createElement("script");
+      script.src = "https://checkout.wompi.co/widget.js";
+      script.setAttribute("data-public-key", paymentData.publicKey);
+      script.setAttribute("data-currency", paymentData.currency);
+      script.setAttribute("data-amount-in-cents", String(paymentData.amountInCents));
+      script.setAttribute("data-reference", paymentData.reference);
+      script.setAttribute("data-signature:integrity", paymentData.signature);
+      script.setAttribute("data-redirect-url", window.location.origin + "/success");
+
+      form.appendChild(script);
+      container.appendChild(form);
+    }
+  }, [paymentData]);
+
+  if (loading) {
+    return (
+      <div className="py-6 text-center">
+        <p className="text-xs uppercase tracking-widest text-neutral-500 animate-pulse">
+          Generando botón de pago seguro...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p role="alert" className="text-xs text-red-600 font-semibold text-center">
+        {error}
+      </p>
+    );
   }
 
   return (
-    <div className="w-full space-y-3">
-      <button
-        type="button"
-        onClick={preparePayment}
-        disabled={loading}
-        className="w-full bg-black text-white py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-800 transition-all shadow-md cursor-pointer disabled:opacity-50"
-      >
-        {loading ? "Preparando pago seguro..." : "Proceder al Pago con Wompi"}
-      </button>
-
-      {error && (
-        <p role="alert" className="text-xs text-red-600 font-semibold text-center">
-          {error}
-        </p>
-      )}
+    <div className="w-full flex flex-col items-center justify-center space-y-3 py-2">
+      {/* Contenedor donde Wompi inyectará su botón oficial nativo */}
+      <div id="wompi-button-container" className="w-full flex justify-center"></div>
+      <p className="text-[9px] text-neutral-400 uppercase tracking-widest text-center">
+        Pasarela oficial Wompi &bull; Transacción cifrada
+      </p>
     </div>
   );
 }
