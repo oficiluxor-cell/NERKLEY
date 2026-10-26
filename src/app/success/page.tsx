@@ -138,7 +138,7 @@ function SuccessContent() {
       </main>
 
       <footer className="border-t border-neutral-200 py-8 text-center text-xs text-neutral-400 uppercase tracking-widest bg-white">
-        &copy; {new Date().getFullYear()} NERKLEY STORES. Todos los derechos reservados.
+        &copy; 2026 NERKLEY STORES. Todos los derechos reservados.
       </footer>
     </div>
   );

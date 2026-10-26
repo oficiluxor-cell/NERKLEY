@@ -534,7 +534,7 @@ export default function Home() {
             <span>Tarjetas</span>
           </div>
           <p className="text-[8px] md:text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
-            &copy; {new Date().getFullYear()} NERKLEY CONCEPTS. Todos los derechos reservados.
+            &copy; 2026 NERKLEY CONCEPTS. Todos los derechos reservados.
           </p>
         </div>
       </footer>
