@@ -5,7 +5,6 @@ type Props = {
 };
 
 export default function WompiCheckoutForm({ orderId }: Props) {
-  // Puedes usar tu enlace genérico oficial de Wompi aquí
   const wompiLink = "https://checkout.wompi.co/l/VPOS_f57eYA";
 
   return (
