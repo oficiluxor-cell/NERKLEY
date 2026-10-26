@@ -188,11 +188,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       city: formData.city,
       address: formData.address,
       notes: `Ref Pago: ${uniqueRef}\n${formData.notes}`,
-      status: "pending", // Importante que sea "pending" tal cual pide la validación del servidor
+      status: "pending",
     };
 
     try {
-      // Hacemos el insert devolviendo el registro creado para capturar su ID de Supabase
       const { data, error } = await supabase
         .from("orders")
         .insert([pendingOrderData])
@@ -207,9 +206,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
       localStorage.setItem("NERKLEY_client_email", formData.email);
       fetchCustomerOrders(formData.email);
-    } catch (err) {
-      console.error("Error guardando orden en Supabase:", err);
-      alert("Hubo un error al registrar tu pedido. Inténtalo de nuevo.");
+    } catch (err: any) {
+      console.error("Error detallado en Supabase:", err);
+      alert("Error Supabase: " + (err.message || JSON.stringify(err)));
     } finally {
       setSubmitting(false);
     }
@@ -357,7 +356,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
           ) : createdOrderId ? (
-            /* SECCIÓN QUE APARECE AUTOMÁTICAMENTE UNA VEZ GUARDADO EL PEDIDO PARA PAGAR CON SEGURIDAD */
             <div className="py-8 text-center space-y-6">
               <div className="w-16 h-16 bg-emerald-100 text-emerald-800 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
                 ✓
@@ -368,7 +366,6 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 <p className="text-xl font-bold text-black mt-2">$ {cartTotal.toLocaleString()} COP</p>
               </div>
 
-              {/* Aquí cargamos el componente seguro que genera la firma en el servidor */}
               <WompiCheckoutForm orderId={createdOrderId} />
 
               <button
