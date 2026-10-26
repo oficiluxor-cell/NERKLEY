@@ -12,7 +12,10 @@ export async function POST(request: Request) {
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    const integritySecret = process.env.WOMPI_INTEGRITY_SECRET || "prod_integrity_CNGPJNqACancGJISOqQ1YsSwNxnx9M7l";
+    let integritySecret = process.env.WOMPI_INTEGRITY_SECRET?.trim();
+    if (!integritySecret || integritySecret.includes("GJI5") || integritySecret.endsWith("9M71")) {
+      integritySecret = "prod_integrity_CNGPJNqACancGJISOqQ1YsSwNxnx9M7l";
+    }
     const publicKey = process.env.WOMPI_PUBLIC_KEY || process.env.NEXT_PUBLIC_WOMPI_PUBLIC_KEY;
 
     if (!supabaseUrl || !serviceRoleKey || !integritySecret || !publicKey) {
