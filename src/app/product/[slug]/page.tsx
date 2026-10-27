@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import ProductReviewsSection from "@/components/ProductReviewsSection";
+import { getProductReviews } from "@/data/productReviews";
 
 interface Product {
   id: string;
@@ -273,7 +274,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   {"★★★★★"}
                 </div>
                 <span className="text-[11px] text-neutral-300 font-medium group-hover:text-amber-300 transition-colors underline decoration-white/20">
-                  4.9 / 5.0 (Opiniones verificadas)
+                  {(() => { const s = getProductReviews(product.name, product.category, product.slug); return `${s.averageRating} / 5.0 (${s.totalReviews} opiniones verificadas)`; })()}
                 </span>
                 <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
                   <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
