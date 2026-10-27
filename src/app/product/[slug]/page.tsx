@@ -36,7 +36,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(true);
 
-  const { addToCart, cartCount, setIsCartOpen } = useCart();
+  const { addToCart, cartCount, setIsCartOpen, openWarrantyModal } = useCart();
 
   useEffect(() => {
     async function fetchProduct() {

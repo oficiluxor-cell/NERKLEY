@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import ShippingWarrantyModal, { WarrantyTab } from "@/components/ShippingWarrantyModal";
 import WompiCheckoutForm from "../components/WompiCheckoutForm";
 
 interface CartItem {
@@ -52,6 +53,11 @@ interface CartContextType {
   formData: any;
   handleInputChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void;
   createdOrderId: string | null;
+  isWarrantyOpen: boolean;
+  setIsWarrantyOpen: (isOpen: boolean) => void;
+  warrantyTab: WarrantyTab;
+  setWarrantyTab: (tab: WarrantyTab) => void;
+  openWarrantyModal: (tab?: WarrantyTab) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -61,6 +67,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isOrdersOpen, setIsOrdersOpen] = useState(false);
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
+  const [isWarrantyOpen, setIsWarrantyOpen] = useState(false);
+  const [warrantyTab, setWarrantyTab] = useState<WarrantyTab>("shipping");
+
+  const openWarrantyModal = (tab: WarrantyTab = "shipping") => {
+    setWarrantyTab(tab);
+    setIsWarrantyOpen(true);
+  };
+
+  useEffect(() => {
+    const handleOpenEvent = (e: any) => {
+      const tab = e.detail?.tab || "shipping";
+      openWarrantyModal(tab);
+    };
+    window.addEventListener("open-shipping-modal", handleOpenEvent);
+    return () => window.removeEventListener("open-shipping-modal", handleOpenEvent);
+  }, []);
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -220,6 +242,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartItems, addToCart, removeFromCart, updateQuantity, 
         cartCount, cartTotal, isCartOpen, setIsCartOpen, 
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
+        isWarrantyOpen, setIsWarrantyOpen, warrantyTab, setWarrantyTab, openWarrantyModal,
         handleCheckout, submitting, formData, handleInputChange, createdOrderId
       }}
     >
@@ -464,6 +487,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
           )}
         </div>
       </div>
+      {/* MODAL DE GARANTÍAS Y ENVÍOS OFICIAL */}
+      <ShippingWarrantyModal
+        isOpen={isWarrantyOpen}
+        onClose={() => setIsWarrantyOpen(false)}
+        defaultTab={warrantyTab}
+      />
     </CartContext.Provider>
   );
 }

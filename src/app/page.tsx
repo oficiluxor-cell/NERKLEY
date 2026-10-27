@@ -33,7 +33,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<string>("featured");
   const [loading, setLoading] = useState(true);
   
-  const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart } = useCart();
+  const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart, openWarrantyModal } = useCart();
 
   const announcements = [
     "🚀 Envíos Asegurados a todo el país (Colombia)",
@@ -184,13 +184,26 @@ export default function Home() {
               Catálogo
               <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
             </a>
-            <a href="#garantias" className="hover:text-white transition-colors py-1 relative group">
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="hover:text-white transition-colors py-1 relative group cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-neutral-400"
+            >
               Garantía & Envíos
               <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
-            </a>
+            </button>
           </nav>
 
           <div className="flex items-center gap-2 md:gap-3">
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="md:hidden bg-white/5 backdrop-blur-md border border-white/15 text-neutral-200 px-2.5 py-2 text-[10px] uppercase tracking-wider hover:bg-white/10 hover:text-white transition-all font-semibold cursor-pointer flex items-center gap-1"
+              title="Garantía & Envíos"
+            >
+              <span>🚚</span>
+              <span className="hidden xs:inline">Envíos</span>
+            </button>
             <button 
               onClick={() => setIsOrdersOpen(true)}
               className="bg-white/5 backdrop-blur-md border border-white/15 text-neutral-200 px-3 md:px-4 py-2 md:py-2.5 text-[10px] md:text-xs uppercase tracking-[0.2em] hover:bg-white/10 hover:border-white/30 hover:text-white transition-all font-semibold cursor-pointer"
@@ -250,36 +263,119 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BARRA DE GARANTÍA Y CONFIANZA */}
+      {/* BARRA DE GARANTÍA Y CONFIANZA INTERACTIVA */}
       <section id="garantias" className="border-b border-white/10 bg-[#0e0e12] py-8 px-4 md:px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center md:text-left">
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
-            <span className="text-2xl">🛡️</span>
-            <div>
-              <h4 className="text-[11px] uppercase tracking-wider font-bold text-white">Calidad Seleccionada</h4>
-              <p className="text-[10px] text-neutral-400 mt-0.5">Artículos originales y acabados premium verificados.</p>
-            </div>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("warranty")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🛡️
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                    Calidad Seleccionada
+                  </h4>
+                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Artículos originales, batch codes y acabados premium verificados.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
+                  Ver protocolo &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🚚
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                    Envíos a Colombia
+                  </h4>
+                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  4 a 7 días hábiles con guía oficial y empaque blindado asegurado.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
+                  Ver tiempos &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("payments")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                💳
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                    Pagos Seguros Wompi
+                  </h4>
+                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Nequi, Bancolombia, PSE y Tarjetas con cifrado bancario seguro.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
+                  Ver métodos &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("returns")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+            >
+              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🔄
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                    Cambios & Soporte
+                  </h4>
+                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
+                </div>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Garantía por avería de transporte y cambios directos en 5 días.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
+                  Ver políticas &rarr;
+                </span>
+              </div>
+            </button>
           </div>
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
-            <span className="text-2xl">🚚</span>
-            <div>
-              <h4 className="text-[11px] uppercase tracking-wider font-bold text-white">Envíos a Colombia</h4>
-              <p className="text-[10px] text-neutral-400 mt-0.5">Despacho seguro con guía y empaque blindado.</p>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
-            <span className="text-2xl">💳</span>
-            <div>
-              <h4 className="text-[11px] uppercase tracking-wider font-bold text-white">Pagos Seguros Wompi</h4>
-              <p className="text-[10px] text-neutral-400 mt-0.5">Bancolombia, Nequi, PSE y Tarjetas con cifrado bancario.</p>
-            </div>
-          </div>
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-3">
-            <span className="text-2xl">💬</span>
-            <div>
-              <h4 className="text-[11px] uppercase tracking-wider font-bold text-white">Atención Personalizada</h4>
-              <p className="text-[10px] text-neutral-400 mt-0.5">Acompañamiento y soporte directo en cada pedido.</p>
-            </div>
+
+          <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-center sm:text-left">
+            <span className="text-[11px] text-neutral-400">
+              🔒 Compras protegidas con póliza de transporte y verificación individual de producto.
+            </span>
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1 cursor-pointer mx-auto sm:mx-0"
+            >
+              <span>Conoce todas las políticas de garantía, envíos y devoluciones</span>
+              <span>&rarr;</span>
+            </button>
           </div>
         </div>
       </section>
