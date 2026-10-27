@@ -36,7 +36,7 @@ export default function LogosPreviewPage() {
       id: "option_b",
       title: "Opción 5: Escudo Hexagonal de Titanio & Oro",
       desc: "Escudo con silueta N inscrita, estilo sello de garantía y autenticidad.",
-      badge: "SELLO DE CALIDAD 1.1",
+      badge: "SELLO DE ALTA GAMA",
       file: "/nerkley_logo_option_b_1793073128352.jpg",
     },
     {

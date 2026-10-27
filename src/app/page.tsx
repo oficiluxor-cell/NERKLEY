@@ -174,7 +174,7 @@ export default function Home() {
                 NERKLEY
               </span>
               <span className="text-[7px] md:text-[9px] uppercase tracking-[0.35em] text-amber-400/90 font-sans mt-0.5 font-semibold">
-                Online Store &bull; 1.1 Top
+                Online Store &bull; Luxury Edition
               </span>
             </div>
           </Link>

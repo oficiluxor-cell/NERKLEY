@@ -98,7 +98,7 @@ function getWelcomeMessage(currentProduct?: ProductContext): string {
     case "footwear":
       return `¡Hola! 👋 Veo que estás interesado en los sneakers **${currentProduct.name}** (${priceFormatted}).\n\n¿Deseas saber sobre las tallas de calzado disponibles (${currentProduct.sizes || "38 a 43"}), guía de horma (si viene exacta), tiempos de envío o medios de pago?`;
     case "clothing":
-      return `¡Hola! 👋 Veo que estás interesado en la prenda **${currentProduct.name}** (${priceFormatted}).\n\n¿Tienes alguna duda sobre tallas disponibles (${currentProduct.sizes || "S, M, L, XL"}), tipo de tela/confección 1.1 Top, tiempos de entrega o medios de pago?`;
+      return `¡Hola! 👋 Veo que estás interesado en la prenda **${currentProduct.name}** (${priceFormatted}).\n\n¿Tienes alguna duda sobre tallas disponibles (${currentProduct.sizes || "S, M, L, XL"}), calidad del tejido o acabados, tiempos de entrega o medios de pago?`;
     case "cap":
       return `¡Hola! 👋 Veo que estás interesado en la gorra **${currentProduct.name}** (${priceFormatted}).\n\n¿Tienes alguna duda sobre el ajuste (${currentProduct.sizes || "Talla única ajustable con broche"}), materiales o tiempos de envío?`;
     case "jewelry":

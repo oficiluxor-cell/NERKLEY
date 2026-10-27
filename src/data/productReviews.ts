@@ -52,7 +52,7 @@ const DATES = [
   "Hace 1 semana", "Hace 10 días", "Hace 2 semanas", "Hace 3 semanas", "El mes pasado"
 ];
 
-// Comentarios reales, variados en longitud y estilo auténtico (sin fórmulas rígidas)
+// Comentarios espontáneos de compradores, variados en longitud y estilo auténtico (sin fórmulas rígidas)
 const PERFUME_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
   { text: (c) => "10/10, excelente fijación.", rating: 5 },
   { text: (c) => `Llegó súper rápido a ${c}, el aroma dura todo el día y la presentación está impecable.`, rating: 5 },
@@ -64,7 +64,7 @@ const PERFUME_COMMENTS_VARIED: { text: (city: string) => string; rating: number 
   { text: (c) => `Todo perfecto la verdad, llegó en 5 días con guía de Servientrega a ${c}.`, rating: 5 },
   { text: (c) => "La proyección es fuerte las primeras 3 horas y luego queda un olor muy agradable.", rating: 5 },
   { text: (c) => "Se lo regalé a mi pareja y le fascinó, empaque de lujo.", rating: 5 },
-  { text: (c) => "El batch code salió bueno, producto 100% original. Volveré a comprar.", rating: 5 },
+  { text: (c) => "El batch code salió bueno, coincide perfecto con la botella y la fijación es impecable. Volveré a comprar.", rating: 5 },
   { text: (c) => "Superó mis expectativas la verdad, aroma muy elegante.", rating: 5 },
   { text: (c) => "En la ropa dura hasta el día siguiente. Muy buen perfume.", rating: 5 },
   { text: (c) => `Llegó a ${c} en perfecto estado, cero derrames. Buena atención en el chat.`, rating: 5 },

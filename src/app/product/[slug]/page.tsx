@@ -274,11 +274,11 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   {"★★★★★"}
                 </div>
                 <span className="text-[11px] text-neutral-300 font-medium group-hover:text-amber-300 transition-colors underline decoration-white/20">
-                  {(() => { const s = getProductReviews(product.name, product.category, product.slug); return `${s.averageRating} / 5.0 (${s.totalReviews} opiniones verificadas)`; })()}
+                  {(() => { const s = getProductReviews(product.name, product.category, product.slug); return `${s.averageRating} / 5.0 (${s.totalReviews} valoraciones)`; })()}
                 </span>
-                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
-                  Compradores satisfechos
+                <span className="text-[9px] bg-emerald-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded font-medium flex items-center gap-1.5">
+                  <span className="w-1 h-1 rounded-full bg-amber-400"></span>
+                  Disponibilidad Exclusiva
                 </span>
               </div>
 
@@ -389,7 +389,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 }}
                 className="w-full mt-3 bg-gradient-to-r from-[#D4AF37]/10 via-[#F3E5AB]/10 to-[#D4AF37]/10 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#E5C158] hover:text-white py-3 px-4 text-xs font-semibold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm group"
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                 <svg className="w-4 h-4 text-[#E5C158] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                 </svg>

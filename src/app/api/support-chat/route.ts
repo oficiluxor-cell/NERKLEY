@@ -12,7 +12,7 @@ const NERKLEY_KNOWLEDGE = {
   concept: "Concept Store de Alto Lujo & Moda Urbana Exclusiva",
   categories: [
     "Perfumería de Autor y Diseñador (100% auténticos y nicho)",
-    "Ropa Urbana & Haute Couture (Calidad 1.1 Top y originales)",
+    "Ropa Urbana & Haute Couture (Edición Exclusiva y Colección Limitada)",
     "Calzado & Sneakers Exclusivos",
     "Gorras de Edición Limitada",
     "Joyería & Oro Laminado / 18k",
@@ -199,7 +199,7 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
       if (pType === "perfume") {
         return `Puedes comprar con total tranquilidad: en **NERKLEY** garantizamos fragancias 100% auténticas, con batch code verificable, frasco íntegro y atomizador sellado.\n\nCada unidad pasa por control de calidad individual antes de salir a despacho. ¿Te gustaría recibir la tuya esta semana?`;
       } else {
-        return `¡Cero preocupaciones! En **NERKLEY** garantizamos la máxima calidad en cada pieza. Nuestras prendas y calzado cuentan con confección 1.1 Top, materiales idénticos a los estándares oficiales internacionales y costuras reforzadas.\n\nCada orden se despacha con sello de seguridad e inspección previa. ¡Te va a fascinar cuando lo abras! 👌`;
+        return `¡Cero preocupaciones! En **NERKLEY** garantizamos la máxima calidad en cada pieza. Nuestras prendas y calzado cuentan con los más altos estándares de confección, materiales de primera línea y costuras reforzadas.\n\nCada orden se despacha con sello de seguridad e inspección previa. ¡Te va a fascinar cuando lo abras! 👌`;
       }
     }
   }
@@ -225,7 +225,7 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
     const list = featured
       .map((p) => `• **${p.name}** — $${Number(p.sale_price).toLocaleString("es-CO")} COP (${p.category})`)
       .join("\n");
-    return `¡Tenemos piezas brutales en tendencia hoy! 🔥\n\nEn **NERKLEY** nos especializamos en:\n💎 **Perfumería de Diseñador & Nicho**\n👕 **Moda Urbana 1.1 Top**\n👟 **Sneakers Exclusivos**\n🧢 **Gorras de Colección**\n👑 **Joyería de Alto Brillo**\n\nAlgunas de nuestras joyas más deseadas hoy:\n${list}\n\n¿Qué tipo de prenda o fragancia estás buscando? ¡Te ayudo a encontrar la perfecta para ti!`;
+    return `¡Tenemos piezas brutales en tendencia hoy! 🔥\n\nEn **NERKLEY** nos especializamos en:\n💎 **Perfumería de Diseñador & Nicho**\n👕 **Moda Urbana & Alta Gama**\n👟 **Sneakers Exclusivos**\n🧢 **Gorras de Colección**\n👑 **Joyería de Alto Brillo**\n\nAlgunas de nuestras joyas más deseadas hoy:\n${list}\n\n¿Qué tipo de prenda o fragancia estás buscando? ¡Te ayudo a encontrar la perfecta para ti!`;
   }
 
   // 6. Saludo

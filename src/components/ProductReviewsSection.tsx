@@ -119,13 +119,13 @@ export default function ProductReviewsSection({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8 border-b border-white/10">
         <div>
           <span className="text-[11px] uppercase tracking-[0.25em] text-amber-400 font-semibold block mb-2">
-            Opiniones de Clientes Reales
+            Reseñas de Clientes
           </span>
           <h2 className="text-2xl md:text-3xl font-serif font-light uppercase tracking-wider text-white">
-            Experiencias Verificadas
+            Experiencias de Compra
           </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            Compradores de toda Colombia que ya recibieron este producto
+            Valoraciones de clientes sobre calidad, fijación y entrega.
           </p>
         </div>
 
@@ -161,7 +161,7 @@ export default function ProductReviewsSection({
           </p>
           <span className="text-[10px] text-emerald-400 flex items-center gap-1.5 mt-2 font-medium bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-            99% de satisfacción de entrega
+            Despacho prioritario asegurado
           </span>
         </div>
 
@@ -323,7 +323,7 @@ export default function ProductReviewsSection({
 
               <div className="flex items-center justify-between pt-2">
                 <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                  🔒 Tu opinión se publicará con la insignia de comprador verificado.
+                  🔒 Tu reseña se publicará tras ser verificada.
                 </span>
 
                 <button

@@ -1398,7 +1398,7 @@ export default function AdminDashboard() {
                   Publicar Nuevo Producto en NERKLEY
                 </h2>
                 <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
-                  Perfumes &bull; Ropa 1.1 &bull; Gorras &bull; Zapatos &bull; Oro
+                  Perfumes &bull; Ropa Selecta &bull; Gorras &bull; Zapatos &bull; Oro
                 </span>
               </div>
 
@@ -1508,7 +1508,7 @@ export default function AdminDashboard() {
                       type="text"
                       value={badge}
                       onChange={(e) => setBadge(e.target.value)}
-                      placeholder="Ej: 100% Original, Edición 1.1 Top, Exclusivo"
+                      placeholder="Ej: Edición Limitada, Exclusivo, Top Ventas"
                       className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
                     />
                   </div>
@@ -1867,7 +1867,7 @@ export default function AdminDashboard() {
                     type="text"
                     value={editForm.badge}
                     onChange={(e) => setEditForm({ ...editForm, badge: e.target.value })}
-                    placeholder="Ej: 100% Original, Edición Limitada, Calidad 1.1"
+                    placeholder="Ej: Edición Limitada, Exclusivo, Top Ventas"
                     className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
                   />
                 </div>

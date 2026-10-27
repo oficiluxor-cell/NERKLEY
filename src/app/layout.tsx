@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: 'NERKLEY | Luxury Online Store',
-  description: 'Concept Store oficial de alta gama: perfumería de autor, moda 1.1, calzado y accesorios exclusivos.',
+  description: 'Concept Store oficial de alta gama: perfumería de autor, moda selecta, calzado y accesorios de lujo.',
   icons: {
     icon: '/logo.svg',
     shortcut: '/logo.svg',
