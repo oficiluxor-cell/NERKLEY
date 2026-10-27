@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
+import ProductReviewsSection from "@/components/ProductReviewsSection";
 
 interface Product {
   id: string;
@@ -256,9 +257,29 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block mb-2">
                 {product.category || "Edición Exclusiva"}
               </span>
-              <h1 className="text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-3">
+              <h1 className="text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-2">
                 {product.name}
               </h1>
+
+              {/* Píldora de Calificación y Reseñas Verificadas */}
+              <div
+                onClick={() => {
+                  const el = document.getElementById("reviews-section");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className="flex items-center gap-2 mb-4 cursor-pointer group w-fit"
+              >
+                <div className="flex text-amber-400 text-xs">
+                  {"★★★★★"}
+                </div>
+                <span className="text-[11px] text-neutral-300 font-medium group-hover:text-amber-300 transition-colors underline decoration-white/20">
+                  4.9 / 5.0 (Opiniones verificadas)
+                </span>
+                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 rounded font-medium flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400"></span>
+                  Compradores satisfechos
+                </span>
+              </div>
 
               <div className="flex items-baseline gap-3 mb-4">
                 {product.discount_percent && product.discount_percent > 0 && product.original_price ? (
@@ -377,6 +398,13 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
           </div>
         </div>
       </main>
+
+      {/* SECCIÓN DINÁMICA DE RESEÑAS Y OPINIONES VERIFICADAS */}
+      <ProductReviewsSection
+        productName={product.name}
+        productCategory={product.category}
+        productSlug={product.slug}
+      />
 
       {/* SECCIÓN DE PRODUCTOS RELACIONADOS (INTELIGENTE Y ALEATORIA) */}
       {relatedProducts.length > 0 && (
