@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Fondo gradiente obsidiana profunda -->
+    <radialGradient id="bgGlow" cx="50%" cy="40%" r="65%">
+      <stop offset="0%" stop-color="#181820"/>
+      <stop offset="60%" stop-color="#0c0c0f"/>
+      <stop offset="100%" stop-color="#050507"/>
+    </radialGradient>
+
+    <!-- Gradiente Oro Líquido 24k -->
+    <linearGradient id="goldGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF2B2"/>
+      <stop offset="25%" stop-color="#E5C158"/>
+      <stop offset="50%" stop-color="#C59B27"/>
+      <stop offset="75%" stop-color="#E9CB6E"/>
+      <stop offset="100%" stop-color="#9A7412"/>
+    </linearGradient>
+
+    <!-- Gradiente Oro Platino / Acento -->
+    <linearGradient id="goldAccent" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF"/>
+      <stop offset="30%" stop-color="#FCE182"/>
+      <stop offset="70%" stop-color="#B88A1A"/>
+      <stop offset="100%" stop-color="#70500A"/>
+    </linearGradient>
+
+    <!-- Sombra de profundidad -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.85"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#E5C158" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Base redonda estilo Play Store (Squircle/App Icon estándar 512x512) -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGlow)"/>
+  
+  <!-- Borde exterior sutil de titanio pulido -->
+  <rect width="508" height="508" x="2" y="2" rx="110" fill="none" stroke="url(#goldGradient)" stroke-width="1.5" stroke-opacity="0.4"/>
+
+  <!-- Emblema Geométrico Central: La 'N' Monograma Arquitectónica -->
+  <g filter="url(#shadow)" transform="translate(256, 256)">
+    <!-- Columna Izquierda 'N' (Corte facetado diamante) -->
+    <path d="M -115 -140 L -60 -140 L -60 140 L -115 140 Z" fill="url(#goldGradient)"/>
+    
+    <!-- Diagonal Central 'N' (Corte dinámico angular y biselado) -->
+    <path d="M -60 -140 L -10 -140 L 60 140 L 10 140 Z" fill="url(#goldAccent)"/>
+
+    <!-- Columna Derecha 'N' (Corte facetado diamante con remate superior estilizado) -->
+    <path d="M 60 -140 L 115 -140 L 115 140 L 60 140 Z" fill="url(#goldGradient)"/>
+
+    <!-- Joya / Faceta de Destello Superior -->
+    <polygon points="0,-165 14,-145 0,-125 -14,-145" fill="#FFFFFF" opacity="0.9"/>
+  </g>
+
+  <!-- Tipografía sutil inferior de marca para iconografía institucional -->
+  <text x="256" y="445" font-family="'Cinzel', 'Trajan Pro', 'Didot', 'Cinzel Decorative', 'Georgia', serif" font-size="34" font-weight="900" fill="url(#goldGradient)" letter-spacing="12" text-anchor="middle">
+    NERKLEY
+  </text>
+  <text x="256" y="468" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#888899" letter-spacing="6" text-anchor="middle">
+    CONCEPTS
+  </text>
+</svg>
