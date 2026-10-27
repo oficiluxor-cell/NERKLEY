@@ -4,6 +4,7 @@ import { useEffect, useState, use, Suspense } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
+import AIChatSupport from "@/components/AIChatSupport";
 
 interface Product {
   id: string;
@@ -357,6 +358,21 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               >
                 {product.stock > 0 ? "Añadir al Carrito & Pagar" : "Producto Agotado"}
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(new CustomEvent("open-ai-chat"));
+                  }
+                }}
+                className="w-full mt-3 bg-gradient-to-r from-[#D4AF37]/10 via-[#F3E5AB]/10 to-[#D4AF37]/10 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#E5C158] hover:text-white py-3 px-4 text-xs font-semibold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm group"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <svg className="w-4 h-4 text-[#E5C158] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                ¿Dudas? Preguntar a la IA sobre este producto
+              </button>
             </div>
           </div>
         </div>
@@ -456,6 +472,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         </section>
       )}
 
+      <AIChatSupport currentProduct={product || undefined} />
       <footer className="border-t border-white/10 py-8 text-center text-xs text-neutral-400 uppercase tracking-widest bg-[#111115] mt-auto">
         &copy; 2026 NERKLEY STORES. Todos los derechos reservados.
       </footer>

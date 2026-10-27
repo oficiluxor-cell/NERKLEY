@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
+import AIChatSupport from "@/components/AIChatSupport";
 
 interface Product {
   id: string;
@@ -554,6 +555,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* ASISTENTE VIRTUAL IA DE VENTAS 24/7 */}
+      <AIChatSupport />
     </div>
   );
 }
