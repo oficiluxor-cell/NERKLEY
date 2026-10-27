@@ -19,9 +19,9 @@ const NERKLEY_KNOWLEDGE = {
   ],
   shipping: {
     coverage: "Envíos asegurados a toda Colombia (ciudades principales y municipios).",
-    time: "De 2 a 4 días hábiles dependiendo de la ciudad (ciudades principales como Medellín, Bogotá, Cali y Barranquilla suelen llegar en 24-48 horas).",
+    time: "De 5 a 8 días hábiles a nivel nacional (ciudades principales de 4 a 7 días hábiles). Cada producto pasa por un estricto protocolo de inspección individual de calidad, autenticidad y embalaje blindado de lote antes del despacho para garantizar su estado óptimo.",
     carriers: "Interrapidísimo, Servientrega, Envía y Coordinadora con número de guía oficial.",
-    cost: "Envío rápido y seguro.",
+    cost: "Envío asegurado con seguimiento y guía oficial.",
   },
   payments: {
     methods: "Bancolombia, Nequi, PSE, Tarjetas de Crédito/Débito y Daviplata.",
@@ -86,9 +86,10 @@ ${productCatalogText}
 
 REGLAS DE ORO:
 1. Recomienda siempre productos que estén en el catálogo anterior con sus precios en COP.
-2. Si el cliente pregunta cómo comprar, indícale que agregue el producto al carrito ("Agregar al Carrito") y presione "Proceder al Pago Seguro", donde la pasarela oficial Wompi le permitirá pagar al instante con Nequi, Bancolombia o tarjeta.
-3. Si el cliente pregunta si es seguro, confirma que los pagos están 100% protegidos por Bancolombia / Wompi con cifrado SHA-256.
-4. Mantén las respuestas concisas (máximo 2 a 3 párrafos cortos) para que sea rápido de leer en el celular.`;
+2. POLÍTICA DE ENVÍOS Y TIEMPOS (MUY IMPORTANTE): NUNCA digas que llega en 24 o 48 horas. Vende la experiencia de exclusividad: Explica que en NERKLEY cada pieza pasa por un riguroso protocolo de inspección individual de autenticidad, verificación de lote y empaque blindado de protección (1 a 3 días hábiles) antes de ser entregado a la transportadora (3 a 5 días hábiles en ruta). El tiempo total estimado de entrega es de 5 a 8 días hábiles a nivel nacional (4 a 7 días hábiles en ciudades principales). Esto le asegura al cliente un artículo nuevo, verificado y 100% perfecto con guía de rastreo oficial.
+3. Si el cliente pregunta cómo comprar, indícale que agregue el producto al carrito ("Agregar al Carrito") y presione "Proceder al Pago Seguro", donde la pasarela oficial Wompi le permitirá pagar al instante con Nequi, Bancolombia o tarjeta.
+4. Si el cliente pregunta si es seguro, confirma que los pagos están 100% protegidos por Bancolombia / Wompi con cifrado SHA-256.
+5. Mantén las respuestas concisas (máximo 2 a 3 párrafos cortos) para que sea rápido y persuasivo de leer en el celular.`;
 }
 
 // Motor de Inteligencia Asistente Local con fallback inteligente
@@ -120,8 +121,8 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
   }
 
   // 2. Preguntas sobre Envíos y Tiempos de Entrega
-  if (msg.includes("envio") || msg.includes("envío") || msg.includes("cuanto tarda") || msg.includes("tiempo") || msg.includes("llega") || msg.includes("ciudad")) {
-    return `📦 **Tiempos y Métodos de Envío NERKLEY:**\n\n• **Cobertura:** Despachamos a toda Colombia a través de *Interrapidísimo, Servientrega, Envía y Coordinadora*.\n• **Tiempos de entrega:** De **2 a 4 días hábiles** (ciudades principales como Medellín, Bogotá, Cali y Barranquilla suelen recibir en 24 a 48 horas).\n• **Rastreo:** Una vez confirmado tu pago, en tu sección de *"Mis Pedidos"* podrás ver tu número de guía oficial para rastrear tu paquete en tiempo real.`;
+  if (msg.includes("envio") || msg.includes("envío") || msg.includes("cuanto tarda") || msg.includes("tiempo") || msg.includes("llega") || msg.includes("ciudad") || msg.includes("tarda") || msg.includes("demora")) {
+    return `📦 **Protocolo de Envío & Tiempos de Entrega NERKLEY:**\n\nEn NERKLEY cada pieza pasa por un proceso de curaduría selecta para garantizar que recibas un producto 100% impecable:\n\n• **Fase 1 - Inspección & Embalaje de Seguridad:** (1 a 3 días hábiles) Verificación individual de autenticidad, acabados y sellado térmico de fábrica.\n• **Fase 2 - Tránsito Nacional Prioritario:** (3 a 5 días hábiles) Despacho directo asegurado con *Interrapidísimo, Servientrega o Coordinadora*.\n\n⏱ **Tiempo estimado total:** De **5 a 8 días hábiles** a nivel nacional (ciudades principales como Bogotá, Medellín, Cali y Barranquilla suelen tardar entre **4 y 7 días hábiles**).\n\n🔍 **Guía de Rastreo:** En cuanto tu lote sale a ruta, te notificamos con tu número de guía oficial para que sigas el estado de entrega en tiempo real.`;
   }
 
   // 3. Preguntas sobre Métodos de Pago

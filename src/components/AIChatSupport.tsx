@@ -123,7 +123,7 @@ export default function AIChatSupport({ currentProduct }: Props) {
           id: `ai-err-${Date.now()}`,
           role: "assistant",
           content:
-            "En NERKLEY contamos con envíos asegurados a toda Colombia (2-4 días) y pagos 100% blindados con Wompi (Nequi, Bancolombia, PSE o Tarjetas). ¿Qué duda tienes sobre tu compra?",
+            "En NERKLEY contamos con envíos asegurados a toda Colombia (5 a 8 días hábiles con inspección individual de calidad) y pagos 100% blindados con Wompi (Nequi, Bancolombia, PSE o Tarjetas). ¿Qué duda tienes sobre tu compra?",
           time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         },
       ]);

@@ -144,7 +144,7 @@ function SuccessContent() {
 
           <p className="text-sm text-neutral-300 leading-relaxed bg-white/5 p-4 border border-white/5">
             Tu pago ha sido procesado exitosamente por Wompi y tu pedido ha pasado a estado{" "}
-            <span className="font-bold text-emerald-400 uppercase">Pagado / En Preparación</span>. En breve prepararemos tu envío y te compartiremos tu guía de despacho.
+            <span className="font-bold text-emerald-400 uppercase">Pagado / En Preparación</span>. Tu orden entra ahora a nuestro protocolo de inspección de calidad y empaque exclusivo, con un tiempo estimado de entrega de 5 a 8 días hábiles. En breve te compartiremos tu guía oficial de rastreo.
           </p>
 
           {transactionId && (
