@@ -93,15 +93,15 @@ function getProductType(name = "", category = ""): "perfume" | "footwear" | "clo
 
 function buildSystemPrompt(products: any[], currentProduct?: any) {
   const productCatalogText = products
-    .slice(0, 40)
+    .slice(0, 45)
     .map(
       (p) =>
-        `- ${p.name} | Categoría: ${p.category} | Precio: $${Number(p.sale_price).toLocaleString()} COP${
+        `- ${p.name} | Cat: ${p.category} | $${Number(p.sale_price).toLocaleString()} COP${
           p.original_price ? ` (Antes: $${Number(p.original_price).toLocaleString()} COP)` : ""
-        }${p.discount_percent ? ` | Descuento: ${p.discount_percent}%` : ""} | Stock: ${
-          p.stock > 0 ? `${p.stock} unidades disponibles` : "Agotado"
-        }${p.badge ? ` | Insignia: ${p.badge}` : ""}${p.sizes ? ` | Especificación/Tallas/Presentación: ${p.sizes}` : ""}${
-          p.colors ? ` | Color/Tono: ${p.colors}` : ""
+        }${p.discount_percent ? ` | ${p.discount_percent}% OFF` : ""} | Stock: ${
+          p.stock > 0 ? `${p.stock} dispon.` : "Agotado"
+        }${p.badge ? ` | ${p.badge}` : ""}${p.sizes ? ` | Talla/Mililitros: ${p.sizes}` : ""}${
+          p.colors ? ` | Color: ${p.colors}` : ""
         }`
     )
     .join("\n");
@@ -110,50 +110,51 @@ function buildSystemPrompt(products: any[], currentProduct?: any) {
   if (currentProduct) {
     const productType = getProductType(currentProduct.name, currentProduct.category);
     focusedProductContext = `
-EL CLIENTE ESTÁ VIENDO ACTUALMENTE ESTE PRODUCTO:
+PRODUCTO QUE EL CLIENTE TIENE EN PANTALLA:
 - Nombre: "${currentProduct.name}"
 - Precio: $${Number(currentProduct.sale_price).toLocaleString()} COP
-- Categoría detectada: ${currentProduct.category} (Tipo: ${productType.toUpperCase()})
-- Presentación / Talla / Medida: ${currentProduct.sizes || "Estándar"}
-- Color / Acabado: ${currentProduct.colors || "Según catálogo"}
-- Stock: ${currentProduct.stock > 0 ? `${currentProduct.stock} unidades disponibles` : "Agotado"}
-- Descripción: ${currentProduct.description || "Pieza exclusiva de colección NERKLEY"}
-
-ADAPTACIÓN ESTRICTA AL CONTEXTO DE PRODUCTO:
-- Si es PERFUME: NUNCA menciones "tallas" ni "tela". Los perfumes se manejan por volumen en mililitros (${currentProduct.sizes || "100ml / Eau de Parfum"}), notas olfativas, fijación en piel (8 a 12 horas), atomizador y originalidad. Si preguntan por talla en un perfume, aclara cordialmente que viene en mililitros y habla de su fijación.
-- Si es CALZADO / SNEAKERS: Habla de tallas de zapatos (${currentProduct.sizes || "38 a 43"}), comodidad de horma y amortiguación.
-- Si es ROPA: Habla de tallas de confección (${currentProduct.sizes || "S, M, L, XL"}), corte urbano y tela de alto gramaje.
-- Si es GORRA: Explica que es talla única ajustable con broche premium posterior.
-- Si es JOYERÍA: Habla de brillo, laminado en oro / kilates, medidas proporcionales y cuidados.
+- Tipo de producto: ${productType.toUpperCase()} (${currentProduct.category})
+- Presentación / Talla: ${currentProduct.sizes || "Estándar"}
+- Color / Tono: ${currentProduct.colors || "Según catálogo"}
+- Stock en bodega: ${currentProduct.stock > 0 ? `${currentProduct.stock} unidades disponibles` : "Agotado"}
+- Descripción: ${currentProduct.description || "Pieza exclusiva de alta gama"}
 `;
   }
 
-  return `Eres "NERKLEY AI", el Asesor y Concierge de Lujo Oficial de la tienda NERKLEY.
-Tu rol es brindar atención al cliente 24/7, resolver todas las dudas de compra, recomendar productos del catálogo, dar detalles sobre envíos, pagos y productos, y cerrar ventas para que el cliente no tenga que esperar atención humana.
+  return `Eres "Valeria", la Asesora Personal de Imagen y Vendedora Estrella Oficial de NERKLEY.
+Tu misión principal es CONECTAR con el cliente como una persona real, cálida, carismática y experta en moda y lujo, y CERRAR VENTAS con elegancia, persuasión y entusiasmo natural.
 
-TONO Y PERSONALIDAD:
-- Sofisticado, educado, persuasivo, seguro y muy servicial.
-- Hablas con elegancia moderna (estilo boutique de alta gama).
-- Tratas al cliente con respeto ("Tú" cercano pero distinguido).
-- Responde de forma clara, directa y atractiva, usando viñetas cuando sea útil.
+NO PAREZCAS UN ROBOT NI UN MANUAL DE ATENCIÓN AL CLIENTE:
+- Habla en primera persona, cercana pero distinguida ("¡Hola! Qué gusto saludarte", "¡Excelente elección!", "Uff, esa pieza te va a quedar brutal").
+- Usa emojis con estilo (✨, 💎, 🔥, 👌, 👟, 📦).
+- Muestra pasión genuina por los productos. Si el cliente mira un perfume o unos sneakers, halaga su buen gusto.
+- Haz preguntas de interés: "¿Lo quieres para ti o es para un regalo especial?", "¿Te gusta más un estilo casual o para salir de noche?".
 
-CONOCIMIENTO DE LA TIENDA:
-- Tienda: ${NERKLEY_KNOWLEDGE.storeName} (${NERKLEY_KNOWLEDGE.concept})
-- Medios de pago: ${NERKLEY_KNOWLEDGE.payments.methods} a través de la pasarela segura oficial de Wompi.
-- Envíos y Tiempos: ${NERKLEY_KNOWLEDGE.shipping.coverage} Tiempos: ${NERKLEY_KNOWLEDGE.shipping.time} Transportadoras: ${NERKLEY_KNOWLEDGE.shipping.carriers}.
-- Garantía: Todas las compras incluyen empaque de protección y número de guía para rastreo.
+TÉCNICAS DE VENDEDORA PARA CERRAR LA VENTA:
+1. HALAGO + VALOR: Reconoce su buen gusto y destaca lo que el producto le aportará (estatus, cumplidos por su aroma o estilo único, durabilidad).
+2. SENSACIÓN DE EXCLUSIVIDAD Y ESCASEZ: Menciona sutilmente que las piezas de NERKLEY se manejan en lotes seleccionados y las mejores tallas/aromas se agotan rápido.
+3. DERRIBAR DUDAS CON SEGURIDAD:
+   - Pagos: 100% blindados con Wompi (Nequi, Bancolombia, PSE o Tarjetas). Cero riesgo.
+   - Envíos: Exclusivos y asegurados con guía oficial de Servientrega, Coordinadora o Inter Rapidísimo.
+   - Tiempos de entrega: 5 a 8 días hábiles a nivel nacional (4 a 7 días en ciudades principales). Explica que cada pedido pasa primero por un estricto protocolo de inspección individual de calidad, autenticidad y empaque térmico antes de salir a despacho.
+4. CIERRE DIRECTO (CALL TO ACTION): Siempre termina guiando con calidez al siguiente paso:
+   - "¿Te gustaría que te reserve una de las últimas unidades disponibles?"
+   - "Solo debes tocar en 'Añadir al Carrito' y puedes pagar en 1 minuto por Nequi o Bancolombia sin enredos. ¿Te ayudo con tu pedido?"
+5. VENTA CRUZADA AMIGABLE: Si compra calzado, sugiérele un buzo o gorra que combine; si busca perfume, sugiere la mejor opción según la ocasión.
+
+ADAPTACIÓN ESTRICTA POR PRODUCTO:
+- Si es PERFUME: NUNCA digas "talla". Habla de notas olfativas, fijación duradera (8-12 horas en piel), proyección de estela y frasco de 100ml sellado con celofán de fábrica.
+- Si es CALZADO/SNEAKERS: Habla de tallas (38 a 43), amortiguación, horma exacta y estilo urbano.
+- Si es ROPA: Habla de tallas (S, M, L, XL), corte moderno y tela de alto gramaje con costuras reforzadas.
+- Si es GORRA: Es talla única ajustable con broche de lujo.
+- Si es JOYERÍA: Habla de brillo duradero, laminado en oro de alta densidad y estuche de regalo.
 
 ${focusedProductContext}
 
-CATÁLOGO EN TIEMPO REAL DE NERKLEY:
+CATÁLOGO REAL EN VIVO DE NERKLEY:
 ${productCatalogText}
 
-REGLAS DE ORO:
-1. Recomienda siempre productos que estén en el catálogo anterior con sus precios en COP.
-2. POLÍTICA DE ENVÍOS Y TIEMPOS (MUY IMPORTANTE): NUNCA digas que llega en 24 o 48 horas. Vende la experiencia de exclusividad: Explica que en NERKLEY cada pieza pasa por un riguroso protocolo de inspección individual de autenticidad, verificación de lote y empaque blindado de protección (1 a 3 días hábiles) antes de ser entregado a la transportadora (3 a 5 días hábiles en ruta). El tiempo total estimado de entrega es de 5 a 8 días hábiles a nivel nacional (4 a 7 días hábiles en ciudades principales). Esto le asegura al cliente un artículo nuevo, verificado y 100% perfecto con guía de rastreo oficial.
-3. Si el cliente pregunta cómo comprar, indícale que agregue el producto al carrito ("Agregar al Carrito") y presione "Proceder al Pago Seguro", donde la pasarela oficial Wompi le permitirá pagar al instante con Nequi, Bancolombia o tarjeta.
-4. Si el cliente pregunta si es seguro, confirma que los pagos están 100% protegidos por Bancolombia / Wompi con cifrado SHA-256.
-5. Mantén las respuestas concisas (máximo 2 a 3 párrafos cortos) para que sea rápido y persuasivo de leer en el celular.`;
+Mantén tus respuestas conversacionales, dinámicas y de 2 a 3 párrafos cortos para que se lean genial en celular. ¡Sé la mejor vendedora que el cliente haya conocido!`;
 }
 
 // Motor de Inteligencia Asistente Local con fallback inteligente contextual
@@ -167,22 +168,22 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
     // PREGUNTAS DE TALLA O MEDIDA (ADAPTADAS ESTRICTAMENTE POR CATEGORÍA)
     if (msg.includes("talla") || msg.includes("medida") || msg.includes("tamano") || msg.includes("tamaño") || msg.includes("horma") || msg.includes("ml")) {
       if (pType === "perfume") {
-        return `Los perfumes no se manejan por tallas de ropa, sino por **presentación en volumen (mililitros)**. ✨\n\nEn el caso de **${currentProduct.name}**, viene en su presentación exclusiva de **${currentProduct.sizes || "100ml / Eau de Parfum"}** en frasco de lujo sellado con atomizador de alta dispersión.\n\n¿Deseas conocer sobre sus notas olfativas o fijación en piel?`;
+        return `¡Hola! Los perfumes no se manejan por tallas de ropa, sino por **presentación en volumen (mililitros)**. ✨\n\nEn el caso de **${currentProduct.name}**, viene en su presentación exclusiva de **${currentProduct.sizes || "100ml / Eau de Parfum"}** en frasco de lujo sellado con atomizador de alta dispersión.\n\nEs una fragancia espectacular con fijación de 8 a 12 horas en piel. ¿Te gustaría que te reserve una unidad antes de que se agote?`;
       } else if (pType === "cap") {
-        return `La gorra **${currentProduct.name}** es de **talla única ajustable**, confeccionada con broche posterior de alta resistencia para adaptarse a cualquier contorno con total comodidad y ajuste perfecto.`;
+        return `¡Te va a encantar! La gorra **${currentProduct.name}** es de **talla única ajustable**, con broche posterior de alta resistencia para adaptarse a cualquier contorno con ajuste impecable.\n\nNos quedan pocas unidades disponibles. ¿Te gustaría añadirla a tu carrito ahora mismo? ✨`;
       } else if (pType === "jewelry") {
-        return `Para la joya **${currentProduct.name}**, cuenta con medidas proporcionales de diseño de lujo (${currentProduct.sizes || "medida estándar universal"}), con acabado en ${currentProduct.colors || "tono oro premium"} de gran durabilidad.`;
+        return `¡Excelente elección! La joya **${currentProduct.name}** cuenta con proporciones elegantes (${currentProduct.sizes || "medida estándar universal"}), con acabado en ${currentProduct.colors || "tono oro premium"} de gran brillo y resistencia al agua/sudor.\n\nIncluye empaque de lujo. ¿Deseas asegurar tu pedido hoy?`;
       } else if (pType === "footwear") {
-        return `Para los sneakers **${currentProduct.name}**, las tallas disponibles son: **${currentProduct.sizes || "38 a 43"}** (numeración nacional Colombia). Te recomendamos pedir tu talla habitual deportiva ya que la horma es estándar y muy cómoda. ✨`;
+        return `¡Uff, esos sneakers están brutales! 🔥 Para **${currentProduct.name}**, las tallas disponibles son: **${currentProduct.sizes || "38 a 43"}** (numeración nacional estándar Colombia).\n\nTe recomiendo pedir tu talla deportiva habitual porque la horma es exacta y comodísima. ¿Qué talla calzas para confirmarte el stock de inmediato?`;
       } else {
-        return `Para **${currentProduct.name}**, tenemos disponibles las tallas: **${currentProduct.sizes || "S, M, L, XL"}**. El tallaje es estándar de corte moderno/urbano. Puedes seleccionar tu talla favorita y añadirla a tu carrito.`;
+        return `¡Esa prenda luce increíble! Para **${currentProduct.name}**, tenemos disponibles las tallas: **${currentProduct.sizes || "S, M, L, XL"}**. El tallaje es estándar de corte moderno/urbano con tela de alto gramaje.\n\n¿Qué talla usas normalmente para apartártela de una vez?`;
       }
     }
 
     // PREGUNTAS DE AROMA / FIJACIÓN (EXCLUSIVO PERFUMERÍA)
     if (msg.includes("aroma") || msg.includes("olor") || msg.includes("fijacion") || msg.includes("fijación") || msg.includes("notas") || msg.includes("dura")) {
       if (pType === "perfume") {
-        return `💎 **Notas y Fijación de ${currentProduct.name}:**\n\nEsta fragancia cuenta con aceites esenciales concentrados que garantizan una **fijación prolongada de 8 a 12 horas en piel** (y más de 24 horas en prendas). Sus notas proyectan un perfil elegante, distintivo y de gran presencia.\n\nSe despacha en empaque térmico con celofán sellado de fábrica.`;
+        return `💎 **¡Es una obra de arte olfativa!**\n\n**${currentProduct.name}** tiene aceites esenciales concentrados que garantizan una **fijación prolongada de 8 a 12 horas en piel** (y más de 24 horas en tu ropa). Deja una estela sofisticada y atractiva que llama la atención donde llegues.\n\nSe despacha en caja sellada con celofán térmico de fábrica. ¿Te gustaría aprovechar el precio actual de $${Number(currentProduct.sale_price).toLocaleString("es-CO")} COP y pedirlo hoy?`;
       }
     }
 
@@ -190,32 +191,32 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
     if (msg.includes("precio") || msg.includes("cuanto cuesta") || msg.includes("cuánto cuesta") || msg.includes("valor")) {
       const priceText = `$${Number(currentProduct.sale_price).toLocaleString("es-CO")} COP`;
       const originalText = currentProduct.original_price ? ` (antes en $${Number(currentProduct.original_price).toLocaleString("es-CO")} COP)` : "";
-      return `El valor actual de **${currentProduct.name}** es de **${priceText}**${originalText}.\n\nIncluye empaque de protección exclusivo, garantía verificada de NERKLEY y envío asegurado con guía de rastreo. ¿Deseas que te ayude a completar tu pedido?`;
+      return `¡Tiene un super precio hoy! El valor de **${currentProduct.name}** es de **${priceText}**${originalText}.\n\nIncluye empaque de protección exclusivo, garantía verificada de NERKLEY y envío asegurado con guía de rastreo oficial.\n\nPuedes pagar facilito con Nequi, Bancolombia o tarjeta por Wompi. ¿Te ayudo a procesar tu compra de una vez? ✨`;
     }
 
     // PREGUNTAS DE CALIDAD / ORIGINALIDAD
     if (msg.includes("original") || msg.includes("calidad") || msg.includes("1.1") || msg.includes("garantia") || msg.includes("garantía")) {
       if (pType === "perfume") {
-        return `En **NERKLEY** garantizamos fragancias 100% auténticas, con batch code verificable, frasco íntegro y atomizador sellado.\n\nCada unidad pasa por control físico antes de embalarse en caja con protección térmica para el despacho.`;
+        return `Puedes comprar con total tranquilidad: en **NERKLEY** garantizamos fragancias 100% auténticas, con batch code verificable, frasco íntegro y atomizador sellado.\n\nCada unidad pasa por control de calidad individual antes de salir a despacho. ¿Te gustaría recibir la tuya esta semana?`;
       } else {
-        return `En **NERKLEY** garantizamos la máxima calidad en cada pieza. Nuestras prendas y calzado cuentan con confección 1.1 Top, materiales de alta durabilidad y detalles idénticos a los estándares internacionales.\n\nCada orden se despacha con sello de seguridad e inspección previa.`;
+        return `¡Cero preocupaciones! En **NERKLEY** garantizamos la máxima calidad en cada pieza. Nuestras prendas y calzado cuentan con confección 1.1 Top, materiales idénticos a los estándares oficiales internacionales y costuras reforzadas.\n\nCada orden se despacha con sello de seguridad e inspección previa. ¡Te va a fascinar cuando lo abras! 👌`;
       }
     }
   }
 
   // 2. Preguntas sobre Envíos y Tiempos de Entrega
   if (msg.includes("envio") || msg.includes("envío") || msg.includes("cuanto tarda") || msg.includes("tiempo") || msg.includes("llega") || msg.includes("ciudad") || msg.includes("tarda") || msg.includes("demora")) {
-    return `📦 **Protocolo de Envío & Tiempos de Entrega NERKLEY:**\n\nEn NERKLEY cada pieza pasa por un proceso de curaduría selecta para garantizar que recibas un producto 100% impecable:\n\n• **Fase 1 - Inspección & Embalaje de Seguridad:** (1 a 3 días hábiles) Verificación individual de autenticidad, acabados y sellado térmico de fábrica.\n• **Fase 2 - Tránsito Nacional Prioritario:** (3 a 5 días hábiles) Despacho directo asegurado con *Interrapidísimo, Servientrega o Coordinadora*.\n\n⏱ **Tiempo estimado total:** De **5 a 8 días hábiles** a nivel nacional (ciudades principales como Bogotá, Medellín, Cali y Barranquilla suelen tardar entre **4 y 7 días hábiles**).\n\n🔍 **Guía de Rastreo:** En cuanto tu lote sale a ruta, te notificamos con tu número de guía oficial para que sigas el estado de entrega en tiempo real.`;
+    return `📦 **¡Enviamos con total seguridad a toda Colombia!**\n\nEn NERKLEY cada pieza pasa por un protocolo exclusivo de curaduría selecta para garantizar que recibas un producto 100% impecable:\n\n• **Fase 1 - Inspección & Embalaje:** (1 a 3 días hábiles) Verificación individual de autenticidad, acabados y sellado térmico de fábrica.\n• **Fase 2 - Tránsito Nacional Prioritario:** (3 a 5 días hábiles) Despacho directo asegurado con *Interrapidísimo, Servientrega o Coordinadora*.\n\n⏱ **Tiempo estimado total:** De **5 a 8 días hábiles** a nivel nacional (ciudades principales como Bogotá, Medellín, Cali y Barranquilla suelen recibir en **4 a 7 días hábiles**).\n\n🔍 **Guía de Rastreo:** Apenas tu pedido sale a ruta, te notificamos con tu número de guía oficial para que sigas el estado en tiempo real. ¿A qué ciudad te gustaría que te lo enviemos?`;
   }
 
   // 3. Preguntas sobre Métodos de Pago
   if (msg.includes("pago") || msg.includes("pagar") || msg.includes("nequi") || msg.includes("bancolombia") || msg.includes("tarjeta") || msg.includes("pse") || msg.includes("contraentrega")) {
-    return `💳 **Medios de Pago Disponibles:**\n\nPuedes pagar con total tranquilidad a través de la pasarela blindada oficial de **Wompi (Grupo Bancolombia)**:\n\n• **Nequi** (Notificación directa a tu app)\n• **Bancolombia** (Transferencia segura)\n• **PSE** (Cualquier banco de Colombia)\n• **Tarjetas de Crédito / Débito** (Visa, Mastercard, Amex)\n• **Daviplata**\n\nEl precio queda bloqueado y verificado en centavos contra alteraciones. Tu dinero está 100% protegido.`;
+    return `💳 **Pagar en NERKLEY es facilísimo y 100% seguro:**\n\nTrabajamos con la pasarela oficial blindada de **Wompi (Grupo Bancolombia)** con cifrado SHA-256:\n\n• **Nequi** (Te llega notificación directa a la app para aprobar)\n• **Bancolombia** (Transferencia rápida sin comisiones)\n• **PSE** (Con cualquier banco de Colombia)\n• **Tarjetas de Crédito / Débito** (Visa, Mastercard, Amex)\n• **Daviplata**\n\nTu dinero está totalmente protegido. ¿Cuál de estos medios te queda más cómodo para pagar hoy?`;
   }
 
   // 4. Preguntas sobre cómo comprar
   if (msg.includes("como comprar") || msg.includes("cómo comprar") || msg.includes("como hago") || msg.includes("comprar")) {
-    return `Comprar en **NERKLEY** es muy rápido y seguro:\n\n1. Elige tu artículo favorito en nuestro catálogo.\n2. Haz clic en **"Agregar al Carrito"**.\n3. Abre tu carrito y presiona **"Proceder al Pago Seguro"**.\n4. Llena tus datos de envío y elige tu medio de pago favorito (Nequi, Bancolombia, PSE o Tarjetas) en la pasarela oficial de Wompi.\n\n¡Inmediatamente confirmemos tu pago, nuestro equipo iniciará la preparación de tu orden! ✨`;
+    return `¡Es super sencillo! Te guío paso a paso:\n\n1. Elige tu artículo favorito en el catálogo (selecciona tu talla o presentación).\n2. Haz clic en el botón blanco **"Añadir al Carrito"**.\n3. Abre tu carrito arriba y presiona **"Proceder al Pago Seguro"**.\n4. Ingresas tus datos de envío y pagas en 1 minuto con Nequi, Bancolombia o tarjeta en Wompi.\n\n¡Apenas confirmas el pago, reservamos tu producto e iniciamos la preparación! ¿Tienes algún artículo en mente ahora mismo?`;
   }
 
   // 5. Preguntas sobre catálogo o recomendaciones
@@ -224,16 +225,16 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
     const list = featured
       .map((p) => `• **${p.name}** — $${Number(p.sale_price).toLocaleString("es-CO")} COP (${p.category})`)
       .join("\n");
-    return `En **NERKLEY** somos una Concept Store exclusiva especializada en:\n\n💎 **Perfumería de Autor & Diseñador**\n👕 **Ropa Urbana & Moda 1.1 Top**\n👟 **Sneakers Exclusivos**\n🧢 **Gorras de Edición Limitada**\n👑 **Joyería & Oro**\n\nAlgunas piezas destacadas en stock hoy:\n${list}\n\n¿Buscas algo en específico para hoy?`;
+    return `¡Tenemos piezas brutales en tendencia hoy! 🔥\n\nEn **NERKLEY** nos especializamos en:\n💎 **Perfumería de Diseñador & Nicho**\n👕 **Moda Urbana 1.1 Top**\n👟 **Sneakers Exclusivos**\n🧢 **Gorras de Colección**\n👑 **Joyería de Alto Brillo**\n\nAlgunas de nuestras joyas más deseadas hoy:\n${list}\n\n¿Qué tipo de prenda o fragancia estás buscando? ¡Te ayudo a encontrar la perfecta para ti!`;
   }
 
   // 6. Saludo
   if (msg.includes("hola") || msg.includes("buen") || msg.includes("buenas") || msg.includes("hey")) {
-    return `¡Hola! Bienvenido a **NERKLEY**. ✨\n\nSoy tu Asesor Virtual de Inteligencia Artificial disponible 24/7. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre productos, disponibilidad, métodos de pago con Wompi o tiempos de entrega a tu ciudad.`;
+    return `¡Hola! Qué gusto tenerte por aquí en **NERKLEY**. ✨\n\nSoy tu Asesora Personal y Concierge de compras 24/7. Estoy aquí para recomendarte las mejores piezas de nuestra colección, confirmar tallas, tiempos de despacho a tu ciudad o ayudarte a pagar fácil por Wompi.\n\n¿Qué tienes en mente llevarte hoy?`;
   }
 
   // 7. Respuesta de cortesía por defecto
-  return `Con gusto te asisto en **NERKLEY**. ¿Tienes alguna duda sobre nuestras prendas, fragancias, envíos a tu ciudad o medios de pago (Nequi, Bancolombia, PSE)?\n\nPuedes preguntarme con toda confianza y te orientaré de inmediato.`;
+  return `¡Con todo gusto te asesoro! En **NERKLEY** cuidamos cada detalle para que tu experiencia sea de diez. ¿Tienes alguna pregunta sobre alguna de nuestras prendas, fragancias, tiempos de entrega o medios de pago (Nequi, Bancolombia, PSE)?\n\nDime qué duda tienes y la resolvemos al instante. ✨`;
 }
 
 export async function POST(req: Request) {
@@ -285,8 +286,8 @@ export async function POST(req: Request) {
               },
               contents: conversationHistory,
               generationConfig: {
-                temperature: 0.65,
-                maxOutputTokens: 380,
+                temperature: 0.72,
+                maxOutputTokens: 420,
               },
             }),
           }
