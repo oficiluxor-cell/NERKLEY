@@ -34,6 +34,63 @@ const NERKLEY_KNOWLEDGE = {
   },
 };
 
+function getProductType(name = "", category = ""): "perfume" | "footwear" | "clothing" | "cap" | "jewelry" | "general" {
+  const text = `${category} ${name}`.toLowerCase();
+  if (
+    text.includes("perfume") ||
+    text.includes("fragancia") ||
+    text.includes("locion") ||
+    text.includes("loción") ||
+    text.includes("parfum") ||
+    text.includes("colonia") ||
+    text.includes("aroma") ||
+    text.includes("eau de") ||
+    text.includes("elixir")
+  ) {
+    return "perfume";
+  }
+  if (
+    text.includes("zapato") ||
+    text.includes("sneaker") ||
+    text.includes("tenis") ||
+    text.includes("calzado") ||
+    text.includes("retro") ||
+    text.includes("jordan") ||
+    text.includes("dunk") ||
+    text.includes("bota")
+  ) {
+    return "footwear";
+  }
+  if (text.includes("gorra") || text.includes("cap") || text.includes("beanie") || text.includes("sombrero")) {
+    return "cap";
+  }
+  if (
+    text.includes("joya") ||
+    text.includes("oro") ||
+    text.includes("cadena") ||
+    text.includes("reloj") ||
+    text.includes("pulsera") ||
+    text.includes("anillo") ||
+    text.includes("dije")
+  ) {
+    return "jewelry";
+  }
+  if (
+    text.includes("ropa") ||
+    text.includes("camisa") ||
+    text.includes("camiseta") ||
+    text.includes("hoodie") ||
+    text.includes("buzo") ||
+    text.includes("pantalon") ||
+    text.includes("pantalón") ||
+    text.includes("short") ||
+    text.includes("chaqueta")
+  ) {
+    return "clothing";
+  }
+  return "general";
+}
+
 function buildSystemPrompt(products: any[], currentProduct?: any) {
   const productCatalogText = products
     .slice(0, 40)
@@ -43,29 +100,36 @@ function buildSystemPrompt(products: any[], currentProduct?: any) {
           p.original_price ? ` (Antes: $${Number(p.original_price).toLocaleString()} COP)` : ""
         }${p.discount_percent ? ` | Descuento: ${p.discount_percent}%` : ""} | Stock: ${
           p.stock > 0 ? `${p.stock} unidades disponibles` : "Agotado"
-        }${p.badge ? ` | Insignia: ${p.badge}` : ""}${p.sizes ? ` | Tallas: ${p.sizes}` : ""}${
-          p.colors ? ` | Colores: ${p.colors}` : ""
+        }${p.badge ? ` | Insignia: ${p.badge}` : ""}${p.sizes ? ` | Especificación/Tallas/Presentación: ${p.sizes}` : ""}${
+          p.colors ? ` | Color/Tono: ${p.colors}` : ""
         }`
     )
     .join("\n");
 
   let focusedProductContext = "";
   if (currentProduct) {
+    const productType = getProductType(currentProduct.name, currentProduct.category);
     focusedProductContext = `
 EL CLIENTE ESTÁ VIENDO ACTUALMENTE ESTE PRODUCTO:
 - Nombre: "${currentProduct.name}"
 - Precio: $${Number(currentProduct.sale_price).toLocaleString()} COP
-- Categoría: ${currentProduct.category}
-- Tallas disponibles: ${currentProduct.sizes || "Talla Única / Estándar"}
-- Colores: ${currentProduct.colors || "Según catálogo"}
-- Stock: ${currentProduct.stock > 0 ? `${currentProduct.stock} unidades en bodega` : "Agotado temporalmente"}
-- Descripción: ${currentProduct.description || "Producto exclusivo de colección NERKLEY"}
-Si el usuario pregunta por "este producto", "la talla", "el envío de esto" o "los materiales", respóndele específicamente sobre este artículo de forma persuasiva y experta.
+- Categoría detectada: ${currentProduct.category} (Tipo: ${productType.toUpperCase()})
+- Presentación / Talla / Medida: ${currentProduct.sizes || "Estándar"}
+- Color / Acabado: ${currentProduct.colors || "Según catálogo"}
+- Stock: ${currentProduct.stock > 0 ? `${currentProduct.stock} unidades disponibles` : "Agotado"}
+- Descripción: ${currentProduct.description || "Pieza exclusiva de colección NERKLEY"}
+
+ADAPTACIÓN ESTRICTA AL CONTEXTO DE PRODUCTO:
+- Si es PERFUME: NUNCA menciones "tallas" ni "tela". Los perfumes se manejan por volumen en mililitros (${currentProduct.sizes || "100ml / Eau de Parfum"}), notas olfativas, fijación en piel (8 a 12 horas), atomizador y originalidad. Si preguntan por talla en un perfume, aclara cordialmente que viene en mililitros y habla de su fijación.
+- Si es CALZADO / SNEAKERS: Habla de tallas de zapatos (${currentProduct.sizes || "38 a 43"}), comodidad de horma y amortiguación.
+- Si es ROPA: Habla de tallas de confección (${currentProduct.sizes || "S, M, L, XL"}), corte urbano y tela de alto gramaje.
+- Si es GORRA: Explica que es talla única ajustable con broche premium posterior.
+- Si es JOYERÍA: Habla de brillo, laminado en oro / kilates, medidas proporcionales y cuidados.
 `;
   }
 
   return `Eres "NERKLEY AI", el Asesor y Concierge de Lujo Oficial de la tienda NERKLEY.
-Tu rol es brindar atención al cliente 24/7, resolver todas las dudas de compra, recomendar productos del catálogo, dar detalles sobre envíos, pagos y tallas, y cerrar ventas para que el cliente no tenga que esperar atención humana.
+Tu rol es brindar atención al cliente 24/7, resolver todas las dudas de compra, recomendar productos del catálogo, dar detalles sobre envíos, pagos y productos, y cerrar ventas para que el cliente no tenga que esperar atención humana.
 
 TONO Y PERSONALIDAD:
 - Sofisticado, educado, persuasivo, seguro y muy servicial.
@@ -76,7 +140,7 @@ TONO Y PERSONALIDAD:
 CONOCIMIENTO DE LA TIENDA:
 - Tienda: ${NERKLEY_KNOWLEDGE.storeName} (${NERKLEY_KNOWLEDGE.concept})
 - Medios de pago: ${NERKLEY_KNOWLEDGE.payments.methods} a través de la pasarela segura oficial de Wompi.
-- Envíos: ${NERKLEY_KNOWLEDGE.shipping.coverage} Tiempos: ${NERKLEY_KNOWLEDGE.shipping.time} Transportadoras: ${NERKLEY_KNOWLEDGE.shipping.carriers}.
+- Envíos y Tiempos: ${NERKLEY_KNOWLEDGE.shipping.coverage} Tiempos: ${NERKLEY_KNOWLEDGE.shipping.time} Transportadoras: ${NERKLEY_KNOWLEDGE.shipping.carriers}.
 - Garantía: Todas las compras incluyen empaque de protección y número de guía para rastreo.
 
 ${focusedProductContext}
@@ -92,31 +156,50 @@ REGLAS DE ORO:
 5. Mantén las respuestas concisas (máximo 2 a 3 párrafos cortos) para que sea rápido y persuasivo de leer en el celular.`;
 }
 
-// Motor de Inteligencia Asistente Local con fallback inteligente
+// Motor de Inteligencia Asistente Local con fallback inteligente contextual
 function generateLocalAIResponse(userMessage: string, products: any[], currentProduct?: any): string {
   const msg = userMessage.toLowerCase().trim();
 
   // 1. Preguntas sobre el producto específico que está viendo
-  if (currentProduct && (msg.includes("este") || msg.includes("talla") || msg.includes("material") || msg.includes("aroma") || msg.includes("original") || msg.includes("precio"))) {
-    const isPerfume = (currentProduct.category || "").toLowerCase().includes("perfume");
-    const isClothes = (currentProduct.category || "").toLowerCase().includes("ropa") || (currentProduct.category || "").toLowerCase().includes("gorra") || (currentProduct.category || "").toLowerCase().includes("zapato");
+  if (currentProduct) {
+    const pType = getProductType(currentProduct.name, currentProduct.category);
 
-    if (msg.includes("talla") || msg.includes("medida")) {
-      return `Para **${currentProduct.name}**, contamos con las siguientes opciones disponibles: **${currentProduct.sizes || "Talla estándar / única"}**.\n\nTe sugerimos pedir tu talla habitual, ya que el tallaje es estándar de corte premium. Puedes seleccionar tu talla directamente en la ficha del producto y añadirlo a tu carrito. ✨`;
+    // PREGUNTAS DE TALLA O MEDIDA (ADAPTADAS ESTRICTAMENTE POR CATEGORÍA)
+    if (msg.includes("talla") || msg.includes("medida") || msg.includes("tamano") || msg.includes("tamaño") || msg.includes("horma") || msg.includes("ml")) {
+      if (pType === "perfume") {
+        return `Los perfumes no se manejan por tallas de ropa, sino por **presentación en volumen (mililitros)**. ✨\n\nEn el caso de **${currentProduct.name}**, viene en su presentación exclusiva de **${currentProduct.sizes || "100ml / Eau de Parfum"}** en frasco de lujo sellado con atomizador de alta dispersión.\n\n¿Deseas conocer sobre sus notas olfativas o fijación en piel?`;
+      } else if (pType === "cap") {
+        return `La gorra **${currentProduct.name}** es de **talla única ajustable**, confeccionada con broche posterior de alta resistencia para adaptarse a cualquier contorno con total comodidad y ajuste perfecto.`;
+      } else if (pType === "jewelry") {
+        return `Para la joya **${currentProduct.name}**, cuenta con medidas proporcionales de diseño de lujo (${currentProduct.sizes || "medida estándar universal"}), con acabado en ${currentProduct.colors || "tono oro premium"} de gran durabilidad.`;
+      } else if (pType === "footwear") {
+        return `Para los sneakers **${currentProduct.name}**, las tallas disponibles son: **${currentProduct.sizes || "38 a 43"}** (numeración nacional Colombia). Te recomendamos pedir tu talla habitual deportiva ya que la horma es estándar y muy cómoda. ✨`;
+      } else {
+        return `Para **${currentProduct.name}**, tenemos disponibles las tallas: **${currentProduct.sizes || "S, M, L, XL"}**. El tallaje es estándar de corte moderno/urbano. Puedes seleccionar tu talla favorita y añadirla a tu carrito.`;
+      }
     }
 
-    if (msg.includes("precio") || msg.includes("cuanto cuesta") || msg.includes("valor")) {
+    // PREGUNTAS DE AROMA / FIJACIÓN (EXCLUSIVO PERFUMERÍA)
+    if (msg.includes("aroma") || msg.includes("olor") || msg.includes("fijacion") || msg.includes("fijación") || msg.includes("notas") || msg.includes("dura")) {
+      if (pType === "perfume") {
+        return `💎 **Notas y Fijación de ${currentProduct.name}:**\n\nEsta fragancia cuenta con aceites esenciales concentrados que garantizan una **fijación prolongada de 8 a 12 horas en piel** (y más de 24 horas en prendas). Sus notas proyectan un perfil elegante, distintivo y de gran presencia.\n\nSe despacha en empaque térmico con celofán sellado de fábrica.`;
+      }
+    }
+
+    // PREGUNTAS DE PRECIO
+    if (msg.includes("precio") || msg.includes("cuanto cuesta") || msg.includes("cuánto cuesta") || msg.includes("valor")) {
       const priceText = `$${Number(currentProduct.sale_price).toLocaleString("es-CO")} COP`;
       const originalText = currentProduct.original_price ? ` (antes en $${Number(currentProduct.original_price).toLocaleString("es-CO")} COP)` : "";
-      return `El valor actual de **${currentProduct.name}** es de **${priceText}**${originalText}.\n\nIncluye empaque de protección exclusivo y garantía verificada de NERKLEY. ¿Deseas que te ayude a completar tu pedido?`;
+      return `El valor actual de **${currentProduct.name}** es de **${priceText}**${originalText}.\n\nIncluye empaque de protección exclusivo, garantía verificada de NERKLEY y envío asegurado con guía de rastreo. ¿Deseas que te ayude a completar tu pedido?`;
     }
 
-    if (msg.includes("original") || msg.includes("calidad") || msg.includes("1.1")) {
-      return `En **NERKLEY** garantizamos la máxima calidad en cada pieza. ${
-        isPerfume
-          ? "Nuestros perfumes son esencias auténticas de alta concentración y fijación prolongada."
-          : "Nuestra colección de moda urbana y accesorios cuenta con acabados 1.1 Top y materiales de confección idénticos a los estándares internacionales."
-      }\n\nCada orden se despacha con sello de seguridad e inspección previa antes del envío.`;
+    // PREGUNTAS DE CALIDAD / ORIGINALIDAD
+    if (msg.includes("original") || msg.includes("calidad") || msg.includes("1.1") || msg.includes("garantia") || msg.includes("garantía")) {
+      if (pType === "perfume") {
+        return `En **NERKLEY** garantizamos fragancias 100% auténticas, con batch code verificable, frasco íntegro y atomizador sellado.\n\nCada unidad pasa por control físico antes de embalarse en caja con protección térmica para el despacho.`;
+      } else {
+        return `En **NERKLEY** garantizamos la máxima calidad en cada pieza. Nuestras prendas y calzado cuentan con confección 1.1 Top, materiales de alta durabilidad y detalles idénticos a los estándares internacionales.\n\nCada orden se despacha con sello de seguridad e inspección previa.`;
+      }
     }
   }
 
@@ -132,7 +215,7 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
 
   // 4. Preguntas sobre cómo comprar
   if (msg.includes("como comprar") || msg.includes("cómo comprar") || msg.includes("como hago") || msg.includes("comprar")) {
-    return `Comprar en **NERKLEY** es muy rápido y seguro:\n\n1. Elige tu artículo favorito en nuestro catálogo y selecciona tu talla/color.\n2. Haz clic en **"Agregar al Carrito"**.\n3. Abre tu carrito y presiona **"Proceder al Pago Seguro"**.\n4. Llena tus datos de envío y elige tu medio de pago favorito (Nequi, Bancolombia, PSE o Tarjetas) en la pasarela oficial de Wompi.\n\n¡Inmediatamente confirmemos tu pago, nuestro equipo de logística preparará tu despacho! ✨`;
+    return `Comprar en **NERKLEY** es muy rápido y seguro:\n\n1. Elige tu artículo favorito en nuestro catálogo.\n2. Haz clic en **"Agregar al Carrito"**.\n3. Abre tu carrito y presiona **"Proceder al Pago Seguro"**.\n4. Llena tus datos de envío y elige tu medio de pago favorito (Nequi, Bancolombia, PSE o Tarjetas) en la pasarela oficial de Wompi.\n\n¡Inmediatamente confirmemos tu pago, nuestro equipo iniciará la preparación de tu orden! ✨`;
   }
 
   // 5. Preguntas sobre catálogo o recomendaciones
@@ -146,11 +229,11 @@ function generateLocalAIResponse(userMessage: string, products: any[], currentPr
 
   // 6. Saludo
   if (msg.includes("hola") || msg.includes("buen") || msg.includes("buenas") || msg.includes("hey")) {
-    return `¡Hola! Bienvenido a **NERKLEY**. ✨\n\nSoy tu Asesor Virtual de Inteligencia Artificial disponible 24/7. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre tallas, disponibilidad de productos, métodos de pago con Wompi o tiempos de envío a tu ciudad.`;
+    return `¡Hola! Bienvenido a **NERKLEY**. ✨\n\nSoy tu Asesor Virtual de Inteligencia Artificial disponible 24/7. ¿En qué puedo ayudarte hoy? Puedes preguntarme sobre productos, disponibilidad, métodos de pago con Wompi o tiempos de entrega a tu ciudad.`;
   }
 
   // 7. Respuesta de cortesía por defecto
-  return `Con gusto te asisto en **NERKLEY**. ¿Tienes alguna duda sobre nuestras prendas, perfumes, envíos a tu ciudad o medios de pago (Nequi, Bancolombia, PSE)?\n\nPuedes preguntarme con toda confianza y te orientaré de inmediato.`;
+  return `Con gusto te asisto en **NERKLEY**. ¿Tienes alguna duda sobre nuestras prendas, fragancias, envíos a tu ciudad o medios de pago (Nequi, Bancolombia, PSE)?\n\nPuedes preguntarme con toda confianza y te orientaré de inmediato.`;
 }
 
 export async function POST(req: Request) {
@@ -161,74 +244,73 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Mensajes inválidos." }, { status: 400 });
     }
 
-    const lastUserMessage = messages[messages.length - 1]?.content || "";
+    const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content || "";
 
-    // Consultar catálogo en vivo desde Supabase para que la IA siempre sepa qué hay en stock
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
     let products: any[] = [];
-    if (supabaseUrl && anonKey) {
-      const supabase = createClient(supabaseUrl, anonKey);
-      const { data } = await supabase
-        .from("products")
-        .select("id, name, sale_price, original_price, discount_percent, category, stock, sizes, colors, badge, description")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(40);
-      if (data) products = data;
+
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data } = await supabase
+          .from("products")
+          .select("id, name, slug, sale_price, original_price, discount_percent, category, stock, sizes, colors, badge, description")
+          .eq("is_active", true)
+          .limit(50);
+        if (data) products = data;
+      } catch (err) {
+        console.error("Error al obtener catálogo Supabase:", err);
+      }
     }
 
-    // Verificar si hay una API Key de Gemini configurada
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const geminiKey = process.env.GEMINI_API_KEY;
 
-    if (geminiApiKey) {
+    if (geminiKey) {
       try {
-        const systemInstruction = buildSystemPrompt(products, currentProduct);
-        const contents = messages.map((m: ChatMessage) => ({
+        const systemPrompt = buildSystemPrompt(products, currentProduct);
+        const conversationHistory = messages.map((m) => ({
           role: m.role === "assistant" ? "model" : "user",
           parts: [{ text: m.content }],
         }));
 
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`,
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              systemInstruction: { parts: [{ text: systemInstruction }] },
-              contents,
+              system_instruction: {
+                parts: [{ text: systemPrompt }],
+              },
+              contents: conversationHistory,
               generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 600,
+                temperature: 0.65,
+                maxOutputTokens: 380,
               },
             }),
           }
         );
 
-        if (res.ok) {
-          const data = await res.json();
-          const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (reply) {
-            return NextResponse.json({ reply });
+        if (response.ok) {
+          const result = await response.json();
+          const aiText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (aiText) {
+            return NextResponse.json({ reply: aiText });
           }
         }
       } catch (geminiError) {
-        console.warn("Fallo temporal en Gemini API, pasando al motor local:", geminiError);
+        console.error("Error al llamar a Gemini:", geminiError);
       }
     }
 
-    // Motor de IA Experta Local (Ultra Rápido, 0 latencia, siempre disponible sin límites de cuota)
-    const reply = generateLocalAIResponse(lastUserMessage, products, currentProduct);
-    return NextResponse.json({ reply });
-  } catch (err: any) {
-    console.error("Error en /api/support-chat:", err);
+    const localReply = generateLocalAIResponse(lastUserMessage, products, currentProduct);
+    return NextResponse.json({ reply: localReply });
+  } catch (error: any) {
+    console.error("Error en support-chat API:", error);
     return NextResponse.json(
-      {
-        reply:
-          "¡Hola! Bienvenido a NERKLEY. Puedes realizar tus compras con envío asegurado a toda Colombia y pagar de forma 100% blindada a través de Wompi (Nequi, Bancolombia, PSE o Tarjetas). ¿Qué producto te gustaría conocer hoy?",
-      },
-      { status: 200 }
+      { error: "Error al procesar consulta." },
+      { status: 500 }
     );
   }
 }
