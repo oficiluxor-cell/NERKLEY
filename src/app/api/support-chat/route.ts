@@ -280,7 +280,7 @@ export async function POST(req: Request) {
         const timeoutId = setTimeout(() => controller.abort(), 6500);
 
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${geminiKey}`,
           {
             method: "POST",
             signal: controller.signal,
