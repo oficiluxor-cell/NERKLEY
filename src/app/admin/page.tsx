@@ -902,6 +902,20 @@ export default function AdminDashboard() {
               <span>Catálogo & Stock</span>
               <span className="text-neutral-500 text-[10px]">{products.length}</span>
             </button>
+
+            <Link
+              href="/video-ad"
+              target="_blank"
+              className="w-full text-left px-4 py-3 rounded-lg bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400 hover:text-black font-bold transition-all cursor-pointer flex items-center justify-between mt-3 group"
+            >
+              <span className="flex items-center gap-2">
+                <span>🎬</span>
+                <span className="text-xs uppercase tracking-wider">TikTok Ads Video</span>
+              </span>
+              <span className="text-[9px] uppercase font-mono tracking-wider bg-amber-400/20 group-hover:bg-black/20 px-2 py-0.5 rounded font-bold">
+                CREADOR
+              </span>
+            </Link>
           </nav>
         </div>
 
