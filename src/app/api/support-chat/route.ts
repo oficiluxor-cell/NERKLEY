@@ -275,23 +275,33 @@ export async function POST(req: Request) {
           parts: [{ text: m.content }],
         }));
 
+        // Controlador de tiempo límite para respuesta instantánea
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6500);
+
         const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${geminiKey}`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/json",
+              "X-goog-api-key": geminiKey,
+            },
             body: JSON.stringify({
               system_instruction: {
                 parts: [{ text: systemPrompt }],
               },
               contents: conversationHistory,
               generationConfig: {
-                temperature: 0.72,
-                maxOutputTokens: 420,
+                temperature: 0.75,
+                maxOutputTokens: 450,
               },
             }),
           }
         );
+
+        clearTimeout(timeoutId);
 
         if (response.ok) {
           const result = await response.json();
@@ -299,9 +309,11 @@ export async function POST(req: Request) {
           if (aiText) {
             return NextResponse.json({ reply: aiText });
           }
+        } else {
+          console.error("Gemini API status not ok:", response.status, await response.text());
         }
       } catch (geminiError) {
-        console.error("Error al llamar a Gemini:", geminiError);
+        console.error("Error o timeout al llamar a Gemini:", geminiError);
       }
     }
 
