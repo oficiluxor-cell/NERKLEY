@@ -839,8 +839,11 @@ export default function AdminDashboard() {
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-white/10 p-6 flex flex-col justify-between bg-[#0e0e12]">
         <div className="space-y-8">
           <div>
-            <Link href="/" className="block">
-              <span className="text-2xl font-serif font-bold tracking-[0.3em] uppercase text-white">NERKLEY</span>
+            <Link href="/" className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1">
+                <img src="/logo.svg" alt="NERKLEY" className="w-full h-full object-contain" />
+              </div>
+              <span className="text-xl font-serif font-bold tracking-[0.3em] uppercase text-white">NERKLEY</span>
               <div className="flex items-center gap-2 mt-1">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                 <span className="text-[9px] uppercase tracking-[0.25em] text-neutral-400 font-semibold">MODO DIOS ACTIVO</span>

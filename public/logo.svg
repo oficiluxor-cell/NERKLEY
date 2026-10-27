@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <radialGradient id="cartBg" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#1b1a24"/>
+      <stop offset="60%" stop-color="#0a0a0d"/>
+      <stop offset="100%" stop-color="#030305"/>
+    </radialGradient>
+
+    <linearGradient id="goldCart" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF8D0"/>
+      <stop offset="30%" stop-color="#E8C662"/>
+      <stop offset="65%" stop-color="#B28418"/>
+      <stop offset="100%" stop-color="#F2D884"/>
+    </linearGradient>
+
+    <filter id="cartGlow">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.9"/>
+      <feDropShadow dx="0" dy="4" stdDeviation="10" flood-color="#E8C662" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="url(#cartBg)"/>
+  <rect width="506" height="506" x="3" y="3" rx="109" fill="none" stroke="url(#goldCart)" stroke-width="1.5" stroke-opacity="0.35"/>
+
+  <!-- Icono de Carrito de Compras / Super Carro de Lujo con 'N' Monograma -->
+  <g filter="url(#cartGlow)" transform="translate(256, 235)">
+    <!-- Manija del Carrito -->
+    <path d="M -135 -100 L -95 -100 L -65 30 L 100 30" fill="none" stroke="url(#goldCart)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Canasta del Carrito con silueta 'N' estilizada en corte de boutique -->
+    <path d="M -85 -60 L 125 -60 L 100 15 L -65 15 Z" fill="#12121a" stroke="url(#goldCart)" stroke-width="8" stroke-linejoin="round"/>
+    
+    <!-- Rejilla geométrica del carrito formando la 'N' -->
+    <path d="M -25 -50 L 0 -50 L 0 5 L -25 5 Z" fill="url(#goldCart)" opacity="0.85"/>
+    <path d="M 0 -50 L 25 -50 L 50 5 L 25 5 Z" fill="url(#goldCart)"/>
+    <path d="M 50 -50 L 75 -50 L 75 5 L 50 5 Z" fill="url(#goldCart)" opacity="0.85"/>
+
+    <!-- Ruedas del Carro (Aros de Lujo en Oro) -->
+    <!-- Rueda 1 -->
+    <circle cx="-45" cy="85" r="22" fill="#0c0c10" stroke="url(#goldCart)" stroke-width="9"/>
+    <circle cx="-45" cy="85" r="7" fill="#FFFFFF"/>
+
+    <!-- Rueda 2 -->
+    <circle cx="75" cy="85" r="22" fill="#0c0c10" stroke="url(#goldCart)" stroke-width="9"/>
+    <circle cx="75" cy="85" r="7" fill="#FFFFFF"/>
+
+    <!-- Destello Diamante en la esquina -->
+    <polygon points="125,-75 133,-60 125,-45 117,-60" fill="#FFFFFF"/>
+  </g>
+
+  <!-- Tipografía Play Store -->
+  <text x="256" y="445" font-family="'Cinzel', 'Trajan Pro', 'Georgia', serif" font-size="34" font-weight="900" fill="url(#goldCart)" letter-spacing="12" text-anchor="middle">
+    NERKLEY
+  </text>
+  <text x="256" y="468" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="10" font-weight="700" fill="#E8C662" letter-spacing="6" text-anchor="middle">
+    ONLINE STORE
+  </text>
+</svg>

@@ -6,8 +6,13 @@ import { CartProvider } from '@/context/CartContext'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'NERKLEY Official Store',
-  description: 'Elegancia Vanguardista',
+  title: 'NERKLEY | Luxury Online Store',
+  description: 'Concept Store oficial de alta gama: perfumería de autor, moda 1.1, calzado y accesorios exclusivos.',
+  icons: {
+    icon: '/logo.svg',
+    shortcut: '/logo.svg',
+    apple: '/logo.svg',
+  },
 }
 
 export default function RootLayout({

@@ -164,31 +164,16 @@ export default function Home() {
       {/* HEADER PRINCIPAL */}
       <header className="border-b border-white/10 bg-[#0a0a0c]/85 backdrop-blur-xl sticky top-0 z-40 transition-all duration-300 shadow-xl">
         <div className="max-w-7xl mx-auto px-4 md:px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3 group">
-            <svg
-              className="w-8 h-8 md:w-10 md:h-10 text-white group-hover:scale-105 transition-transform duration-300"
-              viewBox="0 0 100 100"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="50" cy="18" r="9" fill="currentColor" />
-              <path d="M 30 25 C 20 35, 20 60, 38 72 C 34 60, 36 40, 50 32 C 64 40, 66 60, 62 72 C 80 60, 80 35, 70 25" />
-              <ellipse cx="50" cy="48" rx="11" ry="14" />
-              <line x1="50" y1="34" x2="50" y2="62" />
-              <path d="M 40 42 C 30 42, 24 48, 22 55" />
-              <path d="M 60 42 C 70 42, 76 48, 78 55" />
-              <path d="M 40 56 C 30 60, 26 68, 28 78" />
-              <path d="M 60 56 C 70 60, 74 68, 72 78" />
-            </svg>
+          <Link href="/" className="flex items-center gap-3.5 group">
+            <div className="w-9 h-9 md:w-11 md:h-11 rounded-xl bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(232,198,98,0.15)] group-hover:scale-105 group-hover:border-amber-400/60 transition-all duration-300">
+              <img src="/logo.svg" alt="NERKLEY Store Logo" className="w-full h-full object-contain" />
+            </div>
             <div className="flex flex-col">
               <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.3em] uppercase leading-none text-white">
                 NERKLEY
               </span>
-              <span className="text-[7px] md:text-[9px] uppercase tracking-[0.35em] text-neutral-400 font-sans mt-0.5">
-                Concept Store
+              <span className="text-[7px] md:text-[9px] uppercase tracking-[0.35em] text-amber-400/90 font-sans mt-0.5 font-semibold">
+                Online Store &bull; 1.1 Top
               </span>
             </div>
           </Link>
@@ -518,9 +503,12 @@ export default function Home() {
       {/* FOOTER PREMIUM */}
       <footer className="relative z-10 mt-auto bg-[#070709] border-t border-white/10 py-12 md:py-16 px-4 md:px-6 text-center">
         <div className="max-w-md mx-auto flex flex-col items-center">
+          <div className="w-10 h-10 rounded-xl bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1.5 mb-3 shadow-[0_0_15px_rgba(232,198,98,0.15)]">
+            <img src="/logo.svg" alt="NERKLEY Store Logo" className="w-full h-full object-contain" />
+          </div>
           <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.35em] uppercase mb-2 text-white">NERKLEY</span>
           <p className="text-[10px] md:text-xs text-neutral-400 font-light mb-4 md:mb-6">
-            Concept Store Oficial &bull; Perfumería, Calzado, Joyería & Streetwear.
+            Online Store Oficial &bull; Perfumería, Calzado, Joyería & Streetwear.
           </p>
           <div className="flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest text-neutral-500 mb-6 font-medium">
             <span>Wompi</span>

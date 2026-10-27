@@ -182,8 +182,11 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans flex flex-col selection:bg-white selection:text-black">
       <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="text-2xl font-serif font-bold tracking-[0.3em] uppercase">NERKLEY</span>
+          <Link href="/" className="flex items-center gap-3 group">
+            <div className="w-8 h-8 rounded-lg bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1 group-hover:scale-105 transition-all">
+              <img src="/logo.svg" alt="NERKLEY" className="w-full h-full object-contain" />
+            </div>
+            <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.3em] uppercase">NERKLEY</span>
           </Link>
           <div className="flex items-center gap-6">
             <Link href="/" className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white">
