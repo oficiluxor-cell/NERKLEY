@@ -32,8 +32,8 @@ interface Product {
   slug: string;
   description?: string;
   sale_price: number;
-  original_price?: number;
-  discount_percent?: number;
+  original_price?: number | null;
+  discount_percent?: number | null;
   category: string;
   images?: string;
   sizes?: string;
@@ -63,7 +63,6 @@ const TRANSPORT_COMPANIES = [
 
 const ADMIN_PASSWORD = "NERKLEY2027-Kleyner.";
 
-// Reproducir tono sutil de notificación cuando entra una orden pagada
 function playChime() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -72,14 +71,14 @@ function playChime() {
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.type = "sine";
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12); // A5
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+    osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
     gain.gain.setValueAtTime(0.15, ctx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
     osc.start();
     osc.stop(ctx.currentTime + 0.4);
   } catch {
-    // Audio no soportado o bloqueado por el navegador
+    // Audio no soportado
   }
 }
 
@@ -97,7 +96,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Estados de formulario de producto
+  // Estados de formulario de creación de producto
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
@@ -111,6 +110,39 @@ export default function AdminDashboard() {
   const [badge, setBadge] = useState("");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Modal para edición completa de producto
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    category: string;
+    basePrice: string;
+    discountPercent: string;
+    stock: string;
+    badge: string;
+    sizes: string;
+    colors: string;
+    images: string;
+    description: string;
+    is_active: boolean;
+  }>({
+    name: "",
+    category: "",
+    basePrice: "",
+    discountPercent: "",
+    stock: "",
+    badge: "",
+    sizes: "",
+    colors: "",
+    images: "",
+    description: "",
+    is_active: true,
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Buscador y filtros de catálogo
+  const [productSearch, setProductSearch] = useState("");
+  const [productCategoryFilter, setProductCategoryFilter] = useState("Todas");
 
   const prevOrdersCountRef = useRef<number>(0);
 
@@ -150,7 +182,6 @@ export default function AdminDashboard() {
       )
       .subscribe();
 
-    // Auto-refresh de respaldo cada 12 segundos
     const interval = setInterval(() => fetchData(false), 12000);
 
     return () => {
@@ -180,14 +211,12 @@ export default function AdminDashboard() {
       .order("created_at", { ascending: false });
 
     if (ordersData) {
-      // Si aumentaron las órdenes pagadas, sonar
       if (prevOrdersCountRef.current > 0 && ordersData.length > prevOrdersCountRef.current) {
         playChime();
       }
       prevOrdersCountRef.current = ordersData.length;
       setOrders(ordersData);
 
-      // Si hay una orden seleccionada en el modal, actualizar sus datos
       if (selectedOrder) {
         const updated = ordersData.find((o) => o.id === selectedOrder.id);
         if (updated) setSelectedOrder(updated);
@@ -244,7 +273,6 @@ export default function AdminDashboard() {
   // Filtrado de órdenes
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
-      // 1. Filtro por sub-pestaña
       let matchesTab = true;
       if (orderFilter === "despachar") matchesTab = isPaidOrPrep(o.status);
       else if (orderFilter === "enviados") matchesTab = isShipped(o.status);
@@ -253,7 +281,6 @@ export default function AdminDashboard() {
 
       if (!matchesTab) return false;
 
-      // 2. Filtro por búsqueda
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase().trim();
       const name = (o.customer_name || "").toLowerCase();
@@ -394,7 +421,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // WhatsApp Helpers
   const sendWhatsAppDirect = (phone: string, text: string) => {
     const cleanPhone = (phone || "").replace(/\D/g, "");
     const fullPhone = cleanPhone.startsWith("57") ? cleanPhone : `57${cleanPhone}`;
@@ -414,7 +440,6 @@ export default function AdminDashboard() {
     sendWhatsAppDirect(cleanPhone, message);
   };
 
-  // Imprimir Rótulo de Despacho
   const printShippingLabel = (order: Order) => {
     const printWindow = window.open("", "_blank", "width=700,height=600");
     if (!printWindow) return;
@@ -468,7 +493,7 @@ export default function AdminDashboard() {
             </div>
 
             <div class="footer">
-              <span>Manejar con cuidado &bull; Fragil</span>
+              <span>Manejar con cuidado &bull; Frágil</span>
               <span>Total: $${Number(order.total_price).toLocaleString()} COP</span>
             </div>
           </div>
@@ -481,7 +506,7 @@ export default function AdminDashboard() {
     printWindow.document.close();
   };
 
-  // Manejo de productos
+  // Creación de producto
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreating(true);
@@ -532,6 +557,177 @@ export default function AdminDashboard() {
     setCreating(false);
   };
 
+  // Apertura y guardado de edición completa de producto
+  const openEditModal = (p: Product) => {
+    const base = p.original_price || p.sale_price;
+    setEditingProduct(p);
+    setEditForm({
+      name: p.name || "",
+      category: p.category || "",
+      basePrice: String(base || ""),
+      discountPercent: p.discount_percent ? String(p.discount_percent) : "0",
+      stock: String(p.stock ?? 0),
+      badge: p.badge || "",
+      sizes: p.sizes || "",
+      colors: p.colors || "",
+      images: p.images || "",
+      description: p.description || "",
+      is_active: p.is_active ?? true,
+    });
+  };
+
+  const handleSaveProductEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    setSavingEdit(true);
+
+    const base = parseFloat(editForm.basePrice);
+    if (isNaN(base) || base <= 0) {
+      alert("Por favor ingresa un precio base válido.");
+      setSavingEdit(false);
+      return;
+    }
+
+    const discount = parseFloat(editForm.discountPercent) || 0;
+    const stockVal = parseInt(editForm.stock) || 0;
+    const finalSalePrice = discount > 0 ? Math.round(base * (1 - discount / 100)) : base;
+    const finalOriginalPrice = discount > 0 ? base : null;
+
+    const updates = {
+      name: editForm.name.trim(),
+      category: editForm.category.trim(),
+      sale_price: finalSalePrice,
+      original_price: finalOriginalPrice,
+      discount_percent: discount,
+      stock: stockVal,
+      badge: editForm.badge.trim(),
+      sizes: editForm.sizes.trim(),
+      colors: editForm.colors.trim(),
+      images: editForm.images.trim(),
+      description: editForm.description.trim(),
+      is_active: editForm.is_active,
+    };
+
+    const { error } = await supabase
+      .from("products")
+      .update(updates)
+      .eq("id", editingProduct.id);
+
+    if (error) {
+      alert("Error al actualizar el producto: " + error.message);
+    } else {
+      showToast(`¡"${editForm.name}" actualizado con éxito!`);
+      setProducts((prev) =>
+        prev.map((item) => (item.id === editingProduct.id ? { ...item, ...updates } : item))
+      );
+      setEditingProduct(null);
+    }
+    setSavingEdit(false);
+  };
+
+  // Acciones rápidas en línea
+  const handleQuickEditPrice = async (p: Product) => {
+    const currentBase = p.original_price || p.sale_price;
+    const newPriceStr = window.prompt(`Ingresa el nuevo precio base para "${p.name}" (COP):`, String(currentBase));
+    if (newPriceStr === null) return;
+
+    const newBase = parseFloat(newPriceStr);
+    if (isNaN(newBase) || newBase <= 0) {
+      alert("Precio inválido.");
+      return;
+    }
+
+    const discount = p.discount_percent || 0;
+    const newSalePrice = discount > 0 ? Math.round(newBase * (1 - discount / 100)) : newBase;
+    const newOriginalPrice = discount > 0 ? newBase : null;
+
+    const { error } = await supabase
+      .from("products")
+      .update({ sale_price: newSalePrice, original_price: newOriginalPrice })
+      .eq("id", p.id);
+
+    if (error) {
+      alert("Error al actualizar precio: " + error.message);
+    } else {
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === p.id ? { ...item, sale_price: newSalePrice, original_price: newOriginalPrice } : item
+        )
+      );
+      showToast(`Precio actualizado: $${newSalePrice.toLocaleString()} COP`);
+    }
+  };
+
+  const handleQuickEditDiscount = async (p: Product) => {
+    const currentDiscount = p.discount_percent || 0;
+    const newDiscountStr = window.prompt(
+      `Ingresa el % de descuento para "${p.name}" (Ej: 15, 20, 30. Escribe 0 para quitar):`,
+      String(currentDiscount)
+    );
+    if (newDiscountStr === null) return;
+
+    const newDiscount = parseFloat(newDiscountStr);
+    if (isNaN(newDiscount) || newDiscount < 0 || newDiscount >= 95) {
+      alert("Porcentaje de descuento inválido (debe ser entre 0 y 90).");
+      return;
+    }
+
+    const base = p.original_price || p.sale_price;
+    const newSalePrice = newDiscount > 0 ? Math.round(base * (1 - newDiscount / 100)) : base;
+    const newOriginalPrice = newDiscount > 0 ? base : null;
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        sale_price: newSalePrice,
+        original_price: newOriginalPrice,
+        discount_percent: newDiscount,
+      })
+      .eq("id", p.id);
+
+    if (error) {
+      alert("Error al actualizar descuento: " + error.message);
+    } else {
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === p.id
+            ? { ...item, sale_price: newSalePrice, original_price: newOriginalPrice, discount_percent: newDiscount }
+            : item
+        )
+      );
+      showToast(newDiscount > 0 ? `Descuento del ${newDiscount}% aplicado` : "Descuento eliminado");
+    }
+  };
+
+  const handleQuickRemoveDiscount = async (p: Product) => {
+    if (!window.confirm(`¿Quitar el descuento de "${p.name}" y restaurar su precio original completo?`)) return;
+
+    const restoredPrice = p.original_price || p.sale_price;
+
+    const { error } = await supabase
+      .from("products")
+      .update({
+        sale_price: restoredPrice,
+        original_price: null,
+        discount_percent: 0,
+      })
+      .eq("id", p.id);
+
+    if (error) {
+      alert("Error al quitar descuento: " + error.message);
+    } else {
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === p.id
+            ? { ...item, sale_price: restoredPrice, original_price: null, discount_percent: 0 }
+            : item
+        )
+      );
+      showToast("Descuento removido con éxito");
+    }
+  };
+
   const handleUpdateProductField = async (id: string, field: keyof Product, value: any) => {
     setProducts((prev) => prev.map((prod) => (prod.id === id ? { ...prod, [field]: value } : prod)));
     const { error } = await supabase.from("products").update({ [field]: value }).eq("id", id);
@@ -539,12 +735,12 @@ export default function AdminDashboard() {
       alert(`Error al actualizar: ${error.message}`);
       fetchData(false);
     } else {
-      showToast("Producto actualizado");
+      showToast("Inventario actualizado");
     }
   };
 
   const handleDeleteProduct = async (id: string, productName: string) => {
-    if (!window.confirm(`¿Deseas eliminar "${productName}" permanentemente?`)) return;
+    if (!window.confirm(`¿Deseas eliminar permanentemente "${productName}" del catálogo? Esta acción no se puede deshacer.`)) return;
     setDeletingId(id);
     const { error } = await supabase.from("products").delete().eq("id", id);
     if (!error) {
@@ -561,6 +757,31 @@ export default function AdminDashboard() {
     }
     return null;
   };
+
+  // Categorías únicas de productos
+  const uniqueCategories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.category) set.add(p.category.trim());
+    });
+    return ["Todas", ...Array.from(set)];
+  }, [products]);
+
+  // Productos filtrados para el inventario
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (productCategoryFilter !== "Todas" && p.category?.toLowerCase() !== productCategoryFilter.toLowerCase()) {
+        return false;
+      }
+      if (!productSearch.trim()) return true;
+      const q = productSearch.toLowerCase().trim();
+      return (
+        p.name.toLowerCase().includes(q) ||
+        (p.category || "").toLowerCase().includes(q) ||
+        (p.badge || "").toLowerCase().includes(q)
+      );
+    });
+  }, [products, productSearch, productCategoryFilter]);
 
   // Pantalla de autenticación
   if (!isAuthenticated) {
@@ -707,7 +928,6 @@ export default function AdminDashboard() {
 
       {/* Área Principal de Contenido */}
       <main className="flex-1 p-6 md:p-10 space-y-8 overflow-y-auto max-h-screen">
-        {/* Cabecera Superior */}
         <header className="border-b border-white/10 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-serif uppercase tracking-wider font-bold text-white">
@@ -733,12 +953,9 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        {/* ======================================================== */}
-        {/* PESTAÑA: PEDIDOS (EL CORAZÓN DEL MODO DIOS)              */}
-        {/* ======================================================== */}
+        {/* PESTAÑA: PEDIDOS */}
         {activeTab === "pedidos" && (
           <section className="space-y-6">
-            {/* Tarjetas Rápidas de Estado Superior */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div
                 onClick={() => setOrderFilter("despachar")}
@@ -785,9 +1002,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Barra de Filtros y Buscador */}
             <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 bg-[#111115] border border-white/10 p-4">
-              {/* Selector de Pestañas de Órdenes */}
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setOrderFilter("despachar")}
@@ -831,7 +1046,6 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {/* Botón de Depurar Abandonados (visible si estamos en pendientes) */}
               {orderFilter === "pendientes" && counts.pendientes > 0 && (
                 <button
                   onClick={handlePurgeAbandoned}
@@ -841,7 +1055,6 @@ export default function AdminDashboard() {
                 </button>
               )}
 
-              {/* Buscador en Vivo */}
               <div className="relative min-w-[280px]">
                 <input
                   type="text"
@@ -861,7 +1074,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Tabla de Pedidos */}
             {loading ? (
               <div className="py-20 text-center space-y-3">
                 <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
@@ -906,7 +1118,6 @@ export default function AdminDashboard() {
                           className="hover:bg-white/5 transition-colors cursor-pointer group"
                           onClick={() => setSelectedOrder(o)}
                         >
-                          {/* Referencia & Fecha */}
                           <td className="p-4 space-y-1">
                             <span className="font-mono font-bold text-white block text-sm">
                               {o.reference || `NRK-${o.id.slice(0, 8)}`}
@@ -921,7 +1132,6 @@ export default function AdminDashboard() {
                             </span>
                           </td>
 
-                          {/* Cliente & Destino */}
                           <td className="p-4 space-y-1">
                             <span className="font-bold text-white block text-sm">{o.customer_name}</span>
                             <div className="flex items-center gap-2 text-neutral-300 text-[11px]">
@@ -941,7 +1151,6 @@ export default function AdminDashboard() {
                             </span>
                           </td>
 
-                          {/* Artículos */}
                           <td className="p-4">
                             <div className="flex items-center gap-3 max-w-xs">
                               <div className="w-10 h-12 bg-black border border-white/10 flex-shrink-0 flex items-center justify-center overflow-hidden">
@@ -957,7 +1166,6 @@ export default function AdminDashboard() {
                             </div>
                           </td>
 
-                          {/* Total */}
                           <td className="p-4">
                             <span className="font-mono font-bold text-white text-sm block">
                               $ {Number(o.total_price).toLocaleString("es-CO")}
@@ -965,7 +1173,6 @@ export default function AdminDashboard() {
                             <span className="text-[9px] text-neutral-400 uppercase">COP</span>
                           </td>
 
-                          {/* Guía & Transportadora */}
                           <td className="p-4 space-y-1" onClick={(e) => e.stopPropagation()}>
                             {o.shipping_guide ? (
                               <div className="space-y-0.5">
@@ -981,7 +1188,6 @@ export default function AdminDashboard() {
                             )}
                           </td>
 
-                          {/* Estado */}
                           <td className="p-4" onClick={(e) => e.stopPropagation()}>
                             <select
                               value={o.status}
@@ -1006,7 +1212,6 @@ export default function AdminDashboard() {
                             </select>
                           </td>
 
-                          {/* Acción */}
                           <td className="p-4 text-right">
                             <button
                               onClick={(e) => {
@@ -1028,12 +1233,9 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* ======================================================== */}
-        {/* PESTAÑA: DASHBOARD & FINANZAS                            */}
-        {/* ======================================================== */}
+        {/* PESTAÑA: DASHBOARD */}
         {activeTab === "dashboard" && (
           <section className="space-y-8">
-            {/* Métricas Principales */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="bg-[#111115] border border-white/10 p-6 space-y-2">
                 <span className="text-[10px] uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
@@ -1084,7 +1286,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Accesos Rápidos de Despacho */}
             <div className="bg-[#111115] border border-white/10 p-6 space-y-4">
               <div className="flex justify-between items-center border-b border-white/10 pb-4">
                 <h3 className="text-xs uppercase tracking-[0.25em] font-bold text-white">
@@ -1128,9 +1329,7 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* ======================================================== */}
-        {/* PESTAÑA: CLIENTES CRM                                    */}
-        {/* ======================================================== */}
+        {/* PESTAÑA: CLIENTES CRM */}
         {activeTab === "clientes" && (
           <section className="space-y-6">
             <div className="flex justify-between items-center">
@@ -1186,16 +1385,19 @@ export default function AdminDashboard() {
           </section>
         )}
 
-        {/* ======================================================== */}
-        {/* PESTAÑA: CATÁLOGO & INVENTARIO                           */}
-        {/* ======================================================== */}
+        {/* PESTAÑA: CATÁLOGO, PRECIOS & INVENTARIO */}
         {activeTab === "publicar" && (
           <div className="space-y-12">
             {/* Formulario de Publicación */}
             <section className="bg-[#111115] border border-white/10 p-8 max-w-4xl space-y-6">
-              <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white border-b border-white/10 pb-3">
-                Publicar Nuevo Producto en NERKLEY
-              </h2>
+              <div className="flex justify-between items-center border-b border-white/10 pb-3">
+                <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white">
+                  Publicar Nuevo Producto en NERKLEY
+                </h2>
+                <span className="text-[10px] text-neutral-400 uppercase tracking-widest">
+                  Perfumes &bull; Ropa 1.1 &bull; Gorras &bull; Zapatos &bull; Oro
+                </span>
+              </div>
 
               <form onSubmit={handleCreateProduct} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1346,11 +1548,42 @@ export default function AdminDashboard() {
               </form>
             </section>
 
-            {/* Listado de Inventario */}
+            {/* Listado de Inventario & Control de Precios */}
             <section className="space-y-4">
-              <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300">
-                Inventario & Catálogo Activo ({products.length})
-              </h2>
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div>
+                  <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300">
+                    Inventario & Catálogo Activo ({filteredProducts.length} de {products.length})
+                  </h2>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Modifica precios, añade descuentos del día o quítalos con 1 clic.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Filtro por Categoría */}
+                  <select
+                    value={productCategoryFilter}
+                    onChange={(e) => setProductCategoryFilter(e.target.value)}
+                    className="bg-[#111115] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white uppercase tracking-wider cursor-pointer"
+                  >
+                    {uniqueCategories.map((cat) => (
+                      <option key={cat} value={cat} className="bg-[#111115] text-white">
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Buscador de Producto */}
+                  <input
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Buscar producto..."
+                    className="bg-[#111115] border border-white/10 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white min-w-[200px]"
+                  />
+                </div>
+              </div>
 
               <div className="overflow-x-auto border border-white/10 bg-[#111115]">
                 <table className="w-full text-left text-xs">
@@ -1358,15 +1591,17 @@ export default function AdminDashboard() {
                     <tr>
                       <th className="p-4">Foto & Producto</th>
                       <th className="p-4">Categoría</th>
-                      <th className="p-4">Precio (COP)</th>
-                      <th className="p-4 w-32">Stock</th>
-                      <th className="p-4 w-36">Visibilidad</th>
-                      <th className="p-4 text-right">Acciones</th>
+                      <th className="p-4">Precio & Descuento</th>
+                      <th className="p-4 w-28">Stock</th>
+                      <th className="p-4 w-32">Visibilidad</th>
+                      <th className="p-4 text-right">Gestión Rápida</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {products.map((p) => {
+                    {filteredProducts.map((p) => {
                       const firstImg = p.images ? p.images.split(",")[0].trim() : null;
+                      const hasDiscount = Boolean(p.discount_percent && p.discount_percent > 0);
+
                       return (
                         <tr key={p.id} className="hover:bg-white/5 transition-colors">
                           <td className="p-4">
@@ -1378,37 +1613,53 @@ export default function AdminDashboard() {
                                   <span className="text-[8px] text-neutral-600">N/A</span>
                                 )}
                               </div>
-                              <div>
-                                <span className="font-bold text-white block">{p.name}</span>
+                              <div className="space-y-1">
+                                <span className="font-bold text-white block text-sm">{p.name}</span>
                                 {p.badge && (
-                                  <span className="text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
+                                  <span className="inline-block text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
                                     {p.badge}
                                   </span>
                                 )}
                               </div>
                             </div>
                           </td>
+
                           <td className="p-4 text-neutral-300 uppercase tracking-wider text-[11px] font-semibold">
                             {p.category}
                           </td>
-                          <td className="p-4">
-                            <span className="font-mono font-bold text-white block">
-                              $ {Number(p.sale_price).toLocaleString("es-CO")}
-                            </span>
-                            {p.discount_percent && p.discount_percent > 0 && p.original_price ? (
-                              <span className="text-[10px] text-red-400 line-through block font-mono">
-                                $ {Number(p.original_price).toLocaleString("es-CO")} (-{p.discount_percent}%)
+
+                          <td className="p-4 space-y-1">
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-mono font-bold text-emerald-400 text-sm">
+                                $ {Number(p.sale_price).toLocaleString("es-CO")}
                               </span>
-                            ) : null}
+                              {hasDiscount && p.original_price && (
+                                <span className="text-[10px] text-red-400 line-through font-mono">
+                                  $ {Number(p.original_price).toLocaleString("es-CO")}
+                                </span>
+                              )}
+                            </div>
+
+                            {hasDiscount ? (
+                              <span className="inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-red-500/20 text-red-300 border border-red-500/30">
+                                -{p.discount_percent}% OFF
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-neutral-500 uppercase tracking-wider block">
+                                Sin descuento
+                              </span>
+                            )}
                           </td>
+
                           <td className="p-4">
                             <input
                               type="number"
                               value={p.stock}
                               onChange={(e) => handleUpdateProductField(p.id, "stock", Number(e.target.value))}
-                              className="w-24 bg-[#0a0a0c] border border-white/20 px-3 py-1.5 text-white font-mono font-bold text-center focus:outline-none focus:border-white"
+                              className="w-20 bg-[#0a0a0c] border border-white/20 px-2.5 py-1.5 text-white font-mono font-bold text-center focus:outline-none focus:border-white"
                             />
                           </td>
+
                           <td className="p-4">
                             <button
                               onClick={() => handleUpdateProductField(p.id, "is_active", !p.is_active)}
@@ -1421,14 +1672,57 @@ export default function AdminDashboard() {
                               {p.is_active ? "Público" : "Oculto"}
                             </button>
                           </td>
+
                           <td className="p-4 text-right">
-                            <button
-                              onClick={() => handleDeleteProduct(p.id, p.name)}
-                              disabled={deletingId === p.id}
-                              className="bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/30 text-red-400 px-3 py-1.5 text-[10px] uppercase font-bold tracking-wider cursor-pointer transition-all"
-                            >
-                              Eliminar
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Botón Editar Precio Base */}
+                              <button
+                                onClick={() => handleQuickEditPrice(p)}
+                                title="Editar precio base en COP"
+                                className="bg-white/10 hover:bg-white text-white hover:text-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border border-white/20 transition-all cursor-pointer"
+                              >
+                                $ Precio
+                              </button>
+
+                              {/* Botón Aplicar / Cambiar Descuento */}
+                              <button
+                                onClick={() => handleQuickEditDiscount(p)}
+                                title="Aplicar o modificar % de descuento"
+                                className="bg-amber-500/10 hover:bg-amber-500 text-amber-300 hover:text-black px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border border-amber-500/30 transition-all cursor-pointer"
+                              >
+                                % Desc
+                              </button>
+
+                              {/* Botón Quitar Descuento */}
+                              {hasDiscount && (
+                                <button
+                                  onClick={() => handleQuickRemoveDiscount(p)}
+                                  title="Quitar descuento y volver al precio original"
+                                  className="bg-red-500/10 hover:bg-red-500 text-red-300 hover:text-white px-2 py-1 text-[10px] font-bold uppercase tracking-wider border border-red-500/30 transition-all cursor-pointer"
+                                >
+                                  &times; Quitar
+                                </button>
+                              )}
+
+                              {/* Botón Editar Todo (Modal Completo) */}
+                              <button
+                                onClick={() => openEditModal(p)}
+                                title="Editar todos los detalles de este producto"
+                                className="bg-white text-black hover:bg-neutral-200 px-3 py-1 text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer"
+                              >
+                                Editar
+                              </button>
+
+                              {/* Botón Eliminar */}
+                              <button
+                                onClick={() => handleDeleteProduct(p.id, p.name)}
+                                disabled={deletingId === p.id}
+                                className="text-red-400 hover:text-red-300 p-1 text-xs cursor-pointer"
+                                title="Eliminar producto permanentemente"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -1441,13 +1735,229 @@ export default function AdminDashboard() {
         )}
       </main>
 
-      {/* ======================================================== */}
-      {/* MODAL DETALLE TOTAL: MODO DIOS DEL PEDIDO                */}
-      {/* ======================================================== */}
+      {/* MODAL: EDICIÓN COMPLETA DE PRODUCTO */}
+      {editingProduct && (
+        <div className="fixed inset-0 z-[160] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+          <div className="bg-[#111115] border border-white/20 max-w-2xl w-full max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left">
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div>
+                <h3 className="text-xl font-bold uppercase tracking-wider text-white">
+                  Editar Producto &bull; {editingProduct.name}
+                </h3>
+                <p className="text-[10px] text-neutral-400 uppercase tracking-widest mt-1">
+                  ID: {editingProduct.id.slice(0, 8)} &bull; Actualiza precio, descuento, stock o detalles
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingProduct(null)}
+                className="text-neutral-400 hover:text-white text-2xl leading-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveProductEdit} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Nombre del Producto *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Precio Base en COP (Sin descuento) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={editForm.basePrice}
+                    onChange={(e) => setEditForm({ ...editForm, basePrice: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white font-mono focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                      Descuento % (0 para ninguno)
+                    </label>
+                    {parseFloat(editForm.discountPercent) > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, discountPercent: "0" })}
+                        className="text-[9px] text-red-400 underline cursor-pointer"
+                      >
+                        Quitar descuento
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    max="90"
+                    value={editForm.discountPercent}
+                    onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white font-mono focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                {/* Cálculo en vivo de precio final */}
+                <div className="md:col-span-2 p-3 bg-white/5 border border-white/10 flex justify-between items-center text-xs">
+                  <span className="text-neutral-400 uppercase tracking-wider text-[10px]">
+                    Precio Final que verá el cliente:
+                  </span>
+                  <div className="text-right">
+                    <span className="text-lg font-bold font-mono text-emerald-400">
+                      $ {Math.round(
+                        (parseFloat(editForm.basePrice) || 0) *
+                          (1 - (parseFloat(editForm.discountPercent) || 0) / 100)
+                      ).toLocaleString("es-CO")}{" "}
+                      COP
+                    </span>
+                    {parseFloat(editForm.discountPercent) > 0 && (
+                      <span className="text-[10px] text-red-400 block line-through">
+                        Antes: $ {parseFloat(editForm.basePrice || "0").toLocaleString("es-CO")} COP
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Categoría *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.category}
+                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Stock Disponible *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.stock}
+                    onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white font-mono focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Insignia / Etiqueta Destacada
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.badge}
+                    onChange={(e) => setEditForm({ ...editForm, badge: e.target.value })}
+                    placeholder="Ej: 100% Original, Edición Limitada, Calidad 1.1"
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Tallas (Separadas por comas)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.sizes}
+                    onChange={(e) => setEditForm({ ...editForm, sizes: e.target.value })}
+                    placeholder="S, M, L, XL"
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Colores (Separados por comas)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.colors}
+                    onChange={(e) => setEditForm({ ...editForm, colors: e.target.value })}
+                    placeholder="Negro, Blanco, Oro"
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    URLs de Fotos (Separadas por comas)
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.images}
+                    onChange={(e) => setEditForm({ ...editForm, images: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Descripción
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                </div>
+
+                <div className="md:col-span-2 flex items-center gap-3 pt-2">
+                  <input
+                    type="checkbox"
+                    id="is_active_check"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-white cursor-pointer"
+                  />
+                  <label htmlFor="is_active_check" className="text-xs uppercase tracking-wider text-neutral-300 cursor-pointer">
+                    Producto visible en la tienda pública (Activo)
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="bg-white text-black px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all cursor-pointer shadow-lg disabled:opacity-50"
+                >
+                  {savingEdit ? "Guardando Cambios..." : "Guardar Cambios"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: MODO DIOS DEL PEDIDO */}
       {selectedOrder && (
         <div className="fixed inset-0 z-[150] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-y-auto">
           <div className="bg-[#111115] border border-white/20 max-w-2xl w-full max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left">
-            {/* Cabecera del Modal */}
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
                 <div className="flex items-center gap-3">
@@ -1481,7 +1991,6 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            {/* Datos del Cliente */}
             <div className="bg-white/5 border border-white/10 p-4 space-y-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
                 Datos del Comprador & Entrega
@@ -1537,7 +2046,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Artículos & Total */}
             <div className="bg-white/5 border border-white/10 p-4 space-y-3">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
                 Contenido del Pedido
@@ -1573,7 +2081,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Módulo de Logística: Transportadora & Guía */}
             <div className="bg-white/5 border border-white/10 p-4 space-y-4">
               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-400 block border-b border-white/10 pb-1.5">
                 Logística de Despacho & Guía
@@ -1631,7 +2138,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Cambio Rápido de Estado */}
             <div className="space-y-2">
               <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 block">
                 Actualizar Estado de la Orden:
@@ -1680,7 +2186,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Zona de Peligro: Eliminar Pedido */}
             <div className="pt-4 border-t border-white/10 flex justify-between items-center">
               <span className="text-[10px] text-neutral-500 uppercase tracking-widest">
                 ID Supabase: {selectedOrder.id.slice(0, 16)}...
