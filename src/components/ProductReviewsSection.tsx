@@ -16,7 +16,7 @@ export default function ProductReviewsSection({
 }: Props) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [averageRating, setAverageRating] = useState(4.9);
-  const [totalCount, setTotalCount] = useState(28);
+  const [totalCount, setTotalCount] = useState(32);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [filterRating, setFilterRating] = useState<number | null>(null);
 
@@ -30,7 +30,7 @@ export default function ProductReviewsSection({
   const [likedReviews, setLikedReviews] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // 1. Cargar reseñas base adaptadas por producto
+    // 1. Cargar reseñas base adaptadas por producto con cantidad variada
     const base = getProductReviews(productName, productCategory, productSlug);
     
     // 2. Cargar reseñas locales escritas por usuarios reales en este navegador
@@ -107,6 +107,12 @@ export default function ProductReviewsSection({
     ? reviews.filter((r) => r.rating === filterRating)
     : reviews;
 
+  // Cálculo dinámico de porcentajes según las reseñas de ESTE producto específico
+  const fiveStarCount = reviews.filter((r) => r.rating === 5).length;
+  const fourStarCount = reviews.filter((r) => r.rating === 4).length;
+  const fiveStarPct = reviews.length > 0 ? Math.round((fiveStarCount / reviews.length) * 100) : 92;
+  const fourStarPct = reviews.length > 0 ? 100 - fiveStarPct : 8;
+
   return (
     <section id="reviews-section" className="max-w-7xl mx-auto px-6 py-14 w-full border-t border-white/10 mt-10">
       {/* Cabecera y Resumen de Calificación */}
@@ -159,25 +165,31 @@ export default function ProductReviewsSection({
           </span>
         </div>
 
-        {/* Barras de Desglose de Estrellas */}
+        {/* Barras Dinámicas de Desglose de Estrellas */}
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-3">
             <span className="w-16 text-neutral-300 font-mono text-[11px]">5 estrellas</span>
             <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-amber-400 to-amber-300 rounded-full w-[94%]"></div>
+              <div
+                className="h-full bg-gradient-to-r from-amber-400 to-amber-300 rounded-full transition-all duration-500"
+                style={{ width: `${fiveStarPct}%` }}
+              ></div>
             </div>
-            <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">94%</span>
+            <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">{fiveStarPct}%</span>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="w-16 text-neutral-300 font-mono text-[11px]">4 estrellas</span>
             <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-amber-400/70 rounded-full w-[6%]"></div>
+              <div
+                className="h-full bg-amber-400/70 rounded-full transition-all duration-500"
+                style={{ width: `${fourStarPct}%` }}
+              ></div>
             </div>
-            <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">6%</span>
+            <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">{fourStarPct}%</span>
           </div>
 
-          <div className="flex items-center gap-3 opacity-40">
+          <div className="flex items-center gap-3 opacity-30">
             <span className="w-16 text-neutral-300 font-mono text-[11px]">3 estrellas</span>
             <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-amber-400 rounded-full w-[0%]"></div>
@@ -185,7 +197,7 @@ export default function ProductReviewsSection({
             <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">0%</span>
           </div>
 
-          <div className="flex items-center gap-3 opacity-40">
+          <div className="flex items-center gap-3 opacity-30">
             <span className="w-16 text-neutral-300 font-mono text-[11px]">2 estrellas</span>
             <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-amber-400 rounded-full w-[0%]"></div>
@@ -193,7 +205,7 @@ export default function ProductReviewsSection({
             <span className="w-8 text-right text-neutral-400 font-mono text-[10px]">0%</span>
           </div>
 
-          <div className="flex items-center gap-3 opacity-40">
+          <div className="flex items-center gap-3 opacity-30">
             <span className="w-16 text-neutral-300 font-mono text-[11px]">1 estrella</span>
             <div className="flex-1 h-2.5 bg-white/10 rounded-full overflow-hidden">
               <div className="h-full bg-amber-400 rounded-full w-[0%]"></div>
@@ -349,19 +361,21 @@ export default function ProductReviewsSection({
               : "bg-white/5 text-neutral-300 hover:bg-white/10 border border-white/10"
           }`}
         >
-          <span>5 estrellas ★</span>
+          <span>5 estrellas ★ ({fiveStarCount})</span>
         </button>
-        <button
-          type="button"
-          onClick={() => setFilterRating(4)}
-          className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1 ${
-            filterRating === 4
-              ? "bg-amber-400 text-black font-semibold"
-              : "bg-white/5 text-neutral-300 hover:bg-white/10 border border-white/10"
-          }`}
-        >
-          <span>4 estrellas ★</span>
-        </button>
+        {fourStarCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setFilterRating(4)}
+            className={`px-3 py-1.5 rounded-full text-xs transition-all cursor-pointer flex items-center gap-1 ${
+              filterRating === 4
+                ? "bg-amber-400 text-black font-semibold"
+                : "bg-white/5 text-neutral-300 hover:bg-white/10 border border-white/10"
+            }`}
+          >
+            <span>4 estrellas ★ ({fourStarCount})</span>
+          </button>
+        )}
       </div>
 
       {/* Cuadrícula de Reseñas de Clientes */}
@@ -383,9 +397,9 @@ export default function ProductReviewsSection({
                 </span>
               </div>
 
-              {/* Comentario con ortografía y lenguaje natural */}
+              {/* Comentario auténtico SIN comillas */}
               <p className="text-xs text-neutral-200 leading-relaxed font-normal">
-                &ldquo;{rev.comment}&rdquo;
+                {rev.comment}
               </p>
             </div>
 
