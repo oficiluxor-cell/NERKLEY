@@ -361,20 +361,38 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 {product.name}
               </h1>
 
-              {/* Píldora de Calificación y Reseñas Verificadas */}
-              <div
-                onClick={() => {
-                  const el = document.getElementById("reviews-section");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="flex items-center gap-2 mb-2.5 sm:mb-3.5 cursor-pointer group w-fit"
-              >
-                <div className="flex text-amber-400 text-xs">
-                  {"★★★★★"}
+              {/* Píldora de Calificación y Botón Directo para Escribir Reseña (Sin Deslizar) */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-2.5 sm:mb-3.5">
+                <div
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("nerkley-open-review-modal"));
+                    }
+                  }}
+                  className="flex items-center gap-1.5 cursor-pointer group"
+                  title="Toca para dejar tu opinión directa"
+                >
+                  <div className="flex text-amber-400 text-xs">
+                    {"★★★★★"}
+                  </div>
+                  <span className="text-[11px] text-neutral-300 font-medium group-hover:text-amber-300 transition-colors underline decoration-white/20">
+                    {(() => { const s = getProductReviews(product.name, product.category, product.slug); return `${s.averageRating} / 5.0 (${s.totalReviews} valoraciones)`; })()}
+                  </span>
                 </div>
-                <span className="text-[11px] text-neutral-300 font-medium group-hover:text-amber-300 transition-colors underline decoration-white/20">
-                  {(() => { const s = getProductReviews(product.name, product.category, product.slug); return `${s.averageRating} / 5.0 (${s.totalReviews} valoraciones)`; })()}
-                </span>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (typeof window !== "undefined") {
+                      window.dispatchEvent(new CustomEvent("nerkley-open-review-modal"));
+                    }
+                  }}
+                  className="bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/40 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                  title="Abrir formulario directo para escribir reseña sin deslizar"
+                >
+                  <span>✍️</span> Escribir Reseña
+                </button>
+
                 <span className="text-[9px] bg-emerald-500/10 text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded font-medium flex items-center gap-1.5">
                   <span className="w-1 h-1 rounded-full bg-amber-400"></span>
                   Disponibilidad Exclusiva
@@ -674,7 +692,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                     </div>
                     
                     <Link href={`/product/${rp.slug}`}>
-                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-2 line-clamp-1 hover:underline cursor-pointer">
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-2 line-clamp-none min-h-[2.4rem] md:min-h-[2.6rem] leading-snug hover:underline cursor-pointer">
                         {rp.name}
                       </h4>
                     </Link>

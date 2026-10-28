@@ -299,7 +299,7 @@ export default function AIChatSupport({ currentProduct }: Props) {
   return (
     <>
       {/* Botón flotante animado de Soporte IA */}
-      <div className="fixed bottom-4 right-4 sm:bottom-5 sm:right-5 z-[80] flex flex-col items-end">
+      <div className="fixed bottom-20 right-3.5 md:bottom-5 md:right-5 z-[80] flex flex-col items-end">
         {/* Burbuja de invitación: SOLO en desktop/tablets (hidden en celulares para no tapar la pantalla) */}
         {!isOpen && (
           <div

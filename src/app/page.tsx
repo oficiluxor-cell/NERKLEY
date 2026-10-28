@@ -530,7 +530,7 @@ export default function Home() {
                     </div>
                     
                     <Link href={`/product/${product.slug}`}>
-                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-2 line-clamp-1 hover:text-amber-200 transition-colors cursor-pointer">
+                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-2 line-clamp-none min-h-[2.4rem] md:min-h-[2.6rem] leading-snug hover:text-amber-200 transition-colors cursor-pointer">
                         {product.name}
                       </h4>
                     </Link>

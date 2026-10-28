@@ -17,7 +17,7 @@ export default function ProductReviewsSection({
   const [reviews, setReviews] = useState<Review[]>([]);
   const [averageRating, setAverageRating] = useState(4.9);
   const [totalCount, setTotalCount] = useState(32);
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterRating, setFilterRating] = useState<number | null>(null);
 
   // Formulario de nueva reseña
@@ -28,6 +28,16 @@ export default function ProductReviewsSection({
   const [comment, setComment] = useState("");
   const [submittedSuccess, setSubmittedSuccess] = useState(false);
   const [likedReviews, setLikedReviews] = useState<Record<string, boolean>>({});
+
+  // Escuchar evento global para abrir el modal desde cualquier parte (ej: píldora superior sin deslizar)
+  useEffect(() => {
+    const handleOpenModal = () => {
+      setIsModalOpen(true);
+      setSubmittedSuccess(false);
+    };
+    window.addEventListener("nerkley-open-review-modal", handleOpenModal);
+    return () => window.removeEventListener("nerkley-open-review-modal", handleOpenModal);
+  }, []);
 
   useEffect(() => {
     // 1. Cargar reseñas base adaptadas por producto con cantidad variada
@@ -87,8 +97,8 @@ export default function ProductReviewsSection({
     setSubmittedSuccess(true);
     setTimeout(() => {
       setSubmittedSuccess(false);
-      setIsFormOpen(false);
-    }, 2800);
+      setIsModalOpen(false);
+    }, 1900);
   };
 
   const handleToggleLike = (id: string) => {
@@ -125,19 +135,22 @@ export default function ProductReviewsSection({
             Experiencias de Compra
           </h2>
           <p className="text-xs text-neutral-400 mt-1">
-            Valoraciones de clientes sobre calidad, fijación y entrega.
+            Valoraciones reales sobre calidad, originalidad, fijación y entrega.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => setIsFormOpen(!isFormOpen)}
+          onClick={() => {
+            setIsModalOpen(true);
+            setSubmittedSuccess(false);
+          }}
           className="bg-white text-black hover:bg-neutral-200 px-6 py-3.5 text-xs font-semibold uppercase tracking-widest rounded transition-all shadow-md active:scale-95 cursor-pointer self-start md:self-auto flex items-center gap-2 group"
         >
           <svg className="w-4 h-4 text-black group-hover:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          {isFormOpen ? "Cerrar Formulario" : "Escribir una Reseña"}
+          <span>Escribir una Reseña</span>
         </button>
       </div>
 
@@ -220,121 +233,156 @@ export default function ProductReviewsSection({
             <span className="text-emerald-400 text-sm">✓</span>
             <div>
               <p className="text-white font-semibold text-[11px]">Compra Segura con Wompi</p>
-              <p className="text-[10px] text-neutral-400">Protección antifraude con cifrado bancario SHA-256.</p>
+              <p className="text-[10px] text-neutral-400">Protección antifraude con cifrado bancario certificado.</p>
             </div>
           </div>
           <div className="flex items-start gap-2.5">
             <span className="text-amber-400 text-sm">📦</span>
             <div>
               <p className="text-white font-semibold text-[11px]">Guía Oficial de Rastreo</p>
-              <p className="text-[10px] text-neutral-400">Envíos asegurados con Servientrega, Envía o Inter Rapidísimo.</p>
+              <p className="text-[10px] text-neutral-400">Envíos asegurados a toda Colombia con guía de rastreo oficial.</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Formulario Expandible para Dejar una Reseña Real */}
-      {isFormOpen && (
-        <div className="bg-[#14141c] border border-amber-400/40 p-6 md:p-8 rounded-xl my-6 animate-in fade-in duration-300 shadow-xl">
-          <h3 className="text-lg font-serif text-white uppercase tracking-wider mb-1">
-            Califica tu experiencia con {productName}
-          </h3>
-          <p className="text-xs text-neutral-400 mb-6">
-            Tu opinión ayuda a otros compradores de Colombia a tomar su decisión.
-          </p>
+      {/* MODAL EMERGENTE DIRECTO PARA ESCRIBIR RESEÑA (SIN TENER QUE DESLIZAR) */}
+      {isModalOpen && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false);
+          }}
+        >
+          <div className="relative w-full max-w-lg bg-[#14141c] border border-amber-400/40 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.95)] p-5 sm:p-7 max-h-[92vh] overflow-y-auto animate-in zoom-in-95 duration-200">
+            {/* Botón cerrar */}
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-white text-2xl leading-none p-1.5 cursor-pointer rounded-lg hover:bg-white/10 transition-colors"
+              title="Cerrar ventana"
+            >
+              &times;
+            </button>
 
-          {submittedSuccess ? (
-            <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 p-5 rounded-lg text-center space-y-1">
-              <p className="font-bold text-sm">🎉 ¡Tu reseña ha sido publicada con éxito!</p>
-              <p className="text-xs text-neutral-300">Gracias por compartir tu experiencia con la comunidad de NERKLEY.</p>
+            <div className="mb-5 pr-8">
+              <span className="text-[10px] uppercase tracking-[0.25em] text-amber-400 font-semibold block mb-1">
+                Opinión de Cliente Verificado
+              </span>
+              <h3 className="text-lg sm:text-xl font-serif text-white uppercase tracking-wider">
+                Calificar {productName}
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Tu reseña se publicará inmediatamente para guiar a otros compradores en Colombia.
+              </p>
             </div>
-          ) : (
-            <form onSubmit={handleSubmitReview} className="space-y-4">
-              {/* Selector de Estrellas */}
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-2">
-                  Tu Calificación *
-                </label>
-                <div className="flex items-center gap-1.5 cursor-pointer">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      type="button"
-                      onClick={() => setRating(star)}
-                      onMouseEnter={() => setHoverRating(star)}
-                      onMouseLeave={() => setHoverRating(rating)}
-                      className="text-2xl transition-transform hover:scale-125 focus:outline-hidden"
-                    >
-                      <span className={star <= (hoverRating || rating) ? "text-amber-400" : "text-neutral-600"}>
-                        ★
-                      </span>
-                    </button>
-                  ))}
-                  <span className="text-xs text-amber-300 ml-2 font-semibold">
-                    {rating === 5 ? "¡Excelente! (5 estrellas)" : `${rating} estrellas`}
-                  </span>
-                </div>
-              </div>
 
-              {/* Nombre y Ciudad (El usuario elige su propio nombre) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {submittedSuccess ? (
+              <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 p-6 rounded-xl text-center space-y-2 animate-in zoom-in-95 duration-200">
+                <div className="text-3xl">🎉</div>
+                <p className="font-bold text-sm">¡Tu reseña ha sido publicada con éxito!</p>
+                <p className="text-xs text-neutral-300">
+                  Gracias por tu valoración. Ya aparece disponible para la comunidad de NERKLEY.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleSubmitReview} className="space-y-4">
+                {/* Selector de Estrellas interactivo */}
                 <div>
-                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1.5">
-                    Tu Nombre o Alias *
+                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-2">
+                    Tu Calificación *
                   </label>
-                  <input
-                    type="text"
+                  <div className="flex items-center gap-1.5 cursor-pointer bg-black/40 border border-white/10 p-2.5 sm:p-3 rounded-xl w-fit">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setRating(star)}
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(rating)}
+                        className="text-2xl transition-transform hover:scale-125 focus:outline-hidden"
+                      >
+                        <span className={star <= (hoverRating || rating) ? "text-amber-400" : "text-neutral-600"}>
+                          ★
+                        </span>
+                      </button>
+                    ))}
+                    <span className="text-xs text-amber-300 ml-2 font-semibold">
+                      {rating === 5 ? "¡Excelente! (5.0)" : rating === 4 ? "Muy bueno (4.0)" : `${rating}.0 estrellas`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Nombre y Ciudad */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1">
+                      Tu Nombre o Alias *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      autoFocus
+                      value={authorName}
+                      onChange={(e) => setAuthorName(e.target.value)}
+                      placeholder="Ej: Juan David M."
+                      className="w-full bg-[#0d0d12] border border-white/15 rounded-xl p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1">
+                      Tu Ciudad (Opcional)
+                    </label>
+                    <input
+                      type="text"
+                      value={authorCity}
+                      onChange={(e) => setAuthorCity(e.target.value)}
+                      placeholder="Ej: Medellín, Bogotá, Cali..."
+                      className="w-full bg-[#0d0d12] border border-white/15 rounded-xl p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Comentario */}
+                <div>
+                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1">
+                    Tu Opinión sobre el Producto *
+                  </label>
+                  <textarea
                     required
-                    value={authorName}
-                    onChange={(e) => setAuthorName(e.target.value)}
-                    placeholder="Ej: Juancho, Andrés M., Sofia..."
-                    className="w-full bg-[#0d0d12] border border-white/15 rounded-lg p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
-                  />
+                    rows={3}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="¿Qué tal te pareció el aroma, la fijación, el acabado o la rapidez del envío?..."
+                    className="w-full bg-[#0d0d12] border border-white/15 rounded-xl p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
+                  ></textarea>
                 </div>
 
-                <div>
-                  <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1.5">
-                    Tu Ciudad / Municipio (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={authorCity}
-                    onChange={(e) => setAuthorCity(e.target.value)}
-                    placeholder="Ej: Medellín, Bogotá, Cali, Barranquilla..."
-                    className="w-full bg-[#0d0d12] border border-white/15 rounded-lg p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
-                  />
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  <span className="text-[10px] text-neutral-400 flex items-center gap-1 self-start sm:self-auto">
+                    🔒 Verificación garantizada NERKLEY
+                  </span>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(false)}
+                      className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-xs text-neutral-400 hover:text-white border border-white/10 hover:border-white/20 transition-all cursor-pointer font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 sm:flex-initial bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer"
+                    >
+                      Publicar Ahora ✨
+                    </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* Comentario */}
-              <div>
-                <label className="block text-xs uppercase tracking-wider text-neutral-300 font-semibold mb-1.5">
-                  Tu Opinión del Producto *
-                </label>
-                <textarea
-                  required
-                  rows={3}
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  placeholder="Cuéntanos qué tal te pareció el aroma, el acabado, la comodidad o el tiempo de entrega..."
-                  className="w-full bg-[#0d0d12] border border-white/15 rounded-lg p-3 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
-                ></textarea>
-              </div>
-
-              <div className="flex items-center justify-between pt-2">
-                <span className="text-[10px] text-neutral-400 flex items-center gap-1">
-                  🔒 Tu reseña se publicará tras ser verificada.
-                </span>
-
-                <button
-                  type="submit"
-                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-3 rounded text-xs font-bold uppercase tracking-wider shadow-lg active:scale-95 transition-all cursor-pointer"
-                >
-                  Publicar Reseña
-                </button>
-              </div>
-            </form>
-          )}
+              </form>
+            )}
+          </div>
         </div>
       )}
 
