@@ -125,6 +125,41 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
     const sizeList = product.sizes ? product.sizes.split(",").map((s) => s.trim()).filter(Boolean) : [];
     const colorList = product.colors ? product.colors.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
+  const reviewData = getProductReviews(product.name, product.category, product.slug);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://nerkley-m4t2.vercel.app";
+
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: imageList.length > 0 ? imageList[0] : undefined,
+    description: product.description || `Comprar ${product.name} en NERKLEY Luxury Store Colombia con garantía de autenticidad y envío asegurado.`,
+    sku: product.id,
+    brand: {
+      "@type": "Brand",
+      name: "NERKLEY",
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${siteUrl}/product/${product.slug}`,
+      priceCurrency: "COP",
+      price: product.sale_price,
+      priceValidUntil: "2027-12-31",
+      availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: "NERKLEY",
+      },
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: reviewData.averageRating,
+      reviewCount: reviewData.totalReviews,
+      bestRating: "5",
+      worstRating: "1",
+    },
+  };
+
     if (sizeList.length > 0 && !selectedSize) {
       alert("Por favor, selecciona una talla antes de añadir al carrito.");
       return;
@@ -184,8 +219,48 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const sizeList = product.sizes ? product.sizes.split(",").map((s) => s.trim()).filter(Boolean) : [];
   const colorList = product.colors ? product.colors.split(",").map((s) => s.trim()).filter(Boolean) : [];
 
+    const reviewData = getProductReviews(product.name, product.category, product.slug);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://nerkley-m4t2.vercel.app";
+
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    image: imageList.length > 0 ? imageList[0] : undefined,
+    description: product.description || `Comprar ${product.name} en NERKLEY Luxury Store Colombia con garantía de autenticidad y envío asegurado.`,
+    sku: product.id,
+    brand: {
+      "@type": "Brand",
+      name: "NERKLEY",
+    },
+    offers: {
+      "@type": "Offer",
+      url: `${siteUrl}/product/${product.slug}`,
+      priceCurrency: "COP",
+      price: product.sale_price,
+      priceValidUntil: "2027-12-31",
+      availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: {
+        "@type": "Organization",
+        name: "NERKLEY",
+      },
+    },
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: reviewData.averageRating,
+      reviewCount: reviewData.totalReviews,
+      bestRating: "5",
+      worstRating: "1",
+    },
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans flex flex-col selection:bg-white selection:text-black">
+      {/* Schema.org Rich Snippet para posicionamiento en Google */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
       <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50 w-full">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center gap-2">
           <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
