@@ -302,10 +302,10 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 w-full flex-1">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+      <main className="max-w-7xl mx-auto px-3.5 sm:px-6 py-3 sm:py-6 lg:py-12 w-full flex-1 pb-24 md:pb-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 lg:gap-14 items-start">
           <div className="space-y-4">
-            <div className="aspect-[3/4] bg-[#111115] border border-white/10 flex items-center justify-center relative overflow-hidden shadow-sm p-4">
+            <div className="aspect-square sm:aspect-[4/5] lg:aspect-[3/4] max-h-[300px] sm:max-h-[420px] lg:max-h-none bg-[#111115] border border-white/10 flex items-center justify-center relative overflow-hidden shadow-sm p-3 sm:p-4">
               {selectedImage ? (
                 <img src={selectedImage} alt={product.name} className="w-full h-full object-contain" />
               ) : (
@@ -341,7 +341,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   <button
                     key={index}
                     onClick={() => setSelectedImage(imgUrl)}
-                    className={`w-20 h-24 border-2 transition-all flex-shrink-0 bg-[#111115] overflow-hidden cursor-pointer p-1 ${
+                    className={`w-14 h-16 sm:w-18 sm:h-20 lg:w-20 lg:h-24 border-2 transition-all flex-shrink-0 bg-[#111115] overflow-hidden cursor-pointer p-1 ${
                       selectedImage === imgUrl ? "border-white scale-105" : "border-white/10 opacity-60 hover:opacity-100"
                     }`}
                   >
@@ -352,12 +352,12 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             )}
           </div>
 
-          <div className="bg-[#111115] p-8 border border-white/10 shadow-sm space-y-6">
+          <div className="bg-[#111115] p-3.5 sm:p-6 lg:p-8 border border-white/10 shadow-sm space-y-3 sm:space-y-4 lg:space-y-5">
             <div>
-              <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block mb-2">
+              <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-neutral-400 font-semibold block mb-1">
                 {product.category || "Edición Exclusiva"}
               </span>
-              <h1 className="text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-2">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-1.5">
                 {product.name}
               </h1>
 
@@ -367,7 +367,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   const el = document.getElementById("reviews-section");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="flex items-center gap-2 mb-4 cursor-pointer group w-fit"
+                className="flex items-center gap-2 mb-2.5 sm:mb-3.5 cursor-pointer group w-fit"
               >
                 <div className="flex text-amber-400 text-xs">
                   {"★★★★★"}
@@ -381,27 +381,27 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 </span>
               </div>
 
-              <div className="flex items-baseline gap-3 mb-4">
+              <div className="flex items-baseline gap-2.5 sm:gap-3 mb-2.5 sm:mb-3.5">
                 {product.discount_percent && product.discount_percent > 0 && product.original_price ? (
                   <span className="text-base line-through text-neutral-400 font-light">
                     $ {Number(product.original_price).toLocaleString()} COP
                   </span>
                 ) : null}
-                <p className="text-2xl font-bold text-white tracking-tight">
+                <p className="text-xl sm:text-2xl font-bold text-white tracking-tight font-mono">
                   $ {Number(product.sale_price).toLocaleString()} <span className="text-xs text-neutral-400 font-normal">COP</span>
                 </p>
               </div>
 
-              <div className="border-t border-white/10 pt-4 mt-2">
-                <p className="text-xs text-neutral-200 leading-relaxed font-medium bg-white/5 p-3 border border-white/10">
+              <div className="border-t border-white/10 pt-2.5 mt-1">
+                <p className="text-[11px] sm:text-xs text-neutral-300 leading-relaxed font-normal bg-white/[0.03] p-2.5 sm:p-3 border border-white/5 line-clamp-3 hover:line-clamp-none transition-all cursor-pointer" title="Toca para leer completa">
                   {product.description || "Sin descripción registrada para este producto."}
                 </p>
               </div>
             </div>
 
             {sizeList.length > 0 && (
-              <div className="border-t border-white/10 pt-6">
-                <label className="block text-xs uppercase tracking-widest font-semibold text-white mb-3">
+              <div className="border-t border-white/10 pt-3 sm:pt-4">
+                <label className="block text-[10px] sm:text-xs uppercase tracking-widest font-semibold text-white mb-1.5 sm:mb-2.5">
                   Seleccionar Talla *
                 </label>
                 <div className="flex flex-wrap gap-3">
@@ -410,7 +410,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                       key={size}
                       type="button"
                       onClick={() => setSelectedSize(size)}
-                      className={`px-5 py-2.5 text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold uppercase tracking-wider border transition-all cursor-pointer ${
                         selectedSize === size
                           ? "bg-white text-black border-white shadow-md"
                           : "bg-[#111115] border-white/15 text-neutral-300 hover:border-white"
@@ -424,8 +424,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             )}
 
             {colorList.length > 0 && (
-              <div className="border-t border-white/10 pt-6">
-                <label className="block text-xs uppercase tracking-widest font-semibold text-white mb-3">
+              <div className="border-t border-white/10 pt-3 sm:pt-4">
+                <label className="block text-[10px] sm:text-xs uppercase tracking-widest font-semibold text-white mb-1.5 sm:mb-2.5">
                   Seleccionar Color *
                 </label>
                 <div className="flex flex-wrap gap-3">
@@ -447,8 +447,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               </div>
             )}
 
-            <div className="border-t border-white/10 pt-6">
-              <label className="block text-xs uppercase tracking-widest font-semibold text-white mb-3">
+            <div className="border-t border-white/10 pt-3 sm:pt-4">
+              <label className="block text-[10px] sm:text-xs uppercase tracking-widest font-semibold text-white mb-1.5 sm:mb-2">
                 Cantidad *
               </label>
               <div className="flex items-center gap-4">
@@ -456,7 +456,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                   <button
                     type="button"
                     onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
-                    className="px-4 py-2.5 text-sm text-neutral-300 hover:bg-white/10 font-bold cursor-pointer"
+                    className="px-3 py-1 sm:px-4 sm:py-2 text-xs sm:text-sm text-neutral-300 hover:bg-white/10 font-bold cursor-pointer"
                   >-</button>
                   <span className="px-6 text-sm font-semibold">{quantity}</span>
                   <button
@@ -574,11 +574,11 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               );
             })()}
 
-            <div className="border-t border-white/10 pt-6">
+            <div className="border-t border-white/10 pt-3.5 sm:pt-5">
               <button
                 onClick={handleAddToCart}
                 disabled={product.stock <= 0}
-                className="w-full bg-white text-black py-4 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
+                className="w-full bg-white text-black py-3 sm:py-3.5 text-xs font-semibold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
               >
                 {product.stock <= 0 ? "Producto Agotado" : isAddedSuccess ? "¡Agregado al Carrito! ✓" : "Añadir al Carrito & Pagar"}
               </button>
@@ -589,7 +589,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                     window.dispatchEvent(new CustomEvent("open-ai-chat"));
                   }
                 }}
-                className="w-full mt-3 bg-gradient-to-r from-[#D4AF37]/10 via-[#F3E5AB]/10 to-[#D4AF37]/10 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#E5C158] hover:text-white py-3 px-4 text-xs font-semibold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm group"
+                className="w-full mt-2.5 bg-gradient-to-r from-[#D4AF37]/10 via-[#F3E5AB]/10 to-[#D4AF37]/10 border border-[#D4AF37]/40 hover:border-[#D4AF37] text-[#E5C158] hover:text-white py-2.5 px-3 text-[11px] font-semibold uppercase tracking-wider rounded transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm group"
               >
                 <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
                 <svg className="w-4 h-4 text-[#E5C158] group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -600,6 +600,30 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             </div>
           </div>
         </div>
+
+      {/* BARRA FLOTANTE FIJA INFERIOR TIPO APP DE ALTA GAMA (SOLO CELULAR) */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0e0e12]/95 backdrop-blur-xl border-t border-white/15 p-2.5 px-4 md:hidden flex items-center justify-between gap-3 shadow-[0_-10px_25px_rgba(0,0,0,0.8)]">
+        <div className="min-w-0">
+          <span className="text-[9px] uppercase tracking-wider text-neutral-400 block truncate">
+            Total {hasFreeShipping(product) ? "• Envío Gratis ✨" : "+ Envío"}
+          </span>
+          <span className="text-base font-bold text-white font-mono tracking-tight block">
+            $ {calculateOrderMath({ salePrice: product.sale_price, originalPrice: product.original_price, quantity, isFreeShipping: hasFreeShipping(product) }).totalToPay.toLocaleString()}{" "}
+            <span className="text-[9px] text-neutral-400 font-normal">COP</span>
+          </span>
+        </div>
+
+        <button
+          onClick={handleAddToCart}
+          disabled={product.stock <= 0}
+          className="bg-white text-black px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest hover:bg-neutral-200 transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer shrink-0 rounded-xs flex items-center gap-1.5"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <span>{product.stock <= 0 ? "Agotado" : isAddedSuccess ? "¡Añadido! ✓" : "Comprar"}</span>
+        </button>
+      </div>
       </main>
 
       {/* SECCIÓN DINÁMICA DE RESEÑAS Y OPINIONES VERIFICADAS */}
