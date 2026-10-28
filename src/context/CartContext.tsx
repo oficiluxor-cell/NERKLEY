@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ShippingWarrantyModal, { WarrantyTab } from "@/components/ShippingWarrantyModal";
@@ -58,6 +58,9 @@ interface CartContextType {
   warrantyTab: WarrantyTab;
   setWarrantyTab: (tab: WarrantyTab) => void;
   openWarrantyModal: (tab?: WarrantyTab) => void;
+  isCartBouncing: boolean;
+  addedNotification: { name: string; price: number; image: string | null } | null;
+  setAddedNotification: (val: { name: string; price: number; image: string | null } | null) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -69,6 +72,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [customerOrders, setCustomerOrders] = useState<Order[]>([]);
   const [isWarrantyOpen, setIsWarrantyOpen] = useState(false);
   const [warrantyTab, setWarrantyTab] = useState<WarrantyTab>("shipping");
+  const [isCartBouncing, setIsCartBouncing] = useState(false);
+  const [addedNotification, setAddedNotification] = useState<{ name: string; price: number; image: string | null } | null>(null);
+  const bounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const notifTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const openWarrantyModal = (tab: WarrantyTab = "shipping") => {
     setWarrantyTab(tab);
@@ -134,6 +141,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addToCart = (newItem: CartItem) => {
+    // Animación de pulso del icono del carrito
+    setIsCartBouncing(true);
+    if (bounceTimeoutRef.current) clearTimeout(bounceTimeoutRef.current);
+    bounceTimeoutRef.current = setTimeout(() => {
+      setIsCartBouncing(false);
+    }, 1000);
+
+    // Toast flotante de confirmación con imagen y precio
+    setAddedNotification({
+      name: newItem.name,
+      price: newItem.price,
+      image: newItem.image,
+    });
+    if (notifTimeoutRef.current) clearTimeout(notifTimeoutRef.current);
+    notifTimeoutRef.current = setTimeout(() => {
+      setAddedNotification(null);
+    }, 3200);
     setCartItems((prev) => {
       const existingIndex = prev.findIndex((i) => i.id === newItem.id);
       if (existingIndex > -1) {
@@ -243,6 +267,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cartCount, cartTotal, isCartOpen, setIsCartOpen, 
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
         isWarrantyOpen, setIsWarrantyOpen, warrantyTab, setWarrantyTab, openWarrantyModal,
+        isCartBouncing, addedNotification, setAddedNotification,
         handleCheckout, submitting, formData, handleInputChange, createdOrderId
       }}
     >
@@ -487,6 +512,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
           )}
         </div>
       </div>
+      {/* NOTIFICACIÓN FLOTANTE ANIMADA AL AÑADIR PRODUCTO */}
+      {addedNotification && (
+        <div className="fixed top-4 right-3 sm:top-6 sm:right-6 z-[120] animate-in fade-in slide-in-from-top-4 duration-300 max-w-[340px] sm:max-w-sm w-full">
+          <div className="bg-[#111116]/95 backdrop-blur-xl border border-amber-400/40 p-3 sm:p-3.5 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.85)] flex items-center gap-3 text-white">
+            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-lg bg-black/60 border border-white/10 overflow-hidden shrink-0 flex items-center justify-center p-1">
+              {addedNotification.image ? (
+                <img src={addedNotification.image} alt="" className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-xl">🛍️</span>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-amber-400 text-[10px] uppercase font-bold tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping"></span>
+                <span>¡Agregado al Carrito!</span>
+              </div>
+              <p className="text-xs font-semibold text-white truncate mt-0.5">
+                {addedNotification.name}
+              </p>
+              <p className="text-[11px] font-mono text-neutral-300">
+                $ {Number(addedNotification.price).toLocaleString()} COP
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setAddedNotification(null);
+                setIsCartOpen(true);
+              }}
+              className="bg-white text-black hover:bg-neutral-200 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 transition-all cursor-pointer shadow-sm active:scale-95"
+            >
+              Ver Carrito
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE GARANTÍAS Y ENVÍOS OFICIAL */}
       <ShippingWarrantyModal
         isOpen={isWarrantyOpen}

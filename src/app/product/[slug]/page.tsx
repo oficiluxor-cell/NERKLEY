@@ -35,8 +35,9 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(true);
+  const [isAddedSuccess, setIsAddedSuccess] = useState(false);
 
-  const { addToCart, cartCount, setIsCartOpen, openWarrantyModal } = useCart();
+  const { addToCart, cartCount, setIsCartOpen, openWarrantyModal, isCartBouncing } = useCart();
 
   useEffect(() => {
     async function fetchProduct() {
@@ -117,6 +118,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   }, [slug]);
 
   const handleAddToCart = () => {
+    setIsAddedSuccess(true);
+    setTimeout(() => setIsAddedSuccess(false), 2000);
     if (!product) return;
 
     const sizeList = product.sizes ? product.sizes.split(",").map((s) => s.trim()).filter(Boolean) : [];
@@ -183,25 +186,37 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans flex flex-col selection:bg-white selection:text-black">
-      <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
-          <Link href="/" className="flex items-center gap-3 group">
+      <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50 w-full">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center gap-2">
+          <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
             <div className="w-8 h-8 rounded-lg bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1 group-hover:scale-105 transition-all">
               <img src="/logo.svg" alt="NERKLEY" className="w-full h-full object-contain" />
             </div>
-            <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.3em] uppercase">NERKLEY</span>
+            <span className="text-base sm:text-2xl font-serif font-bold tracking-[0.2em] sm:tracking-[0.3em] uppercase">NERKLEY</span>
           </Link>
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 hover:text-white">
-              &larr; Tienda
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+            <Link href="/" className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white px-2 py-1">
+              &larr; <span className="hidden sm:inline">Tienda</span>
             </Link>
             <button 
-              onClick={() => setIsCartOpen(true)}
-              className="relative bg-white text-black px-5 py-2 text-[10px] uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-md active:scale-95 cursor-pointer"
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white cursor-pointer hidden md:block"
             >
-              Carrito
+              Garantía & Envíos
+            </button>
+            <button 
+              onClick={() => setIsCartOpen(true)}
+              className={`relative bg-white text-black px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all duration-300 shadow-md active:scale-95 cursor-pointer font-bold flex items-center gap-1.5 shrink-0 rounded-sm ${
+                isCartBouncing ? "scale-110 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_20px_rgba(232,198,98,0.7)]" : ""
+              }`}
+            >
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              <span>Carrito</span>
               {cartCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-[11px] font-bold w-6 h-6 flex items-center justify-center rounded-full shadow-lg border-2 border-white animate-bounce">
+                <span className="bg-amber-500 text-black text-[9px] sm:text-[10px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shrink-0">
                   {cartCount}
                 </span>
               )}
@@ -378,7 +393,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 disabled={product.stock <= 0}
                 className="w-full bg-white text-black py-4 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md active:scale-98 disabled:opacity-50 cursor-pointer"
               >
-                {product.stock > 0 ? "Añadir al Carrito & Pagar" : "Producto Agotado"}
+                {product.stock <= 0 ? "Producto Agotado" : isAddedSuccess ? "¡Agregado al Carrito! ✓" : "Añadir al Carrito & Pagar"}
               </button>
               <button
                 type="button"

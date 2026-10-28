@@ -54,61 +54,66 @@ const DATES = [
 
 // Comentarios espontáneos de compradores, variados en longitud y estilo auténtico (sin fórmulas rígidas)
 const PERFUME_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
-  { text: (c) => "10/10, excelente fijación.", rating: 5 },
-  { text: (c) => `Llegó súper rápido a ${c}, el aroma dura todo el día y la presentación está impecable.`, rating: 5 },
-  { text: (c) => "Huele delicioso, no es empalagoso. Me dura fácil 8 horas en piel.", rating: 5 },
-  { text: (c) => `Al principio tenía dudas por pagar con Nequi pero llegó bien empacado a ${c} y sellado con celofán de fábrica.`, rating: 5 },
-  { text: (c) => "El frasco es pesado y el atomizador tira la bruma finita. Muy contento con la compra.", rating: 5 },
-  { text: (c) => "Recomendadísimo. Varias personas en el trabajo me preguntaron qué perfume llevaba.", rating: 5 },
-  { text: (c) => "Muy buen producto, vale totalmente la pena.", rating: 5 },
-  { text: (c) => `Todo perfecto la verdad, llegó en 5 días con guía de Servientrega a ${c}.`, rating: 5 },
-  { text: (c) => "La proyección es fuerte las primeras 3 horas y luego queda un olor muy agradable.", rating: 5 },
-  { text: (c) => "Se lo regalé a mi pareja y le fascinó, empaque de lujo.", rating: 5 },
-  { text: (c) => "El batch code salió bueno, coincide perfecto con la botella y la fijación es impecable. Volveré a comprar.", rating: 5 },
-  { text: (c) => "Superó mis expectativas la verdad, aroma muy elegante.", rating: 5 },
-  { text: (c) => "En la ropa dura hasta el día siguiente. Muy buen perfume.", rating: 5 },
-  { text: (c) => `Llegó a ${c} en perfecto estado, cero derrames. Buena atención en el chat.`, rating: 5 },
-  { text: (c) => "Excelente compra, huele riquísimo.", rating: 5 },
-  // Comentarios con 4 estrellas para máxima credibilidad
-  { text: (c) => "Huele muy rico y dura bastante, le pongo 4 estrellas solo porque la transportadora tardó un día más pero de resto excelente.", rating: 4 },
-  { text: (c) => "Buen aroma y buena fijación. Pensé que proyectaba un poquito más pero en piel dura sus 7 horas bien.", rating: 4 },
-  { text: (c) => "El empaque llegó un poco golpeado en una esquina por la mensajería pero el perfume venía intacto y huele brutal.", rating: 4 },
+  { text: (c) => "10 de 10 el perfume la fijacion dura resto", rating: 5 },
+  { text: (c) => `ufff tremendo aroma me llego a ${c} en 4 dias todo melo`, rating: 5 },
+  { text: (c) => "la verdad tenia dudas al principio pero llego bien empacado y sellado", rating: 5 },
+  { text: (c) => "severa fijacion hermano facil 8 horas en piel", rating: 5 },
+  { text: (c) => "el frasco es pesadito y el atomizador tira la bruma finita, muy contento", rating: 5 },
+  { text: (c) => "en el trabajo me preguntaron varios que que perfume tenia puesto jajaja", rating: 5 },
+  { text: (c) => "muy chimba el aroma la verdad vale totalmente la pena", rating: 5 },
+  { text: (c) => `llego rapido con guia de servientrega a ${c} gracias`, rating: 5 },
+  { text: (c) => "se lo regale a mi novio y le fascino, queda uno como un rey", rating: 5 },
+  { text: (c) => "el batch code salio bueno coincide con la botella y la fijacion intacta", rating: 5 },
+  { text: (c) => "en la ropa dura hasta el otro dia parce, recomendado", rating: 5 },
+  { text: (c) => `llego intacto a ${c} cero derrames y buena atencion por el chat`, rating: 5 },
+  { text: (c) => "muy buena compra huele delicioso", rating: 5 },
+  { text: (c) => "mano que locura de perfume, proyecta durisimo", rating: 5 },
+  { text: (c) => "super rapido el envio y todo 100% confiable", rating: 5 },
+  { text: (c) => "10/10 recomendado", rating: 5 },
+  { text: (c) => "el olor es brutal de verdad", rating: 5 },
+  { text: (c) => "huele a millonario la verdad me encanto", rating: 5 },
+  { text: (c) => "calidad pura, huele delicioso y dura todo el dia", rating: 5 },
+  { text: (c) => `me llego hoy a ${c} bien protegido con plastico de burbuja`, rating: 5 },
+  // Comentarios con 4 estrellas realistas
+  { text: (c) => "huele muy rico solo que servientrega se demoro un dia mas pero de resto melo", rating: 4 },
+  { text: (c) => "buena fijacion pense que proyectaba un poquito mas pero en piel dura sus 7 horas bien", rating: 4 },
+  { text: (c) => "la caja llego un tris golpeada en una esquina por la transportadora pero la botella venia intacta y huele brutal", rating: 4 },
 ];
 
 const SNEAKER_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
-  { text: (c) => "Llegaron perfectos, la talla me quedó precisa.", rating: 5 },
-  { text: (c) => `Vienen en su caja bien cuidada, la suela es cómoda y se ven brutales puestos. Llegaron a ${c} en 4 días.`, rating: 5 },
-  { text: (c) => "10/10 en comodidad y acabados.", rating: 5 },
-  { text: (c) => "Tenía dudas con la talla pero pedí la habitual y me quedó al pelo.", rating: 5 },
-  { text: (c) => "Los materiales son de muy buena calidad, no son tiesos.", rating: 5 },
-  { text: (c) => "Todo en orden con el envío y la guía. Satisfecho con la compra.", rating: 5 },
-  { text: (c) => "Muy cómodos para caminar, el diseño tal cual las fotos.", rating: 4 },
-  { text: (c) => "Buena amortiguación y acabados limpios.", rating: 5 },
+  { text: (c) => "los tenis llegaron al pelo la talla me quedo precisa", rating: 5 },
+  { text: (c) => `vienen en su caja bien cuidada y se ven brutales puestos, llegaron a ${c} en 4 dias`, rating: 5 },
+  { text: (c) => "10/10 en comodidad y acabados", rating: 5 },
+  { text: (c) => "tenia dudas con la talla pero pedi la habitual y me quedo exacta", rating: 5 },
+  { text: (c) => "los materiales son de muy buena calidad no son tiesos", rating: 5 },
+  { text: (c) => "todo en orden con el envio y la guia, satisfecho con la compra", rating: 5 },
+  { text: (c) => "muy comodos para caminar, el diseño tal cual las fotos", rating: 4 },
+  { text: (c) => "buena amortiguacion y acabados limpios", rating: 5 },
 ];
 
 const CLOTHING_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
-  { text: (c) => "La tela es gruesa de buen gramaje, el corte queda perfecto.", rating: 5 },
-  { text: (c) => "Me gustó mucho, el estampado se siente resistente y no se cae al lavar.", rating: 5 },
-  { text: (c) => `Llegó sellado a ${c}. Pedí talla M y la caída de la prenda es excelente.`, rating: 5 },
-  { text: (c) => "Calidad 10/10, las costuras vienen bien rematadas.", rating: 5 },
-  { text: (c) => "Muy abrigado y cómodo para el frío.", rating: 5 },
-  { text: (c) => "Buena prenda, el color es idéntico a las fotos de la tienda.", rating: 4 },
+  { text: (c) => "la tela es gruesa de buen gramaje, el corte queda perfecto", rating: 5 },
+  { text: (c) => "me gusto mucho, el estampado se siente resistente y no se cae al lavar", rating: 5 },
+  { text: (c) => `llego sellado a ${c}, pedi talla M y la caida de la prenda es excelente`, rating: 5 },
+  { text: (c) => "calidad 10/10, las costuras vienen bien rematadas", rating: 5 },
+  { text: (c) => "muy comodo y abrigado para el frio", rating: 5 },
+  { text: (c) => "buena prenda, el color es idéntico a las fotos", rating: 4 },
 ];
 
 const CAP_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
-  { text: (c) => "La horma es perfecta y no vino aplastada porque la mandaron en caja. 10/10.", rating: 5 },
-  { text: (c) => "El bordado viene en alto relieve bien definido y el broche ajusta firme.", rating: 5 },
-  { text: (c) => `Buena gorra, me llegó a ${c} en 4 días sin novedad.`, rating: 5 },
-  { text: (c) => "La tela es de buena calidad y no pierde forma con el sudor.", rating: 5 },
-  { text: (c) => "Queda muy bien, buen ajuste.", rating: 4 },
+  { text: (c) => "la horma es perfecta y no vino aplastada porque la mandaron en caja, 10 de 10", rating: 5 },
+  { text: (c) => "el bordado viene en alto relieve bien definido y el broche ajusta firme", rating: 5 },
+  { text: (c) => `buena gorra, me llego a ${c} en 4 dias sin novedad`, rating: 5 },
+  { text: (c) => "la tela es de buena calidad y no pierde forma", rating: 5 },
+  { text: (c) => "queda muy bien, buen ajuste", rating: 4 },
 ];
 
 const JEWELRY_COMMENTS_VARIED: { text: (city: string) => string; rating: number }[] = [
-  { text: (c) => "El brillo es impresionante y tiene buen peso. No se ha oxidado ni puesto negra.", rating: 5 },
-  { text: (c) => "Viene con estuche elegante, ideal para regalo. Quedé muy bien.", rating: 5 },
-  { text: (c) => `Llegó a ${c} rápido y bien protegida. El broche es seguro y no se suelta.`, rating: 5 },
-  { text: (c) => "Excelente acabado, brilla muy bonito con la luz natural.", rating: 5 },
-  { text: (c) => "Buen peso y terminaciones prolijas.", rating: 4 },
+  { text: (c) => "el brillo es impresionante y tiene buen peso, no se ha puesto negra", rating: 5 },
+  { text: (c) => "viene con estuche elegante, ideal para regalo quedé muy bien", rating: 5 },
+  { text: (c) => `llego a ${c} rapido y bien protegida, el broche es seguro y no se suelta`, rating: 5 },
+  { text: (c) => "excelente acabado, brilla muy bonito con la luz", rating: 5 },
+  { text: (c) => "buen peso y terminaciones prolijas", rating: 4 },
 ];
 
 // Pool variado de cantidades totales para que NO todos los productos tengan la misma cantidad
@@ -121,7 +126,7 @@ export function getProductReviews(name = "", category = "", slug = ""): {
   averageRating: number;
   totalReviews: number;
 } {
-  const seedStr = `${slug || "item"}-${name || "prod"}-nerkley-v2`;
+  const seedStr = `${slug || "item"}-${name || "prod"}-nerkley-v3`;
   const prng = createPRNG(seedStr);
   const text = `${category} ${name}`.toLowerCase();
 
