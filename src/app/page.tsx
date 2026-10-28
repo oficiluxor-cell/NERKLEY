@@ -624,6 +624,11 @@ export default function Home() {
             <span>&bull;</span>
             <span>Tarjetas</span>
           </div>
+          <div className="flex items-center justify-center gap-4 text-[9px] uppercase tracking-wider text-neutral-500 mb-3">
+            <Link href="/privacidad" className="hover:text-amber-400 transition-colors">Política de Privacidad</Link>
+            <span>&bull;</span>
+            <button onClick={() => openWarrantyModal("shipping")} className="hover:text-amber-400 transition-colors cursor-pointer">Garantías & Envíos</button>
+          </div>
           <p className="text-[8px] md:text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
             &copy; 2026 NERKLEY CONCEPTS. Todos los derechos reservados.
           </p>
