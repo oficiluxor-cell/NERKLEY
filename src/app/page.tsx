@@ -5,19 +5,9 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
+import { SmartSearchableProduct, filterAndSortProducts, matchesCategoryFilter } from "@/lib/smartSearch";
 
-interface Product {
-  id: string;
-  name: string;
-  slug: string;
-  sale_price: number;
-  original_price?: number;
-  discount_percent?: number;
-  category: string;
-  images?: string;
-  stock?: number;
-  badge?: string;
-}
+interface Product extends SmartSearchableProduct {}
 
 const RANDOM_NAMES = [
   "Carlos M.", "Valentina R.", "Andrés F.", "Camila P.", "Sebastián G.",
@@ -117,34 +107,12 @@ export default function Home() {
     };
   }, [products]);
 
-  const filteredProducts = [...products]
-    .filter((p) => {
-      const matchesCategory = selectedCategory === "Todas" || p.category === selectedCategory;
-      const matchesSearch =
-        p.name.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
-        (p.category && p.category.toLowerCase().includes(searchQuery.toLowerCase().trim()));
-      return matchesCategory && matchesSearch;
-    })
-    .sort((a, b) => {
-      const priceA = Number(a.sale_price) || 0;
-      const priceB = Number(b.sale_price) || 0;
-
-      if (sortBy === "price-asc") {
-        return priceA - priceB;
-      }
-      if (sortBy === "price-desc") {
-        return priceB - priceA;
-      }
-      if (sortBy === "discount") {
-        const discA = Number(a.discount_percent) || 0;
-        const discB = Number(b.discount_percent) || 0;
-        return discB - discA;
-      }
-      if (sortBy === "name-asc") {
-        return (a.name || "").localeCompare(b.name || "", "es", { sensitivity: "base" });
-      }
-      return 0;
-    });
+  const filteredProducts = filterAndSortProducts(
+    products,
+    selectedCategory,
+    searchQuery,
+    sortBy
+  );
 
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-white font-sans selection:bg-white selection:text-black flex flex-col relative overflow-hidden">
@@ -399,15 +367,18 @@ export default function Home() {
           </div>
 
           <div className="flex flex-col gap-3 w-full lg:w-auto">
-            {/* Buscador + Ordenamiento Dinámico */}
+            {/* Buscador Inteligente + Ordenamiento Dinámico */}
             <div className="flex flex-col sm:flex-row gap-2.5 w-full">
-              <div className="relative flex-1 sm:w-64 md:w-72">
+              <div className="relative flex-1 sm:w-72 md:w-80">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-xs">
+                  ✨
+                </div>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar pieza..."
-                  className="w-full bg-white/5 border border-white/15 px-3 md:px-4 py-2 md:py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white focus:bg-white/10 transition-all tracking-wider shadow-sm"
+                  placeholder="Buscar reloj, notas, aroma, estilo o marca..."
+                  className="w-full bg-white/5 border border-white/15 pl-8 pr-8 py-2 md:py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400/60 focus:bg-white/10 transition-all tracking-wider shadow-sm"
                 />
                 {searchQuery && (
                   <button
@@ -460,7 +431,7 @@ export default function Home() {
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm cursor-pointer ${
-                    selectedCategory === cat
+                    matchesCategoryFilter(cat, selectedCategory)
                       ? "bg-white text-black"
                       : "bg-white/5 border border-white/15 text-neutral-400 hover:border-white/40 hover:text-white hover:bg-white/10"
                   }`}
@@ -483,7 +454,11 @@ export default function Home() {
               Pieza no encontrada
             </h4>
             <p className="text-[10px] md:text-xs text-neutral-400 font-light leading-relaxed mb-6">
-              No encontramos coincidencias para <strong className="text-white">"{searchQuery}"</strong>.
+              {searchQuery ? (
+                <>No encontramos coincidencias para <strong className="text-white">"{searchQuery}"</strong>.</>
+              ) : (
+                <>No encontramos piezas disponibles en la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
+              )}
             </p>
             <button
               onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); setSortBy("featured"); }}
