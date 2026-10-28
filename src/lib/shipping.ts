@@ -1,9 +1,4 @@
-export const SHIPPING_RATES = {
-  national: 15000, // Envío Nacional (Otras Ciudades de Colombia)
-  local: 9500,     // Envío Local / Misma Ciudad
-};
-
-export type ShippingType = "national" | "local";
+export const STANDARD_SHIPPING_COST = 15000; // Tarifa fija estándar de envío: $15.000 COP
 
 /**
  * Verifica si un producto tiene activada la promoción de Envío Gratis
@@ -36,25 +31,17 @@ export function buildProductBadge(customBadge: string, isFreeShipping: boolean):
 }
 
 /**
- * Calcula la matemática completa y transparente de la compra:
- * - Precio original acumulado
- * - Ahorro por descuento en producto
- * - Subtotal
- * - Costo de envío ($0 si tiene promo)
- * - Ahorro en costo de envío
- * - Total final a pagar
- * - Ahorro global del comprador
+ * Calcula la matemática completa y transparente de la compra con tarifa fija de $15.000 COP
  */
 export function calculateOrderMath(params: {
   salePrice: number;
   originalPrice?: number | null;
   quantity: number;
-  shippingType: ShippingType;
   isFreeShipping: boolean;
 }) {
-  const { salePrice, originalPrice, quantity, shippingType, isFreeShipping } = params;
+  const { salePrice, originalPrice, quantity, isFreeShipping } = params;
 
-  const standardShippingCost = SHIPPING_RATES[shippingType] || SHIPPING_RATES.national;
+  const standardShippingCost = STANDARD_SHIPPING_COST;
   const shippingCost = isFreeShipping ? 0 : standardShippingCost;
   const shippingSavings = isFreeShipping ? standardShippingCost : 0;
 

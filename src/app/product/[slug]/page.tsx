@@ -7,7 +7,7 @@ import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import ProductReviewsSection from "@/components/ProductReviewsSection";
 import { getProductReviews } from "@/data/productReviews";
-import { hasFreeShipping, calculateOrderMath, ShippingType, extractDisplayBadge, SHIPPING_RATES } from "@/lib/shipping";
+import { hasFreeShipping, calculateOrderMath, extractDisplayBadge, STANDARD_SHIPPING_COST } from "@/lib/shipping";
 
 interface Product {
   id: string;
@@ -35,7 +35,6 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
-  const [shippingType, setShippingType] = useState<ShippingType>("national");
   const [loading, setLoading] = useState(true);
   const [isAddedSuccess, setIsAddedSuccess] = useState(false);
 
@@ -472,79 +471,42 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               </div>
             </div>
 
-            {/* COTIZADOR TRANSPARENTE DE ENVÍO Y MATEMÁTICA EN VIVO */}
+            {/* INFORMACIÓN Y DESGLOSE TRANSPARENTE DE ENVÍO */}
             {(() => {
               const isFree = hasFreeShipping(product);
               const math = calculateOrderMath({
                 salePrice: product.sale_price,
                 originalPrice: product.original_price,
                 quantity,
-                shippingType,
                 isFreeShipping: isFree,
               });
 
               return (
                 <div className="border-t border-white/10 pt-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="block text-xs uppercase tracking-widest font-semibold text-white">
-                      Cotizar Envío
-                    </label>
-                    {isFree ? (
-                      <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs">
-                        Promoción: Envío Gratis ✨
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider">
-                        Tarifa fija nacional
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Selector de Destino */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => setShippingType("national")}
-                      className={`p-3 text-left border rounded-xs transition-all cursor-pointer ${
-                        shippingType === "national"
-                          ? "border-amber-400 bg-amber-400/10 text-white shadow-sm"
-                          : "border-white/10 bg-[#16161c] text-neutral-400 hover:border-white/30"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs font-semibold mb-1">
-                        <span>Nacional</span>
-                        {isFree ? (
-                          <span className="text-emerald-400 font-bold uppercase text-[10px]">GRATIS</span>
-                        ) : (
-                          <span className="text-neutral-200 text-[11px] font-mono">$ 15.000</span>
-                        )}
+                  {/* Tarjeta de Envío */}
+                  <div className="bg-[#0b0b0f] p-3.5 border border-white/10 rounded-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">📦</span>
+                        <span className="text-xs uppercase tracking-wider font-bold text-white">
+                          Envío Asegurado (Colombia)
+                        </span>
                       </div>
-                      <p className="text-[10px] text-neutral-400 leading-tight">
-                        Otras ciudades y municipios
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setShippingType("local")}
-                      className={`p-3 text-left border rounded-xs transition-all cursor-pointer ${
-                        shippingType === "local"
-                          ? "border-amber-400 bg-amber-400/10 text-white shadow-sm"
-                          : "border-white/10 bg-[#16161c] text-neutral-400 hover:border-white/30"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between text-xs font-semibold mb-1">
-                        <span>Local (Misma Ciudad)</span>
-                        {isFree ? (
-                          <span className="text-emerald-400 font-bold uppercase text-[10px]">GRATIS</span>
-                        ) : (
-                          <span className="text-neutral-200 text-[11px] font-mono">$ 9.500</span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-neutral-400 leading-tight">
-                        Entrega directa local
-                      </p>
-                    </button>
+                      {isFree ? (
+                        <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs">
+                          Promoción: Envío Gratis ✨
+                        </span>
+                      ) : (
+                        <span className="text-amber-300 font-mono font-bold text-xs">
+                          $ {math.standardShippingCost.toLocaleString()} COP
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-neutral-400 leading-tight">
+                      {isFree
+                        ? "¡Aprovecha esta promoción! Envío 100% gratuito asegurado a cualquier ciudad o municipio del país."
+                        : "Tarifa fija de $15.000 COP con cobertura y póliza de entrega en toda Colombia."}
+                    </p>
                   </div>
 
                   {/* DESGLOSE MATEMÁTICO COMPLETO */}
@@ -569,9 +531,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                     )}
 
                     <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-white/5">
-                      <span className="text-neutral-300">
-                        Envío ({shippingType === "local" ? "Local" : "Nacional"}):
-                      </span>
+                      <span className="text-neutral-300">Costo de Envío:</span>
                       {isFree ? (
                         <span className="text-emerald-400 font-bold font-mono">
                           GRATIS <span className="text-[10px] line-through text-neutral-500 font-normal">($ {math.standardShippingCost.toLocaleString()})</span>

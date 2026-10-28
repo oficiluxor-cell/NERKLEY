@@ -147,6 +147,7 @@ export default function AdminDashboard() {
   // Buscador y filtros de catálogo
   const [productSearch, setProductSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState("Todas");
+  const [bulkShippingLoading, setBulkShippingLoading] = useState(false);
 
   const prevOrdersCountRef = useRef<number>(0);
 
@@ -776,6 +777,114 @@ export default function AdminDashboard() {
     });
     return ["Todas", ...Array.from(set)];
   }, [products]);
+
+  // Conteo y estadísticas por categoría
+  const categoryStats = useMemo(() => {
+    const map = new Map<string, { total: number; freeShipping: number }>();
+    products.forEach((p) => {
+      const cat = p.category ? p.category.trim() : "Sin Categoría";
+      const current = map.get(cat) || { total: 0, freeShipping: 0 };
+      current.total += 1;
+      if (hasFreeShipping(p)) current.freeShipping += 1;
+      map.set(cat, current);
+    });
+    return map;
+  }, [products]);
+
+  // Alternar Envío Gratis para un producto individual directamente desde la tabla
+  const handleToggleSingleProductFreeShipping = async (p: Product) => {
+    const isCurrentlyFree = hasFreeShipping(p);
+    const newBadge = buildProductBadge(p.badge || "", !isCurrentlyFree);
+
+    setProducts((prev) =>
+      prev.map((item) => (item.id === p.id ? { ...item, badge: newBadge } : item))
+    );
+
+    const { error } = await supabase
+      .from("products")
+      .update({ badge: newBadge })
+      .eq("id", p.id);
+
+    if (error) {
+      alert("Error al actualizar envío: " + error.message);
+      fetchData(false);
+    } else {
+      showToast(
+        !isCurrentlyFree
+          ? `¡Envío Gratis activado para "${p.name}"!`
+          : `Envío fijado en $15.000 COP para "${p.name}"`
+      );
+    }
+  };
+
+  // Alternar Envío Gratis para TODOS los productos a la vez
+  const handleToggleAllFreeShipping = async (enable: boolean) => {
+    const count = products.length;
+    if (count === 0) return;
+
+    const actionText = enable ? "ACTIVAR Envío Gratis en TODOS" : "DESACTIVAR Envío Gratis en TODOS";
+    if (!window.confirm(`¿Estás seguro de que deseas ${actionText} los ${count} productos de la tienda?`)) {
+      return;
+    }
+
+    setBulkShippingLoading(true);
+
+    const updated = products.map((p) => ({
+      ...p,
+      badge: buildProductBadge(p.badge || "", enable),
+    }));
+
+    setProducts(updated);
+
+    for (const p of updated) {
+      await supabase.from("products").update({ badge: p.badge }).eq("id", p.id);
+    }
+
+    setBulkShippingLoading(false);
+    showToast(
+      enable
+        ? `¡Envío Gratis activado con éxito en los ${count} productos!`
+        : "Envío Gratis desactivado en todos los productos (Tarifa $15.000)"
+    );
+  };
+
+  // Alternar Envío Gratis para una CATEGORÍA específica
+  const handleToggleCategoryFreeShipping = async (categoryName: string, enable: boolean) => {
+    const categoryProducts = products.filter(
+      (p) => p.category?.trim().toLowerCase() === categoryName.trim().toLowerCase()
+    );
+    if (categoryProducts.length === 0) return;
+
+    const actionText = enable ? `ACTIVAR Envío Gratis para todos los "${categoryName}"` : `DESACTIVAR Envío Gratis para todos los "${categoryName}"`;
+    if (!window.confirm(`¿Deseas ${actionText} (${categoryProducts.length} productos)?`)) {
+      return;
+    }
+
+    setBulkShippingLoading(true);
+
+    const updated = categoryProducts.map((p) => ({
+      ...p,
+      badge: buildProductBadge(p.badge || "", enable),
+    }));
+
+    setProducts((prev) =>
+      prev.map((p) => {
+        const found = updated.find((u) => u.id === p.id);
+        return found || p;
+      })
+    );
+
+    for (const p of updated) {
+      await supabase.from("products").update({ badge: p.badge }).eq("id", p.id);
+    }
+
+    setBulkShippingLoading(false);
+    showToast(
+      enable
+        ? `¡Envío Gratis activado para todos los productos de "${categoryName}"!`
+        : `Envío Gratis desactivado para categoría "${categoryName}"`
+    );
+  };
 
   // Productos filtrados para el inventario
   const filteredProducts = useMemo(() => {
@@ -1596,38 +1705,122 @@ export default function AdminDashboard() {
             </section>
 
             {/* Listado de Inventario & Control de Precios */}
-            <section className="space-y-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300">
-                    Inventario & Catálogo Activo ({filteredProducts.length} de {products.length})
-                  </h2>
-                  <p className="text-[10px] text-neutral-400 mt-0.5">
-                    Modifica precios, añade descuentos del día o quítalos con 1 clic.
-                  </p>
+            <section className="space-y-6">
+              {/* PANEL MAESTRO: GESTIÓN DE ENVÍOS GLOBALES Y POR CATEGORÍA */}
+              <div className="bg-[#111115] border border-white/10 p-5 rounded space-y-4 shadow-sm">
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">🚚</span>
+                      <h3 className="text-xs uppercase tracking-widest font-bold text-white">
+                        Control de Envíos & Categorías
+                      </h3>
+                    </div>
+                    <p className="text-[11px] text-neutral-400 mt-1">
+                      Tarifa fija nacional: <strong className="text-white">$15.000 COP</strong>. Activa o desactiva la promoción de Envío Gratis en 1 clic para toda la tienda o por categorías.
+                    </p>
+                  </div>
+
+                  {/* Botones Globales */}
+                  <div className="flex flex-wrap gap-2 w-full lg:w-auto">
+                    <button
+                      type="button"
+                      disabled={bulkShippingLoading || products.length === 0}
+                      onClick={() => handleToggleAllFreeShipping(true)}
+                      className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30 px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span>✨ Poner TODOS en Envío Gratis</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={bulkShippingLoading || products.length === 0}
+                      onClick={() => handleToggleAllFreeShipping(false)}
+                      className="bg-white/5 text-neutral-300 border border-white/10 hover:border-white/30 hover:text-white px-3.5 py-2 text-[10px] font-bold uppercase tracking-wider transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      <span>Quitar Envío Gratis a Todos</span>
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                  {/* Filtro por Categoría */}
-                  <select
-                    value={productCategoryFilter}
-                    onChange={(e) => setProductCategoryFilter(e.target.value)}
-                    className="bg-[#111115] border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white uppercase tracking-wider cursor-pointer"
-                  >
-                    {uniqueCategories.map((cat) => (
-                      <option key={cat} value={cat} className="bg-[#111115] text-white">
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+                {/* NAVEGACIÓN Y SECCIONES POR CATEGORÍAS */}
+                <div className="pt-4 border-t border-white/5 space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-widest text-neutral-400 font-semibold block">
+                      Selecciona una Categoría para Gestionar:
+                    </span>
+                    {productCategoryFilter !== "Todas" && (
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <button
+                          type="button"
+                          disabled={bulkShippingLoading}
+                          onClick={() => handleToggleCategoryFreeShipping(productCategoryFilter, true)}
+                          className="text-emerald-400 hover:text-emerald-300 font-bold uppercase tracking-wider cursor-pointer"
+                        >
+                          + Envío Gratis a todos los "{productCategoryFilter}"
+                        </button>
+                        <span className="text-neutral-600">•</span>
+                        <button
+                          type="button"
+                          disabled={bulkShippingLoading}
+                          onClick={() => handleToggleCategoryFreeShipping(productCategoryFilter, false)}
+                          className="text-neutral-400 hover:text-white uppercase tracking-wider cursor-pointer"
+                        >
+                          Quitar en "{productCategoryFilter}"
+                        </button>
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Buscador de Producto */}
+                  {/* PESTAÑAS (TABS) DE CATEGORÍAS */}
+                  <div className="flex flex-wrap gap-2">
+                    {uniqueCategories.map((cat) => {
+                      const stats = cat === "Todas"
+                        ? { total: products.length, freeShipping: products.filter(p => hasFreeShipping(p)).length }
+                        : categoryStats.get(cat) || { total: 0, freeShipping: 0 };
+                      const isActive = productCategoryFilter.toLowerCase() === cat.toLowerCase();
+
+                      return (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setProductCategoryFilter(cat)}
+                          className={`px-3.5 py-2 text-[10px] font-semibold uppercase tracking-wider border transition-all cursor-pointer flex items-center gap-2 ${
+                            isActive
+                              ? "bg-white text-black border-white shadow-md font-bold"
+                              : "bg-[#0a0a0c] border-white/10 text-neutral-300 hover:border-white/30"
+                          }`}
+                        >
+                          <span>{cat}</span>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono font-bold ${isActive ? "bg-black/10 text-black" : "bg-white/10 text-neutral-300"}`}>
+                            {stats.total}
+                          </span>
+                          {stats.freeShipping > 0 && (
+                            <span className={`text-[9px] font-bold ${isActive ? "text-emerald-800" : "text-emerald-400"}`}>
+                              🚚 {stats.freeShipping}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* BARRA DE BÚSQUEDA Y TOTALES */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h4 className="text-xs uppercase tracking-wider font-bold text-white">
+                    {productCategoryFilter === "Todas" ? "Todas las Piezas" : `Categoría: ${productCategoryFilter}`} ({filteredProducts.length} productos)
+                  </h4>
+                </div>
+                <div className="w-full sm:w-auto">
                   <input
                     type="text"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
-                    placeholder="Buscar producto..."
-                    className="bg-[#111115] border border-white/10 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white min-w-[200px]"
+                    placeholder="Buscar producto por nombre..."
+                    className="w-full sm:w-72 bg-[#111115] border border-white/10 px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white"
                   />
                 </div>
               </div>
@@ -1639,8 +1832,9 @@ export default function AdminDashboard() {
                       <th className="p-4">Foto & Producto</th>
                       <th className="p-4">Categoría</th>
                       <th className="p-4">Precio & Descuento</th>
-                      <th className="p-4 w-28">Stock</th>
-                      <th className="p-4 w-32">Visibilidad</th>
+                      <th className="p-4">Envío / Promo</th>
+                      <th className="p-4 w-24">Stock</th>
+                      <th className="p-4 w-28">Visibilidad</th>
                       <th className="p-4 text-right">Gestión Rápida</th>
                     </tr>
                   </thead>
@@ -1703,6 +1897,22 @@ export default function AdminDashboard() {
                                 Sin descuento
                               </span>
                             )}
+                          </td>
+
+                          <td className="p-4">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleSingleProductFreeShipping(p)}
+                              title="Haz clic para alternar Envío Gratis o $15.000 Fijo"
+                              className={`px-2.5 py-1.5 text-[9px] font-bold uppercase tracking-wider border rounded cursor-pointer transition-all flex items-center gap-1.5 ${
+                                hasFreeShipping(p)
+                                  ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                                  : "bg-white/5 text-neutral-400 border-white/10 hover:border-white/30 hover:text-white"
+                              }`}
+                            >
+                              <span>{hasFreeShipping(p) ? "🚚 Gratis" : "📦 $15.000"}</span>
+                              <span className="text-[8px] opacity-60">⇆</span>
+                            </button>
                           </td>
 
                           <td className="p-4">
