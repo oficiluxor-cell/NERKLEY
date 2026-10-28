@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import { SmartSearchableProduct, filterAndSortProducts, matchesCategoryFilter } from "@/lib/smartSearch";
+import { hasFreeShipping, extractDisplayBadge } from "@/lib/shipping";
 
 interface Product extends SmartSearchableProduct {}
 
@@ -515,9 +516,15 @@ export default function Home() {
                         </span>
                       )}
                       
-                      {product.badge && product.badge.trim() !== "" && (
+                      {product.badge && extractDisplayBadge(product.badge) !== "" && (
                         <span className="bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-400/40 text-amber-300 text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-xs animate-pulse">
-                          ✨ {product.badge}
+                          ✨ {extractDisplayBadge(product.badge)}
+                        </span>
+                      )}
+
+                      {hasFreeShipping(product) && (
+                        <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-xs">
+                          🚚 Envío Gratis
                         </span>
                       )}
                     </div>

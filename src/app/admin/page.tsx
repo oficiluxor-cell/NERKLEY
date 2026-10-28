@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { hasFreeShipping, extractDisplayBadge, buildProductBadge } from "@/lib/shipping";
 
 interface Order {
   id: string;
@@ -108,6 +109,7 @@ export default function AdminDashboard() {
   const [colors, setColors] = useState("");
   const [stock, setStock] = useState("");
   const [badge, setBadge] = useState("");
+  const [isFreeShippingActive, setIsFreeShippingActive] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -120,6 +122,7 @@ export default function AdminDashboard() {
     discountPercent: string;
     stock: string;
     badge: string;
+    isFreeShipping: boolean;
     sizes: string;
     colors: string;
     images: string;
@@ -132,6 +135,7 @@ export default function AdminDashboard() {
     discountPercent: "",
     stock: "",
     badge: "",
+    isFreeShipping: false,
     sizes: "",
     colors: "",
     images: "",
@@ -519,6 +523,7 @@ export default function AdminDashboard() {
     const storedOriginalPrice = discount > 0 ? initialPrice : null;
     const generatedSlug = slug || name.toLowerCase().trim().replace(/ /g, "-").replace(/[^\w-]+/g, "");
     const formattedCategory = category.trim().charAt(0).toUpperCase() + category.trim().slice(1).toLowerCase();
+    const finalBadge = buildProductBadge(badge, isFreeShippingActive);
 
     const { error } = await supabase.from("products").insert([
       {
@@ -534,7 +539,7 @@ export default function AdminDashboard() {
         colors: colors.trim(),
         stock: initialStock,
         is_active: true,
-        badge: badge.trim(),
+        badge: finalBadge,
       },
     ]);
 
@@ -552,6 +557,7 @@ export default function AdminDashboard() {
       setColors("");
       setStock("");
       setBadge("");
+      setIsFreeShippingActive(false);
       fetchData(false);
     }
     setCreating(false);
@@ -560,6 +566,8 @@ export default function AdminDashboard() {
   // Apertura y guardado de edición completa de producto
   const openEditModal = (p: Product) => {
     const base = p.original_price || p.sale_price;
+    const isFree = hasFreeShipping(p);
+    const cleanBadge = extractDisplayBadge(p.badge);
     setEditingProduct(p);
     setEditForm({
       name: p.name || "",
@@ -567,7 +575,8 @@ export default function AdminDashboard() {
       basePrice: String(base || ""),
       discountPercent: p.discount_percent ? String(p.discount_percent) : "0",
       stock: String(p.stock ?? 0),
-      badge: p.badge || "",
+      badge: cleanBadge,
+      isFreeShipping: isFree,
       sizes: p.sizes || "",
       colors: p.colors || "",
       images: p.images || "",
@@ -593,6 +602,7 @@ export default function AdminDashboard() {
     const stockVal = parseInt(editForm.stock) || 0;
     const finalSalePrice = discount > 0 ? Math.round(base * (1 - discount / 100)) : base;
     const finalOriginalPrice = discount > 0 ? base : null;
+    const finalBadge = buildProductBadge(editForm.badge, editForm.isFreeShipping);
 
     const updates = {
       name: editForm.name.trim(),
@@ -601,7 +611,7 @@ export default function AdminDashboard() {
       original_price: finalOriginalPrice,
       discount_percent: discount,
       stock: stockVal,
-      badge: editForm.badge.trim(),
+      badge: finalBadge,
       sizes: editForm.sizes.trim(),
       colors: editForm.colors.trim(),
       images: editForm.images.trim(),
@@ -1527,6 +1537,26 @@ export default function AdminDashboard() {
                     />
                   </div>
 
+                  {/* PROMO ENVÍO GRATIS */}
+                  <div className="md:col-span-3 p-4 bg-amber-500/5 border border-amber-400/20 rounded-sm">
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isFreeShippingActive}
+                        onChange={(e) => setIsFreeShippingActive(e.target.checked)}
+                        className="w-4 h-4 mt-0.5 accent-amber-400 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block">
+                          🎁 Promoción Activa: Envío Gratis
+                        </span>
+                        <span className="text-[11px] text-neutral-400 font-light block mt-0.5">
+                          Al activarlo, el producto se mostrará con costo de envío $0 COP, el comprador verá el ahorro y la insignia destacada.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
                   <div className="md:col-span-3 space-y-2">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
                       Descripción del Producto *
@@ -1632,11 +1662,18 @@ export default function AdminDashboard() {
                               </div>
                               <div className="space-y-1">
                                 <span className="font-bold text-white block text-sm">{p.name}</span>
-                                {p.badge && (
-                                  <span className="inline-block text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
-                                    {p.badge}
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap gap-1">
+                                  {p.badge && extractDisplayBadge(p.badge) !== "" && (
+                                    <span className="inline-block text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
+                                      {extractDisplayBadge(p.badge)}
+                                    </span>
+                                  )}
+                                  {hasFreeShipping(p) && (
+                                    <span className="inline-block text-[9px] uppercase tracking-wider font-bold text-emerald-300 bg-emerald-500/15 px-1.5 py-0.5 border border-emerald-500/30 rounded">
+                                      🚚 Envío Gratis
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </td>
@@ -1884,6 +1921,26 @@ export default function AdminDashboard() {
                     placeholder="Ej: Edición Limitada, Exclusivo, Top Ventas"
                     className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
                   />
+                </div>
+
+                {/* PROMO ENVÍO GRATIS EN MODAL DE EDICIÓN */}
+                <div className="md:col-span-2 p-3 bg-amber-500/5 border border-amber-400/20 rounded-sm">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={editForm.isFreeShipping}
+                      onChange={(e) => setEditForm({ ...editForm, isFreeShipping: e.target.checked })}
+                      className="w-4 h-4 mt-0.5 accent-amber-400 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block">
+                        🎁 Promoción: Envío Gratis para este producto
+                      </span>
+                      <span className="text-[10px] text-neutral-400 font-light block mt-0.5">
+                        El comprador verá costo de envío $0 COP y la etiqueta de Envío Gratis.
+                      </span>
+                    </div>
+                  </label>
                 </div>
 
                 <div className="space-y-1.5">

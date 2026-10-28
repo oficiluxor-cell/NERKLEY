@@ -5,6 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ShippingWarrantyModal, { WarrantyTab } from "@/components/ShippingWarrantyModal";
 import WompiCheckoutForm from "../components/WompiCheckoutForm";
+import { SHIPPING_RATES, ShippingType } from "@/lib/shipping";
 
 interface CartItem {
   id: string;
@@ -16,6 +17,7 @@ interface CartItem {
   color?: string;
   quantity: number;
   maxStock: number;
+  free_shipping?: boolean;
 }
 
 interface Order {
@@ -41,6 +43,11 @@ interface CartContextType {
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, delta: number) => void;
   cartCount: number;
+  itemsSubtotal: number;
+  shippingCost: number;
+  isCartFreeShipping: boolean;
+  shippingType: ShippingType;
+  setShippingType: (t: ShippingType) => void;
   cartTotal: number;
   isCartOpen: boolean;
   setIsCartOpen: (isOpen: boolean) => void;
@@ -197,8 +204,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const [shippingType, setShippingType] = useState<ShippingType>("national");
+
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
-  const cartTotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const itemsSubtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
+  const isCartFreeShipping = cartItems.some((item) => item.free_shipping);
+  const shippingCost = cartItems.length === 0 || isCartFreeShipping ? 0 : (SHIPPING_RATES[shippingType] || 15000);
+  const cartTotal = itemsSubtotal + shippingCost;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -222,6 +234,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
       `${item.quantity}x ${item.name} ${item.size ? `[Talla: ${item.size}]` : ''} ${item.color ? `[Color: ${item.color}]` : ''}`
     ).join(", ");
 
+    const shippingNote = isCartFreeShipping
+      ? "Envío: GRATIS (Promoción)"
+      : `Envío: ${shippingType === "local" ? "Local ($9.500)" : "Nacional ($15.000)"}`;
+
     const pendingOrderData = {
       reference: uniqueRef,
       product_name: `[Ref: ${uniqueRef}] ${orderSummary.length > 200 ? orderSummary.substring(0, 197) + "..." : orderSummary}`,
@@ -233,7 +249,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       country: "Colombia",
       city: formData.city,
       address: formData.address,
-      notes: `Ref Pago: ${uniqueRef}\n${formData.notes}`,
+      notes: `Ref Pago: ${uniqueRef} | ${shippingNote}\n${formData.notes}`,
       status: "pending",
     };
 
@@ -264,7 +280,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     <CartContext.Provider
       value={{ 
         cartItems, addToCart, removeFromCart, updateQuantity, 
-        cartCount, cartTotal, isCartOpen, setIsCartOpen, 
+        cartCount, itemsSubtotal, shippingCost, isCartFreeShipping, shippingType, setShippingType, cartTotal, isCartOpen, setIsCartOpen, 
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
         isWarrantyOpen, setIsWarrantyOpen, warrantyTab, setWarrantyTab, openWarrantyModal,
         isCartBouncing, addedNotification, setAddedNotification,
@@ -473,10 +489,77 @@ export function CartProvider({ children }: { children: ReactNode }) {
                 ))}
               </div>
 
-              <div className="border-t border-white/10 pt-6">
-                <div className="flex justify-between items-center mb-6">
-                  <span className="text-xs font-semibold uppercase tracking-widest text-white">Total a Pagar</span>
-                  <span className="text-xl font-bold text-white">$ {cartTotal.toLocaleString()} COP</span>
+              <div className="border-t border-white/10 pt-5 space-y-4">
+                {/* SELECTOR DE DESTINO Y ENVÍO EN EL CARRITO */}
+                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-300">
+                      Destino de Envío:
+                    </span>
+                    {isCartFreeShipping ? (
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20">
+                        Envío Gratis Aplicado ✨
+                      </span>
+                    ) : (
+                      <span className="text-[11px] font-bold text-amber-300">
+                        {shippingType === "local" ? "$ 9.500 COP" : "$ 15.000 COP"}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={() => setShippingType("national")}
+                      className={`p-2 text-left border transition-all cursor-pointer ${
+                        shippingType === "national"
+                          ? "border-amber-400 bg-amber-400/10 text-white font-bold"
+                          : "border-white/10 text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      <div className="font-semibold">Nacional</div>
+                      <div className="text-[9px] text-neutral-400">
+                        {isCartFreeShipping ? "Gratis" : "$ 15.000 COP"}
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShippingType("local")}
+                      className={`p-2 text-left border transition-all cursor-pointer ${
+                        shippingType === "local"
+                          ? "border-amber-400 bg-amber-400/10 text-white font-bold"
+                          : "border-white/10 text-neutral-400 hover:text-white"
+                      }`}
+                    >
+                      <div className="font-semibold">Local (Misma Ciudad)</div>
+                      <div className="text-[9px] text-neutral-400">
+                        {isCartFreeShipping ? "Gratis" : "$ 9.500 COP"}
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* DESGLOSE MATEMÁTICO DEL CARRITO */}
+                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-2 text-xs">
+                  <div className="flex justify-between items-center text-neutral-400">
+                    <span>Subtotal Piezas ({cartCount}):</span>
+                    <span className="text-white font-mono">$ {itemsSubtotal.toLocaleString()} COP</span>
+                  </div>
+                  <div className="flex justify-between items-center text-neutral-400">
+                    <span>Envío ({shippingType === "local" ? "Local" : "Nacional"}):</span>
+                    {isCartFreeShipping ? (
+                      <span className="text-emerald-400 font-bold">
+                        GRATIS <span className="text-[10px] line-through text-neutral-500 font-normal">($ {SHIPPING_RATES[shippingType].toLocaleString()})</span>
+                      </span>
+                    ) : (
+                      <span className="text-white font-mono">+ $ {shippingCost.toLocaleString()} COP</span>
+                    )}
+                  </div>
+                  <div className="pt-2 border-t border-white/10 flex justify-between items-baseline">
+                    <span className="text-xs font-bold uppercase tracking-widest text-white">Total a Pagar</span>
+                    <span className="text-xl font-bold text-white tracking-tight font-mono">$ {cartTotal.toLocaleString()} COP</span>
+                  </div>
                 </div>
 
                 <form onSubmit={handleCheckout} className="space-y-4 bg-[#0a0a0c] p-5 border border-white/10">

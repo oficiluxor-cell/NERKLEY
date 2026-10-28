@@ -7,6 +7,7 @@ import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import ProductReviewsSection from "@/components/ProductReviewsSection";
 import { getProductReviews } from "@/data/productReviews";
+import { hasFreeShipping, calculateOrderMath, ShippingType, extractDisplayBadge, SHIPPING_RATES } from "@/lib/shipping";
 
 interface Product {
   id: string;
@@ -34,6 +35,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedColor, setSelectedColor] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
+  const [shippingType, setShippingType] = useState<ShippingType>("national");
   const [loading, setLoading] = useState(true);
   const [isAddedSuccess, setIsAddedSuccess] = useState(false);
 
@@ -191,6 +193,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       color: selectedColor || undefined,
       quantity: quantity,
       maxStock: product.stock,
+      free_shipping: hasFreeShipping(product),
     });
 
     setIsCartOpen(true);
@@ -312,12 +315,19 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 </span>
               )}
 
-              {/* Etiqueta Destacada */}
-              {product.badge && product.badge.trim() !== "" && (
-                <div className="absolute top-4 right-4 bg-amber-500/15 border-amber-400/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1 shadow-lg z-10 animate-pulse border border-white/20">
-                  ✨ {product.badge}
-                </div>
-              )}
+              {/* Etiqueta Destacada y Envío Gratis */}
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                {product.badge && extractDisplayBadge(product.badge) !== "" && (
+                  <div className="bg-amber-500/15 border-amber-400/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1 shadow-lg animate-pulse border border-white/20">
+                    ✨ {extractDisplayBadge(product.badge)}
+                  </div>
+                )}
+                {hasFreeShipping(product) && (
+                  <div className="bg-emerald-500/20 border-emerald-400/50 text-emerald-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1 shadow-lg border">
+                    🚚 Envío Gratis
+                  </div>
+                )}
+              </div>
 
               {product.discount_percent && product.discount_percent > 0 ? (
                 <div className="absolute top-4 left-4 bg-red-600 text-white text-xs font-bold uppercase tracking-wider px-3 py-1 shadow-md">
@@ -461,6 +471,148 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 </span>
               </div>
             </div>
+
+            {/* COTIZADOR TRANSPARENTE DE ENVÍO Y MATEMÁTICA EN VIVO */}
+            {(() => {
+              const isFree = hasFreeShipping(product);
+              const math = calculateOrderMath({
+                salePrice: product.sale_price,
+                originalPrice: product.original_price,
+                quantity,
+                shippingType,
+                isFreeShipping: isFree,
+              });
+
+              return (
+                <div className="border-t border-white/10 pt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs uppercase tracking-widest font-semibold text-white">
+                      Cotizar Envío
+                    </label>
+                    {isFree ? (
+                      <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs">
+                        Promoción: Envío Gratis ✨
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-neutral-400 uppercase tracking-wider">
+                        Tarifa fija nacional
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Selector de Destino */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setShippingType("national")}
+                      className={`p-3 text-left border rounded-xs transition-all cursor-pointer ${
+                        shippingType === "national"
+                          ? "border-amber-400 bg-amber-400/10 text-white shadow-sm"
+                          : "border-white/10 bg-[#16161c] text-neutral-400 hover:border-white/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                        <span>Nacional</span>
+                        {isFree ? (
+                          <span className="text-emerald-400 font-bold uppercase text-[10px]">GRATIS</span>
+                        ) : (
+                          <span className="text-neutral-200 text-[11px] font-mono">$ 15.000</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-neutral-400 leading-tight">
+                        Otras ciudades y municipios
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setShippingType("local")}
+                      className={`p-3 text-left border rounded-xs transition-all cursor-pointer ${
+                        shippingType === "local"
+                          ? "border-amber-400 bg-amber-400/10 text-white shadow-sm"
+                          : "border-white/10 bg-[#16161c] text-neutral-400 hover:border-white/30"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                        <span>Local (Misma Ciudad)</span>
+                        {isFree ? (
+                          <span className="text-emerald-400 font-bold uppercase text-[10px]">GRATIS</span>
+                        ) : (
+                          <span className="text-neutral-200 text-[11px] font-mono">$ 9.500</span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-neutral-400 leading-tight">
+                        Entrega directa local
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* DESGLOSE MATEMÁTICO COMPLETO */}
+                  <div className="bg-[#0b0b0f] border border-white/10 p-4 rounded-xs space-y-2 text-xs">
+                    <div className="flex justify-between items-center text-neutral-400 text-[11px]">
+                      <span>Precio por pieza:</span>
+                      <span className="font-mono text-neutral-200">$ {Number(product.sale_price).toLocaleString()} COP</span>
+                    </div>
+
+                    {quantity > 1 && (
+                      <div className="flex justify-between items-center text-neutral-400 text-[11px]">
+                        <span>Subtotal piezas ({quantity}):</span>
+                        <span className="font-mono text-neutral-200">$ {math.totalSalePrice.toLocaleString()} COP</span>
+                      </div>
+                    )}
+
+                    {math.productDiscountSavings > 0 && (
+                      <div className="flex justify-between items-center text-emerald-400 text-[11px] font-medium">
+                        <span>Ahorro por descuento en producto:</span>
+                        <span className="font-mono">- $ {math.productDiscountSavings.toLocaleString()} COP</span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center text-[11px] pt-1.5 border-t border-white/5">
+                      <span className="text-neutral-300">
+                        Envío ({shippingType === "local" ? "Local" : "Nacional"}):
+                      </span>
+                      {isFree ? (
+                        <span className="text-emerald-400 font-bold font-mono">
+                          GRATIS <span className="text-[10px] line-through text-neutral-500 font-normal">($ {math.standardShippingCost.toLocaleString()})</span>
+                        </span>
+                      ) : (
+                        <span className="text-neutral-200 font-semibold font-mono">
+                          + $ {math.shippingCost.toLocaleString()} COP
+                        </span>
+                      )}
+                    </div>
+
+                    {/* TOTAL NETO A PAGAR */}
+                    <div className="pt-2.5 border-t border-white/15 flex justify-between items-baseline">
+                      <div>
+                        <span className="text-xs uppercase tracking-wider font-bold text-white block">
+                          Total a Pagar:
+                        </span>
+                        <span className="text-[10px] text-neutral-400 font-light">
+                          (Pieza + Envío incluido)
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xl font-bold text-white tracking-tight font-mono">
+                          $ {math.totalToPay.toLocaleString()}{" "}
+                          <span className="text-xs text-neutral-400 font-normal">COP</span>
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* RESUMEN DE AHORRO TOTAL */}
+                    {math.totalSavings > 0 && (
+                      <div className="bg-gradient-to-r from-emerald-500/15 via-amber-500/10 to-emerald-500/15 border border-emerald-500/30 p-2.5 rounded-xs text-center mt-2.5">
+                        <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider block">
+                          🎉 ¡Estás ahorrando $ {math.totalSavings.toLocaleString()} COP en total hoy!
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
 
             <div className="border-t border-white/10 pt-6">
               <button
