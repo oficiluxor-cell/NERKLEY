@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import ShippingWarrantyModal, { WarrantyTab } from "@/components/ShippingWarrantyModal";
 import WompiCheckoutForm from "../components/WompiCheckoutForm";
-import { STANDARD_SHIPPING_COST } from "@/lib/shipping";
+import { STANDARD_SHIPPING_COST, getShippingQuote, COLOMBIA_REGIONS } from "@/lib/shipping";
 
 interface CartItem {
   id: string;
@@ -101,7 +101,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     documentId: "",
     email: "",
     phone: "",
-    city: "",
+    department: "Bogotá D.C.",
+    city: "Bogotá D.C.",
     address: "",
     notes: "",
   });
@@ -205,7 +206,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
   const itemsSubtotal = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   const isCartFreeShipping = cartItems.some((item) => item.free_shipping);
-  const shippingCost = cartItems.length === 0 || isCartFreeShipping ? 0 : STANDARD_SHIPPING_COST;
+  const shippingQuote = getShippingQuote(formData.department, formData.city);
+  const shippingCost = cartItems.length === 0 || isCartFreeShipping ? 0 : shippingQuote.rate;
   const cartTotal = itemsSubtotal + shippingCost;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -231,8 +233,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ).join(", ");
 
     const shippingNote = isCartFreeShipping
-      ? "Envío: GRATIS (Promoción)"
-      : "Envío Nacional: $15.000 COP";
+      ? `Envío: GRATIS a ${formData.city}, ${formData.department} (Promoción activa)`
+      : `Envío a ${formData.city}, ${formData.department}: $${shippingQuote.rate.toLocaleString()} COP (${shippingQuote.deliveryTime})`;
 
     const pendingOrderData = {
       reference: uniqueRef,
@@ -243,9 +245,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       customer_email: formData.email,
       customer_phone: formData.phone,
       country: "Colombia",
-      city: formData.city,
+      city: `${formData.city}, ${formData.department}`,
       address: formData.address,
-      notes: `Ref Pago: ${uniqueRef} | ${shippingNote}\n${formData.notes}`,
+      notes: `Ref Pago: ${uniqueRef} | ${shippingNote}\n${formData.notes || ""}`,
       status: "pending",
     };
 
@@ -486,40 +488,40 @@ export function CartProvider({ children }: { children: ReactNode }) {
               </div>
 
               <div className="border-t border-white/10 pt-5 space-y-4">
-                {/* INFORMACIÓN DE ENVÍO FIJO */}
-                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-1.5">
+                {/* INFORMACIÓN DE ENVÍO AUTOMÁTICO SEGÚN DESTINO */}
+                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-1.5 rounded-lg">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] uppercase tracking-widest font-bold text-neutral-300">
-                      Envío Asegurado (Colombia):
+                      Envío a {formData.city || "Colombia"}:
                     </span>
                     {isCartFreeShipping ? (
-                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20">
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 border border-emerald-500/20 rounded">
                         Envío Gratis Aplicado ✨
                       </span>
                     ) : (
                       <span className="text-[11px] font-bold text-amber-300 font-mono">
-                        $ {STANDARD_SHIPPING_COST.toLocaleString()} COP
+                        $ {shippingQuote.rate.toLocaleString()} COP
                       </span>
                     )}
                   </div>
                   <p className="text-[10px] text-neutral-400 leading-tight">
                     {isCartFreeShipping
-                      ? "¡Promoción activa! Envío 100% gratuito asegurado a cualquier destino del país."
-                      : "Tarifa fija estándar asegurada a cualquier ciudad o municipio de Colombia."}
+                      ? `¡Promoción activa! Envío 100% gratuito asegurado a ${formData.city || "tu destino"}.`
+                      : `Tarifa calculada automáticamente: entrega en ${shippingQuote.deliveryTime} (${shippingQuote.zoneLabel}).`}
                   </p>
                 </div>
 
                 {/* DESGLOSE MATEMÁTICO DEL CARRITO */}
-                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-2 text-xs">
+                <div className="bg-[#0a0a0c] p-3.5 border border-white/10 space-y-2 text-xs rounded-lg">
                   <div className="flex justify-between items-center text-neutral-400">
                     <span>Subtotal Piezas ({cartCount}):</span>
                     <span className="text-white font-mono">$ {itemsSubtotal.toLocaleString()} COP</span>
                   </div>
                   <div className="flex justify-between items-center text-neutral-400">
-                    <span>Costo de Envío:</span>
+                    <span>Costo de Envío ({formData.city}):</span>
                     {isCartFreeShipping ? (
                       <span className="text-emerald-400 font-bold">
-                        GRATIS <span className="text-[10px] line-through text-neutral-500 font-normal">($ {STANDARD_SHIPPING_COST.toLocaleString()})</span>
+                        GRATIS <span className="text-[10px] line-through text-neutral-500 font-normal">($ {shippingQuote.rate.toLocaleString()})</span>
                       </span>
                     ) : (
                       <span className="text-white font-mono">+ $ {shippingCost.toLocaleString()} COP</span>
@@ -530,33 +532,105 @@ export function CartProvider({ children }: { children: ReactNode }) {
                     <span className="text-xl font-bold text-white tracking-tight font-mono">$ {cartTotal.toLocaleString()} COP</span>
                   </div>
                 </div>
-                <form onSubmit={handleCheckout} className="space-y-4 bg-[#0a0a0c] p-5 border border-white/10">
-                  <h3 className="text-[11px] uppercase tracking-widest font-bold text-white border-b border-white/10 pb-2 mb-4">
+
+                <form onSubmit={handleCheckout} className="space-y-3.5 bg-[#0a0a0c] p-4 sm:p-5 border border-white/10 rounded-lg">
+                  <h3 className="text-[11px] uppercase tracking-widest font-bold text-white border-b border-white/10 pb-2 mb-3">
                     Datos para Envío y Facturación (Wompi)
                   </h3>
                   
-                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} placeholder="Nombre Completo *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  <input type="text" name="fullName" required value={formData.fullName} onChange={handleInputChange} placeholder="Nombre Completo *" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" name="documentId" required value={formData.documentId} onChange={handleInputChange} placeholder="Cédula *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
-                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="Teléfono *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                    <input type="text" name="documentId" required value={formData.documentId} onChange={handleInputChange} placeholder="Cédula *" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
+                    <input type="tel" name="phone" required value={formData.phone} onChange={handleInputChange} placeholder="Teléfono / WhatsApp *" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
                   </div>
                   
-                  <input type="email" name="email" required value={formData.email} onChange={handleInputChange} placeholder="Correo Electrónico *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  <input type="email" name="email" required value={formData.email} onChange={handleInputChange} placeholder="Correo Electrónico *" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
                   
-                  <div className="grid grid-cols-2 gap-3">
-                    <input type="text" value="Colombia" disabled className="w-full bg-white/10 text-neutral-300 border border-white/15 px-4 py-2.5 text-xs cursor-not-allowed" />
-                    <input type="text" name="city" required value={formData.city} onChange={handleInputChange} placeholder="Ciudad *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  {/* SELECTOR INTELIGENTE DE DESTINO (CALCULA ENVÍO AUTOMÁTICO) */}
+                  <div className="space-y-2.5 bg-[#14141c] p-3 border border-amber-400/25 rounded-lg">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-amber-300 block">
+                      📍 Destino de Entrega en Colombia
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-wider text-neutral-400 font-semibold mb-1">
+                          Departamento *
+                        </label>
+                        <select
+                          name="department"
+                          required
+                          value={formData.department}
+                          onChange={(e) => {
+                            const newDept = e.target.value;
+                            const availableCities = COLOMBIA_REGIONS[newDept] || ["Bogotá D.C."];
+                            const defaultCity = availableCities[0] === "Otro Municipio..." ? "" : availableCities[0];
+                            setFormData((prev) => ({
+                              ...prev,
+                              department: newDept,
+                              city: defaultCity,
+                            }));
+                          }}
+                          className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
+                        >
+                          {Object.keys(COLOMBIA_REGIONS).map((dept) => (
+                            <option key={dept} value={dept} className="bg-[#111115] text-white">
+                              {dept}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-wider text-neutral-400 font-semibold mb-1">
+                          Ciudad o Municipio *
+                        </label>
+                        <select
+                          value={
+                            (COLOMBIA_REGIONS[formData.department] || []).includes(formData.city)
+                              ? formData.city
+                              : "Otro Municipio..."
+                          }
+                          onChange={(e) => {
+                            if (e.target.value !== "Otro Municipio...") {
+                              setFormData((prev) => ({ ...prev, city: e.target.value }));
+                            } else {
+                              setFormData((prev) => ({ ...prev, city: "" }));
+                            }
+                          }}
+                          className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
+                        >
+                          {(COLOMBIA_REGIONS[formData.department] || ["Otro Municipio..."]).map((c) => (
+                            <option key={c} value={c} className="bg-[#111115] text-white">
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {(!(COLOMBIA_REGIONS[formData.department] || []).includes(formData.city) || formData.city === "" || formData.city === "Otro Municipio...") && (
+                      <input
+                        type="text"
+                        required
+                        name="city"
+                        value={formData.city === "Otro Municipio..." ? "" : formData.city}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
+                        placeholder="Escribe el nombre de tu municipio o corregimiento *"
+                        className="w-full bg-[#0a0a0c] text-white border border-amber-400/50 px-3 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md"
+                      />
+                    )}
                   </div>
                   
-                  <input type="text" name="address" required value={formData.address} onChange={handleInputChange} placeholder="Dirección Exacta (Casa, Apto) *" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  <input type="text" name="address" required value={formData.address} onChange={handleInputChange} placeholder="Dirección Exacta (Calle, Carrera, Casa, Apto) *" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2.5 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
                   
-                  <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales (Opcional)" className="w-full bg-[#111115] text-white border border-white/15 px-4 py-2.5 text-xs focus:outline-none focus:border-white placeholder-neutral-500" />
+                  <textarea name="notes" rows={2} value={formData.notes} onChange={handleInputChange} placeholder="Notas Adicionales o Instrucciones de Entrega (Opcional)" className="w-full bg-[#111115] text-white border border-white/15 px-3.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md placeholder-neutral-500" />
                   
-                  <button type="submit" disabled={submitting} className="w-full bg-white text-black py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-md disabled:opacity-50 mt-4 active:scale-98 flex items-center justify-center gap-2 cursor-pointer">
+                  <button type="submit" disabled={submitting} className="w-full bg-white text-black py-3.5 sm:py-4 text-xs font-bold uppercase tracking-[0.2em] hover:bg-neutral-200 transition-all shadow-md disabled:opacity-50 mt-2 active:scale-98 flex items-center justify-center gap-2 cursor-pointer rounded-md">
                     {submitting ? "Procesando..." : "Proceder al Pago con Wompi"}
                   </button>
-                  <p className="text-[9px] text-center text-neutral-400 uppercase tracking-widest mt-2">Pagos Seguros Wompi &bull; Bancolombia</p>
+                  <p className="text-[9px] text-center text-neutral-400 uppercase tracking-widest mt-1">Pagos Seguros Wompi &bull; Bancolombia &bull; Nequi</p>
                 </form>
               </div>
             </>

@@ -7,7 +7,7 @@ import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import ProductReviewsSection from "@/components/ProductReviewsSection";
 import { getProductReviews } from "@/data/productReviews";
-import { hasFreeShipping, calculateOrderMath, extractDisplayBadge, STANDARD_SHIPPING_COST } from "@/lib/shipping";
+import { hasFreeShipping, calculateOrderMath, extractDisplayBadge, STANDARD_SHIPPING_COST, COLOMBIA_REGIONS } from "@/lib/shipping";
 
 interface Product {
   id: string;
@@ -37,6 +37,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [isAddedSuccess, setIsAddedSuccess] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("Bogotá D.C.");
+  const [selectedCity, setSelectedCity] = useState<string>("Bogotá D.C.");
 
   const { addToCart, cartCount, setIsCartOpen, openWarrantyModal, isCartBouncing } = useCart();
 
@@ -489,7 +491,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               </div>
             </div>
 
-            {/* INFORMACIÓN Y DESGLOSE TRANSPARENTE DE ENVÍO */}
+            {/* INFORMACIÓN Y DESGLOSE TRANSPARENTE DE ENVÍO AUTOMÁTICO */}
             {(() => {
               const isFree = hasFreeShipping(product);
               const math = calculateOrderMath({
@@ -497,34 +499,94 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 originalPrice: product.original_price,
                 quantity,
                 isFreeShipping: isFree,
+                department: selectedDepartment,
+                city: selectedCity,
               });
 
               return (
-                <div className="border-t border-white/10 pt-6 space-y-4">
-                  {/* Tarjeta de Envío */}
-                  <div className="bg-[#0b0b0f] p-3.5 border border-white/10 rounded-xs space-y-1">
+                <div className="border-t border-white/10 pt-5 space-y-4">
+                  {/* Tarjeta y Selector de Envío Automático */}
+                  <div className="bg-[#0b0b0f] p-3.5 sm:p-4 border border-white/10 rounded-xl space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm">📦</span>
-                        <span className="text-xs uppercase tracking-wider font-bold text-white">
-                          Envío Asegurado (Colombia)
-                        </span>
+                        <span className="text-base">🚚</span>
+                        <div>
+                          <span className="text-xs uppercase tracking-wider font-bold text-white block">
+                            Envío Automático a tu Ciudad
+                          </span>
+                          <span className="text-[10px] text-neutral-400">
+                            Tarifa calculada al instante según destino
+                          </span>
+                        </div>
                       </div>
                       {isFree ? (
-                        <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-xs">
+                        <span className="bg-emerald-500/15 border border-emerald-400/40 text-emerald-300 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full">
                           Promoción: Envío Gratis ✨
                         </span>
                       ) : (
-                        <span className="text-amber-300 font-mono font-bold text-xs">
+                        <span className="text-amber-300 font-mono font-bold text-xs sm:text-sm">
                           $ {math.standardShippingCost.toLocaleString()} COP
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-neutral-400 leading-tight">
-                      {isFree
-                        ? "¡Aprovecha esta promoción! Envío 100% gratuito asegurado a cualquier ciudad o municipio del país."
-                        : "Tarifa fija de $15.000 COP con cobertura y póliza de entrega en toda Colombia."}
-                    </p>
+
+                    {/* SELECTOR INTERACTIVO DE DEPARTAMENTO Y MUNICIPIO */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-wider text-neutral-400 mb-1 font-semibold">
+                          Departamento
+                        </label>
+                        <select
+                          value={selectedDepartment}
+                          onChange={(e) => {
+                            const newDept = e.target.value;
+                            setSelectedDepartment(newDept);
+                            const cities = COLOMBIA_REGIONS[newDept] || ["Bogotá D.C."];
+                            setSelectedCity(cities[0] === "Otro Municipio..." ? "" : cities[0]);
+                          }}
+                          className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                        >
+                          {Object.keys(COLOMBIA_REGIONS).map((dept) => (
+                            <option key={dept} value={dept} className="bg-[#14141c] text-white">
+                              {dept}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[9px] uppercase tracking-wider text-neutral-400 mb-1 font-semibold">
+                          Ciudad / Municipio
+                        </label>
+                        <select
+                          value={
+                            (COLOMBIA_REGIONS[selectedDepartment] || []).includes(selectedCity)
+                              ? selectedCity
+                              : "Otro Municipio..."
+                          }
+                          onChange={(e) => {
+                            if (e.target.value !== "Otro Municipio...") {
+                              setSelectedCity(e.target.value);
+                            } else {
+                              setSelectedCity("");
+                            }
+                          }}
+                          className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                        >
+                          {(COLOMBIA_REGIONS[selectedDepartment] || ["Otro Municipio..."]).map((c) => (
+                            <option key={c} value={c} className="bg-[#14141c] text-white">
+                              {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between text-[11px] gap-2">
+                      <p className="text-[10px] text-neutral-300">
+                        📦 Entrega en <strong className="text-white">{selectedCity || selectedDepartment}</strong>: estimada en <strong className="text-amber-300">{math.deliveryTime}</strong> ({math.zoneLabel}).
+                      </p>
+                    </div>
                   </div>
 
                   {/* DESGLOSE MATEMÁTICO COMPLETO */}
@@ -623,10 +685,10 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#0e0e12]/95 backdrop-blur-xl border-t border-white/15 p-2.5 px-4 md:hidden flex items-center justify-between gap-3 shadow-[0_-10px_25px_rgba(0,0,0,0.8)]">
         <div className="min-w-0">
           <span className="text-[9px] uppercase tracking-wider text-neutral-400 block truncate">
-            Total {hasFreeShipping(product) ? "• Envío Gratis ✨" : "+ Envío"}
+            Total {hasFreeShipping(product) ? "• Envío Gratis ✨" : `• Envío a ${selectedCity || "Colombia"}`}
           </span>
           <span className="text-base font-bold text-white font-mono tracking-tight block">
-            $ {calculateOrderMath({ salePrice: product.sale_price, originalPrice: product.original_price, quantity, isFreeShipping: hasFreeShipping(product) }).totalToPay.toLocaleString()}{" "}
+            $ {calculateOrderMath({ salePrice: product.sale_price, originalPrice: product.original_price, quantity, isFreeShipping: hasFreeShipping(product), department: selectedDepartment, city: selectedCity }).totalToPay.toLocaleString()}{" "}
             <span className="text-[9px] text-neutral-400 font-normal">COP</span>
           </span>
         </div>
