@@ -125,26 +125,26 @@ export default function Home() {
         <div className="absolute top-[40%] left-[-10%] w-[45vw] h-[45vw] bg-neutral-800/20 rounded-full blur-[120px]"></div>
       </div>
 
-      {/* BARRA SUPERIOR DE ANUNCIOS */}
-      <div className="bg-[#050507] text-neutral-300 border-b border-white/10 text-[10px] md:text-[11px] uppercase tracking-[0.25em] py-2.5 text-center font-medium shadow-inner overflow-hidden relative z-50">
-        <div className="transition-all duration-500 ease-in-out px-4" dangerouslySetInnerHTML={{ __html: announcements[currentAnnouncement] }}>
+      {/* BARRA SUPERIOR DE ANUNCIOS (COMPACTA Y SIN DESBORDES EN MÓVIL) */}
+      <div className="bg-[#050507] text-neutral-300 border-b border-white/10 text-[9.5px] sm:text-[11px] uppercase tracking-wider py-1.5 sm:py-2 text-center font-medium shadow-inner overflow-hidden relative z-50">
+        <div className="transition-all duration-500 ease-in-out px-3 truncate" dangerouslySetInnerHTML={{ __html: announcements[currentAnnouncement] }}>
         </div>
       </div>
 
-      {/* HEADER PRINCIPAL RESPONSIVE SIN DESBORDES */}
-      <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-xl sticky top-0 z-40 transition-all duration-300 shadow-xl w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center gap-2">
+      {/* HEADER PRINCIPAL RESPONSIVE ELEGANTE */}
+      <header className="border-b border-white/10 bg-[#0a0a0c]/95 backdrop-blur-xl sticky top-0 z-40 transition-all duration-300 shadow-xl w-full">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex justify-between items-center gap-2">
           {/* Logo y Nombre de Marca */}
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0 min-w-0">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1 sm:p-1.5 shadow-[0_0_15px_rgba(232,198,98,0.15)] group-hover:scale-105 group-hover:border-amber-400/60 transition-all shrink-0">
-              <img src="/logo.svg" alt="NERKLEY Store Logo" className="w-full h-full object-contain" />
+          <Link href="/" className="flex items-center gap-2.5 group shrink-0 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#1a1a24] to-[#0a0a0d] border border-amber-400/40 flex items-center justify-center p-1 shadow-[0_0_15px_rgba(232,198,98,0.2)] group-hover:scale-105 group-hover:border-amber-400/80 transition-all shrink-0">
+              <img src="/logo-app.svg" alt="NERKLEY Logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-base sm:text-2xl font-serif font-bold tracking-[0.2em] sm:tracking-[0.3em] uppercase leading-none text-white truncate">
+              <span className="text-base sm:text-xl font-serif font-bold tracking-[0.22em] uppercase leading-none text-white truncate">
                 NERKLEY
               </span>
-              <span className="hidden sm:block text-[8px] sm:text-[9px] uppercase tracking-[0.35em] text-amber-400/90 font-sans mt-0.5 font-semibold">
-                Online Store &bull; Luxury Edition
+              <span className="text-[7.5px] sm:text-[8.5px] uppercase tracking-[0.3em] text-amber-400/90 font-sans mt-0.5 font-semibold">
+                Haute Boutique &bull; Colombia
               </span>
             </div>
           </Link>
@@ -165,37 +165,31 @@ export default function Home() {
             </button>
           </nav>
 
-          {/* Botones de Acción: Mis Pedidos y Carrito (100% visible en móvil) */}
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("shipping")}
-              className="hidden lg:flex items-center gap-1 bg-white/5 border border-white/10 text-neutral-300 hover:text-white px-2.5 py-1.5 rounded text-[11px] font-medium transition-colors cursor-pointer"
-              title="Garantía & Envíos"
-            >
-              <span>🚚</span>
-              <span>Envíos</span>
-            </button>
-
+          {/* Botones de Acción: Mis Pedidos y Carrito */}
+          <div className="flex items-center gap-2 shrink-0">
             <button 
               onClick={() => setIsOrdersOpen(true)}
-              className="bg-white/5 backdrop-blur-md border border-white/15 text-neutral-200 px-2 sm:px-3.5 py-1.5 sm:py-2 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-white/10 hover:border-white/30 hover:text-white transition-all font-semibold cursor-pointer rounded-sm shrink-0"
+              className="bg-white/5 border border-white/15 text-neutral-300 hover:text-white px-2.5 sm:px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-white/10 hover:border-white/30 transition-all font-semibold cursor-pointer rounded-lg flex items-center gap-1.5 shrink-0"
+              title="Consultar estado de mis pedidos"
             >
-              <span className="hidden sm:inline">Mis </span>Pedidos
+              <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+              </svg>
+              <span>Pedidos</span>
             </button>
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className={`relative bg-white text-black px-2.5 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-neutral-200 active:scale-95 flex items-center gap-1.5 cursor-pointer font-bold shrink-0 rounded-sm transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.2)] ${
-                isCartBouncing ? "scale-110 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_25px_rgba(232,198,98,0.7)]" : ""
+              className={`relative bg-gradient-to-r from-white to-neutral-200 text-black px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:from-neutral-100 hover:to-white active:scale-95 flex items-center gap-1.5 cursor-pointer font-bold shrink-0 rounded-lg transition-all duration-300 shadow-[0_4px_15px_rgba(255,255,255,0.15)] ${
+                isCartBouncing ? "scale-105 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_25px_rgba(232,198,98,0.7)]" : ""
               }`}
             >
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span>Carrito</span>
+              <span className="font-semibold">Carrito</span>
               {cartCount > 0 && (
-                <span className="bg-amber-500 text-black text-[9px] sm:text-[10px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shrink-0">
+                <span className="bg-amber-400 text-black text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shadow-sm shrink-0">
                   {cartCount}
                 </span>
               )}
@@ -204,312 +198,254 @@ export default function Home() {
         </div>
       </header>
 
-      {/* HERO SECTION DE LUJO URBANO */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#0e0e12] via-[#0a0a0c] to-[#0a0a0c] border-b border-white/10 py-24 md:py-32 px-4 md:px-6 text-center">
-        <div className="absolute inset-0 flex items-center justify-center opacity-5 pointer-events-none filter blur-sm">
-          <svg className="w-[300px] h-[300px] md:w-[600px] md:h-[600px] text-white" viewBox="0 0 100 100" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="50" cy="18" r="9" fill="currentColor" />
-            <path d="M 30 25 C 20 35, 20 60, 38 72 C 34 60, 36 40, 50 32 C 64 40, 66 60, 62 72 C 80 60, 80 35, 70 25" />
-            <ellipse cx="50" cy="48" rx="11" ry="14" />
-            <line x1="50" y1="34" x2="50" y2="62" />
-            <path d="M 40 42 C 30 42, 24 48, 22 55" />
-            <path d="M 60 42 C 70 42, 76 48, 78 55" />
-            <path d="M 40 56 C 30 60, 26 68, 28 78" />
-            <path d="M 60 56 C 70 60, 74 68, 72 78" />
-          </svg>
-        </div>
+      {/* HERO SECTION DE LUJO Y ALTA CONVERSIÓN (ORGANIZADO, ELEGANTE Y CÓMODO) */}
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#101017] via-[#0c0c10] to-[#0a0a0c] border-b border-white/10 pt-7 pb-8 sm:pt-12 sm:pb-12 px-4 text-center">
+        {/* Glow de fondo de alta costura */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] sm:w-[550px] h-[340px] sm:h-[550px] bg-gradient-to-tr from-amber-500/10 via-amber-400/5 to-transparent rounded-full blur-[90px] pointer-events-none"></div>
 
-        <div className="max-w-4xl mx-auto relative z-10">
-          <span className="inline-block text-[9px] md:text-[11px] uppercase tracking-[0.45em] text-amber-400/90 font-semibold mb-4 border border-amber-500/20 bg-amber-500/10 px-4 py-1.5 backdrop-blur-sm">
-            Exclusividad &bull; Streetwear &bull; Alta Gama
+        <div className="max-w-3xl mx-auto relative z-10 flex flex-col items-center">
+          <span className="inline-flex items-center gap-1.5 text-[9px] sm:text-[10px] uppercase tracking-[0.3em] text-amber-300 font-semibold mb-2.5 border border-amber-400/30 bg-amber-400/10 px-3.5 py-1 rounded-full backdrop-blur-md shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            Boutique Oficial &bull; Edición Exclusiva
           </span>
-          <h2 className="text-4xl md:text-7xl font-serif font-light tracking-tight mb-6 text-white uppercase leading-none">
-            NERKLEY SHOWROOM
-          </h2>
-          <p className="max-w-xl mx-auto text-neutral-400 text-xs md:text-base font-light leading-relaxed mb-8 md:mb-10">
-            Perfumería de autor, calzado de diseñador, streetwear exclusivo, gorras y piezas seleccionadas con la máxima exigencia de calidad.
-          </p>
-          <a
-            href="#catalogo"
-            className="inline-block bg-white text-black px-8 md:px-10 py-3.5 md:py-4 text-[10px] md:text-xs font-bold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-[0_10px_30px_rgba(255,255,255,0.15)] hover:-translate-y-0.5 cursor-pointer"
-          >
-            Explorar Colección &darr;
-          </a>
-        </div>
-      </section>
 
-      {/* BARRA DE GARANTÍA Y CONFIANZA INTERACTIVA */}
-      <section id="garantias" className="border-b border-white/10 bg-[#0e0e12] py-8 px-4 md:px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <h1 className="text-3xl sm:text-5xl md:text-6xl font-serif font-light tracking-tight text-white uppercase leading-none mb-2.5">
+            NERKLEY SHOWROOM
+          </h1>
+
+          <p className="max-w-lg text-neutral-300 text-xs sm:text-sm font-light leading-relaxed mb-5">
+            Perfumería de autor, calzado de diseñador, relojes y piezas seleccionadas con la máxima exigencia de calidad.
+          </p>
+
+          {/* BUSCADOR INTELIGENTE EN PRIMER PLANO (COMODIDAD INMEDIATA) */}
+          <div className="w-full max-w-xl mb-4">
+            <div className="relative group">
+              <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 text-sm pointer-events-none">
+                ✨
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  const el = document.getElementById("catalogo");
+                  if (el && e.target.value.length === 1) {
+                    el.scrollIntoView({ behavior: "smooth" });
+                  }
+                }}
+                placeholder="Buscar perfume (One Million, Club de Nuit, Lattafa...), categoría o marca..."
+                className="w-full bg-[#13131c]/90 border border-white/20 focus:border-amber-400 pl-10 pr-10 py-3 sm:py-3.5 text-xs sm:text-sm text-white placeholder-neutral-400 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] focus:outline-hidden focus:ring-1 focus:ring-amber-400/40 transition-all tracking-wide"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-base font-bold cursor-pointer p-1"
+                >
+                  &times;
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* CARRUSEL DE CHIPS DE CATEGORÍAS (1-TAP FILTRADO RÁPIDO) */}
+          <div className="w-full max-w-xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
+            <button
+              onClick={() => {
+                setSelectedCategory("Todas");
+                const el = document.getElementById("catalogo");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                selectedCategory === "Todas"
+                  ? "bg-white text-black shadow-md"
+                  : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
+              }`}
+            >
+              ✨ Todo ({products.length})
+            </button>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                onClick={() => {
+                  setSelectedCategory(cat);
+                  const el = document.getElementById("catalogo");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                  matchesCategoryFilter(cat, selectedCategory)
+                    ? "bg-white text-black shadow-md"
+                    : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* MICRO-CINTA DE REASEGURO (RÁPIDA, ELEGANTE Y COMPACTA) */}
+          <div className="mt-5 pt-4 border-t border-white/10 w-full grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-left">
             <button
               type="button"
               onClick={() => openWarrantyModal("warranty")}
-              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
-                🛡️
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
-                    Calidad Seleccionada
-                  </h4>
-                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
-                  Artículos originales, batch codes y acabados premium verificados.
-                </p>
-                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
-                  Ver protocolo &rarr;
-                </span>
+              <span className="text-base sm:text-lg">🛡️</span>
+              <div className="min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">100% Originales</span>
+                <span className="text-[8.5px] text-neutral-400 block truncate">Batch codes verificados</span>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => openWarrantyModal("shipping")}
-              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
-                🚚
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
-                    Envíos a Colombia
-                  </h4>
-                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
-                  4 a 7 días hábiles con guía oficial y empaque blindado asegurado.
-                </p>
-                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
-                  Ver tiempos &rarr;
-                </span>
+              <span className="text-base sm:text-lg">🚚</span>
+              <div className="min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Envíos Nacionales</span>
+                <span className="text-[8.5px] text-neutral-400 block truncate">Rastreo oficial asegurado</span>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => openWarrantyModal("payments")}
-              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
-                💳
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
-                    Pagos Seguros Wompi
-                  </h4>
-                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
-                  Nequi, Bancolombia, PSE y Tarjetas con cifrado bancario seguro.
-                </p>
-                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
-                  Ver métodos &rarr;
-                </span>
+              <span className="text-base sm:text-lg">💳</span>
+              <div className="min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Pagos Wompi</span>
+                <span className="text-[8.5px] text-neutral-400 block truncate">Nequi, Bancolombia, PSE</span>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => openWarrantyModal("returns")}
-              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all cursor-pointer flex items-start gap-3.5"
+              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
-                🔄
+              <span className="text-base sm:text-lg">🔄</span>
+              <div className="min-w-0">
+                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Garantía Total</span>
+                <span className="text-[8.5px] text-neutral-400 block truncate">Soporte directo 24/7</span>
               </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
-                    Cambios & Soporte
-                  </h4>
-                  <span className="text-[10px] text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity">&rarr;</span>
-                </div>
-                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
-                  Garantía por avería de transporte y cambios directos en 5 días.
-                </p>
-                <span className="text-[9px] uppercase tracking-widest text-amber-400/80 font-semibold mt-1.5 block">
-                  Ver políticas &rarr;
-                </span>
-              </div>
-            </button>
-          </div>
-
-          <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2 text-center sm:text-left">
-            <span className="text-[11px] text-neutral-400">
-              🔒 Compras protegidas con póliza de transporte y verificación individual de producto.
-            </span>
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("shipping")}
-              className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold uppercase tracking-wider transition-colors inline-flex items-center gap-1 cursor-pointer mx-auto sm:mx-0"
-            >
-              <span>Conoce todas las políticas de garantía, envíos y devoluciones</span>
-              <span>&rarr;</span>
             </button>
           </div>
         </div>
       </section>
 
-      {/* SECCIÓN DEL CATÁLOGO */}
-      <section id="catalogo" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-20 w-full relative z-10">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-8 md:mb-10 border-b border-white/10 pb-6 gap-6">
+      {/* SECCIÓN DEL CATÁLOGO DE PRODUCTOS (INMEDIATO, SIN ESPERAS NI VACÍOS) */}
+      <section id="catalogo" className="max-w-7xl mx-auto px-3 sm:px-6 py-8 sm:py-12 w-full relative z-10">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-white/10 gap-3">
           <div>
-            <h3 className="text-2xl md:text-3xl font-serif font-light uppercase tracking-wider text-white">
-              Catálogo de Piezas
-            </h3>
-            <p className="text-[10px] md:text-xs text-neutral-400 mt-1 md:mt-2 tracking-wide font-medium">
-              {filteredProducts.length} {filteredProducts.length === 1 ? "artículo disponible" : "artículos disponibles"}
+            <h2 className="text-xl sm:text-2xl font-serif font-light uppercase tracking-wider text-white flex items-center gap-2">
+              <span>Colección Disponible</span>
+              <span className="text-[10px] font-mono bg-amber-400/15 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
+                {filteredProducts.length} {filteredProducts.length === 1 ? "artículo" : "artículos"}
+              </span>
+            </h2>
+            <p className="text-[10px] sm:text-xs text-neutral-400 mt-0.5">
+              {selectedCategory === "Todas" ? "Mostrando todas las categorías exclusivas" : `Filtrado por: ${selectedCategory}`}
             </p>
           </div>
 
-          <div className="flex flex-col gap-3 w-full lg:w-auto">
-            {/* Buscador Inteligente + Ordenamiento Dinámico */}
-            <div className="flex flex-col sm:flex-row gap-2.5 w-full">
-              <div className="relative flex-1 sm:w-72 md:w-80">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none text-xs">
-                  ✨
-                </div>
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar reloj, notas, aroma, estilo o marca..."
-                  className="w-full bg-white/5 border border-white/15 pl-8 pr-8 py-2 md:py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-amber-400/60 focus:bg-white/10 transition-all tracking-wider shadow-sm"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-sm font-bold cursor-pointer"
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-
-              {/* Selector de Ordenamiento */}
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="w-full sm:w-auto bg-[#141418] border border-white/15 pl-3 md:pl-4 pr-8 py-2 md:py-2.5 text-[10px] md:text-xs text-neutral-200 uppercase tracking-widest font-semibold focus:outline-none focus:border-white transition-all cursor-pointer shadow-sm appearance-none"
-                >
-                  <option value="featured">✨ Destacados</option>
-                  <option value="price-asc">💵 Precio: Menor a Mayor</option>
-                  <option value="price-desc">💎 Precio: Mayor a Menor</option>
-                  <option value="discount">🔥 Mayor Descuento</option>
-                  <option value="name-asc">🔤 Nombre: A - Z</option>
-                </select>
-                <svg
-                  className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-
-            {/* Categorías dinámicas desde el Administrador */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedCategory("Todas")}
-                className={`px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm cursor-pointer ${
-                  selectedCategory === "Todas"
-                    ? "bg-white text-black"
-                    : "bg-white/5 border border-white/15 text-neutral-400 hover:border-white/40 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                Todas
-              </button>
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 md:px-4 md:py-2 text-[9px] md:text-[10px] uppercase tracking-[0.2em] transition-all font-semibold shadow-sm cursor-pointer ${
-                    matchesCategoryFilter(cat, selectedCategory)
-                      ? "bg-white text-black"
-                      : "bg-white/5 border border-white/15 text-neutral-400 hover:border-white/40 hover:text-white hover:bg-white/10"
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
+          {/* Selector de Ordenamiento Compacto y Elegante */}
+          <div className="relative w-full sm:w-auto">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="w-full sm:w-auto bg-[#14141c] border border-white/15 pl-3 pr-8 py-2 text-xs text-neutral-200 uppercase tracking-wider font-semibold rounded-lg focus:outline-hidden focus:border-amber-400 transition-all cursor-pointer shadow-sm appearance-none"
+            >
+              <option value="featured">✨ Destacados</option>
+              <option value="price-asc">💵 Precio: Menor a Mayor</option>
+              <option value="price-desc">💎 Precio: Mayor a Menor</option>
+              <option value="discount">🔥 Mayor Descuento</option>
+              <option value="name-asc">🔤 Nombre: A - Z</option>
+            </select>
+            <svg
+              className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-24 text-[10px] md:text-xs text-neutral-400 uppercase tracking-[0.3em] animate-pulse font-medium">
+          <div className="text-center py-20 text-[10px] md:text-xs text-neutral-400 uppercase tracking-[0.3em] animate-pulse font-medium">
             Sincronizando inventario exclusivo NERKLEY...
           </div>
         ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-16 px-4 md:px-6 border border-dashed border-white/15 bg-white/5 max-w-xl mx-auto shadow-sm">
-            <span className="text-2xl md:text-3xl block mb-3 opacity-80">🔍</span>
-            <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-widest font-bold text-white mb-2">
+          <div className="text-center py-14 px-4 border border-dashed border-white/15 bg-white/5 max-w-xl mx-auto rounded-xl shadow-sm">
+            <span className="text-2xl md:text-3xl block mb-2 opacity-80">🔍</span>
+            <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-widest font-bold text-white mb-1.5">
               Pieza no encontrada
             </h4>
-            <p className="text-[10px] md:text-xs text-neutral-400 font-light leading-relaxed mb-6">
+            <p className="text-[10px] md:text-xs text-neutral-400 font-light leading-relaxed mb-4">
               {searchQuery ? (
                 <>No encontramos coincidencias para <strong className="text-white">"{searchQuery}"</strong>.</>
               ) : (
-                <>No encontramos piezas disponibles en la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
+                <>No hay piezas registradas bajo la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
               )}
             </p>
             <button
-              onClick={() => { setSearchQuery(""); setSelectedCategory("Todas"); setSortBy("featured"); }}
-              className="bg-white text-black px-5 py-2.5 text-[9px] md:text-[10px] uppercase tracking-widest font-bold hover:bg-neutral-200 transition-all shadow-md cursor-pointer"
+              onClick={() => {
+                setSelectedCategory("Todas");
+                setSearchQuery("");
+              }}
+              className="bg-white text-black px-6 py-2 text-[10px] uppercase font-bold tracking-widest hover:bg-neutral-200 transition-all rounded-xs cursor-pointer shadow-md"
             >
-              Ver Todo el Catálogo
+              Ver Todas las Piezas
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6">
             {filteredProducts.map((product) => {
-              const mainImage = product.images ? product.images.split(",")[0].trim() : null;
+              const imageList = product.images ? product.images.split(",").map((img) => img.trim()) : [];
+              const mainImage = imageList[0] || null;
 
               return (
                 <div
                   key={product.id}
-                  className="group bg-[#111115] border border-white/10 p-2.5 md:p-5 transition-all duration-500 hover:border-white/30 hover:shadow-[0_20px_45px_rgba(0,0,0,0.8)] hover:-translate-y-1 flex flex-col justify-between relative shadow-lg"
+                  className="group bg-[#111116] border border-white/10 hover:border-white/25 p-2 sm:p-3 md:p-4.5 rounded-xl transition-all duration-300 hover:shadow-[0_10px_30px_rgba(0,0,0,0.8)] hover:-translate-y-1 flex flex-col justify-between relative"
                 >
                   <div>
-                    {/* VITRINA DE IMAGEN */}
+                    {/* ENLACE Y FOTO DEL PRODUCTO */}
                     <Link href={`/product/${product.slug}`} className="block">
-                      <div className="aspect-[3/4] bg-[#16161b] mb-3 md:mb-4 flex items-center justify-center relative overflow-hidden border border-white/5 group-hover:border-white/20 transition-all cursor-pointer p-3 shadow-inner">
+                      <div className="aspect-[3/4] bg-[#16161f] mb-2 sm:mb-3 flex items-center justify-center relative overflow-hidden rounded-lg border border-white/5 group-hover:border-white/20 transition-colors cursor-pointer p-2 sm:p-3">
                         {mainImage ? (
                           <img
                             src={mainImage}
                             alt={product.name}
-                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-700 ease-out"
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <span className="text-[8px] md:text-xs text-neutral-600 uppercase tracking-[0.3em] font-serif">
-                            [ NERKLEY ]
-                          </span>
+                          <div className="flex flex-col items-center justify-center text-neutral-600 gap-1">
+                            <span className="text-2xl opacity-40">💎</span>
+                            <span className="text-[8px] md:text-xs uppercase tracking-[0.3em] font-serif">[ NERKLEY ]</span>
+                          </div>
                         )}
 
                         {/* Descuento si aplica */}
                         {product.discount_percent && product.discount_percent > 0 ? (
-                          <div className="absolute top-2 left-2 md:top-3 md:left-3 bg-red-600 text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shadow-md z-10 pointer-events-none">
+                          <div className="absolute top-2 left-2 md:top-2.5 md:left-2.5 bg-red-600 text-white text-[7.5px] md:text-[9px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 rounded shadow-md z-10 pointer-events-none">
                             -{product.discount_percent}%
                           </div>
                         ) : null}
 
                         {/* Estado de stock */}
-                        <div className="absolute top-2 right-2 md:top-3 md:right-3 bg-black/80 backdrop-blur-md text-neutral-300 border border-white/10 text-[7px] md:text-[8px] uppercase tracking-widest px-2 py-0.5 font-semibold z-10 pointer-events-none">
+                        <div className="absolute top-2 right-2 md:top-2.5 md:right-2.5 bg-black/80 backdrop-blur-md text-neutral-300 border border-white/10 text-[7px] md:text-[8px] uppercase tracking-widest px-1.5 py-0.5 rounded font-semibold z-10 pointer-events-none">
                           {product.stock && product.stock <= 3 ? "¡Últimas!" : "Stock"}
                         </div>
                       </div>
                     </Link>
 
                     {/* Categoría y Badges dinámicos desde el Administrador */}
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                    <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
                       {product.category && (
                         <span className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
                           {product.category}
@@ -517,7 +453,7 @@ export default function Home() {
                       )}
                       
                       {product.badge && extractDisplayBadge(product.badge) !== "" && (
-                        <span className="bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-400/40 text-amber-300 text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-xs animate-pulse">
+                        <span className="bg-gradient-to-r from-amber-500/20 to-amber-600/10 border border-amber-400/40 text-amber-300 text-[7px] md:text-[8px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-xs animate-pulse">
                           ✨ {extractDisplayBadge(product.badge)}
                         </span>
                       )}
@@ -530,14 +466,14 @@ export default function Home() {
                     </div>
                     
                     <Link href={`/product/${product.slug}`}>
-                      <h4 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-2 line-clamp-none min-h-[2.4rem] md:min-h-[2.6rem] leading-snug hover:text-amber-200 transition-colors cursor-pointer">
+                      <h3 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-1.5 line-clamp-none min-h-[2.4rem] md:min-h-[2.6rem] leading-snug hover:text-amber-200 transition-colors cursor-pointer">
                         {product.name}
-                      </h4>
+                      </h3>
                     </Link>
                   </div>
 
                   {/* PRECIO Y ACCIONES */}
-                  <div className="pt-2.5 md:pt-4 border-t border-white/10 flex flex-col justify-between mt-2 md:mt-4 gap-2">
+                  <div className="pt-2 sm:pt-3 border-t border-white/10 flex flex-col justify-between mt-2 gap-2">
                     <div>
                       {product.discount_percent && product.discount_percent > 0 && product.original_price ? (
                         <span className="text-[9px] md:text-[11px] line-through text-neutral-500 block font-light">
@@ -549,10 +485,10 @@ export default function Home() {
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-[1fr_auto] gap-2 mt-1 items-center">
+                    <div className="grid grid-cols-[1fr_auto] gap-1.5 sm:gap-2 items-center">
                       <Link
                         href={`/product/${product.slug}`}
-                        className="bg-transparent border border-white/20 text-white py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-white hover:text-black hover:border-white transition-all text-center flex items-center justify-center cursor-pointer shadow-sm"
+                        className="bg-transparent border border-white/20 text-white py-1.5 sm:py-2 text-[8px] md:text-[10px] uppercase tracking-widest font-semibold hover:bg-white hover:text-black hover:border-white transition-all text-center flex items-center justify-center cursor-pointer rounded-xs shadow-sm"
                       >
                         Detalles
                       </Link>
@@ -570,9 +506,9 @@ export default function Home() {
                           });
                         }}
                         title="Agregar al carrito"
-                        className="bg-white text-black p-2.5 hover:bg-neutral-200 transition-all flex items-center justify-center shadow-lg active:scale-90 group/btn cursor-pointer font-bold"
+                        className="bg-white text-black p-2 sm:p-2.5 hover:bg-neutral-200 transition-all flex items-center justify-center shadow-lg active:scale-90 group/btn cursor-pointer font-bold rounded-xs"
                       >
-                        <svg className="w-4 h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 group-hover/btn:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                       </button>
@@ -585,17 +521,117 @@ export default function Home() {
         )}
       </section>
 
-      {/* FOOTER PREMIUM */}
-      <footer className="relative z-10 mt-auto bg-[#070709] border-t border-white/10 py-12 md:py-16 px-4 md:px-6 text-center">
-        <div className="max-w-md mx-auto flex flex-col items-center">
-          <div className="w-10 h-10 rounded-xl bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1.5 mb-3 shadow-[0_0_15px_rgba(232,198,98,0.15)]">
-            <img src="/logo.svg" alt="NERKLEY Store Logo" className="w-full h-full object-contain" />
+      {/* SECCIÓN DETALLADA DE PROTOCOLOS & GARANTÍAS (AL FINAL PARA MÁXIMA CONFIANZA ANTES DE COMPRAR) */}
+      <section className="border-t border-white/10 bg-[#0c0c10] py-10 px-4 sm:px-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-6">
+            <span className="text-[10px] uppercase tracking-[0.3em] text-amber-400 font-semibold block mb-1">
+              Seguridad & Respaldo Oficial
+            </span>
+            <h3 className="text-lg sm:text-2xl font-serif text-white uppercase tracking-wider">
+              Por qué comprar en NERKLEY
+            </h3>
           </div>
-          <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.35em] uppercase mb-2 text-white">NERKLEY</span>
-          <p className="text-[10px] md:text-xs text-neutral-400 font-light mb-4 md:mb-6">
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("warranty")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer flex items-start gap-3.5 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🛡️
+              </div>
+              <div>
+                <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Calidad Seleccionada
+                </h4>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Artículos originales, batch codes y acabados premium verificados individualmente.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/90 font-semibold mt-2 block">
+                  Ver protocolo &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("shipping")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer flex items-start gap-3.5 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🚚
+              </div>
+              <div>
+                <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Envíos a Toda Colombia
+                </h4>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Tarifa fija de $15.000 COP o Envío Gratis según la promoción activa con guía oficial.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/90 font-semibold mt-2 block">
+                  Ver detalles de envío &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("payments")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer flex items-start gap-3.5 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                💳
+              </div>
+              <div>
+                <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Pagos Blindados Wompi
+                </h4>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Nequi, Bancolombia, PSE y Tarjetas con cifrado bancario seguro SHA-256.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/90 font-semibold mt-2 block">
+                  Ver pasarela segura &rarr;
+                </span>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openWarrantyModal("returns")}
+              className="group text-left p-4 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-amber-400/40 transition-all cursor-pointer flex items-start gap-3.5 shadow-sm"
+            >
+              <div className="w-10 h-10 rounded-xl bg-amber-400/10 border border-amber-400/25 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
+                🔄
+              </div>
+              <div>
+                <h4 className="text-xs uppercase tracking-wider font-bold text-white group-hover:text-amber-300 transition-colors">
+                  Cambios & Garantía
+                </h4>
+                <p className="text-[11px] text-neutral-400 mt-1 leading-snug">
+                  Póliza de transporte y cambios directos ante cualquier anomalía o defecto.
+                </p>
+                <span className="text-[9px] uppercase tracking-widest text-amber-400/90 font-semibold mt-2 block">
+                  Ver políticas completas &rarr;
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER PREMIUM */}
+      <footer className="relative z-10 mt-auto bg-[#070709] border-t border-white/10 py-10 md:py-14 px-4 text-center">
+        <div className="max-w-md mx-auto flex flex-col items-center">
+          <div className="w-10 h-10 rounded-xl bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1.5 mb-2.5 shadow-[0_0_15px_rgba(232,198,98,0.15)]">
+            <img src="/logo-app.svg" alt="NERKLEY Logo" className="w-full h-full object-contain" />
+          </div>
+          <span className="text-xl md:text-2xl font-serif font-bold tracking-[0.35em] uppercase mb-1.5 text-white">NERKLEY</span>
+          <p className="text-[10px] md:text-xs text-neutral-400 font-light mb-4">
             Online Store Oficial &bull; Perfumería, Calzado, Joyería & Streetwear.
           </p>
-          <div className="flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest text-neutral-500 mb-6 font-medium">
+          <div className="flex items-center justify-center gap-2 text-[9px] uppercase tracking-widest text-neutral-500 mb-5 font-medium">
             <span>Wompi</span>
             <span>&bull;</span>
             <span>Bancolombia</span>
