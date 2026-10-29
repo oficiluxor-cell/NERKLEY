@@ -264,15 +264,15 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
       />
       <header className="border-b border-white/10 bg-[#0a0a0c]/90 backdrop-blur-md sticky top-0 z-50 w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3.5 flex justify-between items-center gap-2">
-          <Link href="/" className="flex items-center gap-2 sm:gap-3 group shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-[#111115] border border-amber-400/30 flex items-center justify-center p-1 group-hover:scale-105 transition-all">
-              <img src="/logo.svg" alt="NERKLEY" className="w-full h-full object-contain" />
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-3 flex justify-between items-center gap-1.5 sm:gap-2">
+          <Link href="/" className="flex items-center gap-2 group min-w-0 shrink">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-[#111115] border border-amber-400/30 flex items-center justify-center p-0.5 sm:p-1 group-hover:scale-105 transition-all shrink-0">
+              <img src="/logo-app.svg" alt="NERKLEY" className="w-full h-full object-contain" />
             </div>
-            <span className="text-base sm:text-2xl font-serif font-bold tracking-[0.2em] sm:tracking-[0.3em] uppercase">NERKLEY</span>
+            <span className="text-sm sm:text-2xl font-serif font-bold tracking-[0.18em] sm:tracking-[0.3em] uppercase truncate">NERKLEY</span>
           </Link>
-          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-            <Link href="/" className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white px-2 py-1">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            <Link href="/" className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-neutral-400 hover:text-white px-1.5 sm:px-2 py-1">
               &larr; <span className="hidden sm:inline">Tienda</span>
             </Link>
             <button 
@@ -284,8 +284,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             </button>
             <button 
               onClick={() => setIsCartOpen(true)}
-              className={`relative bg-white text-black px-3 sm:px-5 py-1.5 sm:py-2 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all duration-300 shadow-md active:scale-95 cursor-pointer font-bold flex items-center gap-1.5 shrink-0 rounded-sm ${
-                isCartBouncing ? "scale-110 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_20px_rgba(232,198,98,0.7)]" : ""
+              className={`relative bg-white text-black px-2.5 sm:px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-neutral-200 transition-all duration-300 shadow-md active:scale-95 cursor-pointer font-bold flex items-center gap-1.5 shrink-0 rounded-lg ${
+                isCartBouncing ? "scale-105 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_20px_rgba(232,198,98,0.7)]" : ""
               }`}
             >
               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,7 +293,7 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               </svg>
               <span>Carrito</span>
               {cartCount > 0 && (
-                <span className="bg-amber-500 text-black text-[9px] sm:text-[10px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shrink-0">
+                <span className="bg-amber-400 text-black text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shrink-0">
                   {cartCount}
                 </span>
               )}

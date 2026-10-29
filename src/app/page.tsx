@@ -133,17 +133,17 @@ export default function Home() {
 
       {/* HEADER PRINCIPAL RESPONSIVE ELEGANTE */}
       <header className="border-b border-white/10 bg-[#0a0a0c]/95 backdrop-blur-xl sticky top-0 z-40 transition-all duration-300 shadow-xl w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex justify-between items-center gap-2">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 py-2 sm:py-3 flex justify-between items-center gap-1.5 sm:gap-2">
           {/* Logo y Nombre de Marca */}
-          <Link href="/" className="flex items-center gap-2.5 group shrink-0 min-w-0">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#1a1a24] to-[#0a0a0d] border border-amber-400/40 flex items-center justify-center p-1 shadow-[0_0_15px_rgba(232,198,98,0.2)] group-hover:scale-105 group-hover:border-amber-400/80 transition-all shrink-0">
+          <Link href="/" className="flex items-center gap-2 group min-w-0 shrink">
+            <div className="w-7 h-7 sm:w-9 sm:h-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-[#1a1a24] to-[#0a0a0d] border border-amber-400/40 flex items-center justify-center p-0.5 sm:p-1 shadow-[0_0_12px_rgba(232,198,98,0.2)] group-hover:scale-105 group-hover:border-amber-400/80 transition-all shrink-0">
               <img src="/logo-app.svg" alt="NERKLEY Logo" className="w-full h-full object-contain" />
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-base sm:text-xl font-serif font-bold tracking-[0.22em] uppercase leading-none text-white truncate">
+              <span className="text-sm sm:text-xl font-serif font-bold tracking-[0.18em] sm:tracking-[0.22em] uppercase leading-none text-white truncate">
                 NERKLEY
               </span>
-              <span className="text-[7.5px] sm:text-[8.5px] uppercase tracking-[0.3em] text-amber-400/90 font-sans mt-0.5 font-semibold">
+              <span className="hidden sm:block text-[8px] sm:text-[8.5px] uppercase tracking-[0.25em] text-amber-400/90 font-sans mt-0.5 font-semibold">
                 Haute Boutique &bull; Colombia
               </span>
             </div>
@@ -165,31 +165,31 @@ export default function Home() {
             </button>
           </nav>
 
-          {/* Botones de Acción: Mis Pedidos y Carrito */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Botones de Acción: Mis Pedidos y Carrito (100% contenidos dentro de la pantalla) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button 
               onClick={() => setIsOrdersOpen(true)}
-              className="bg-white/5 border border-white/15 text-neutral-300 hover:text-white px-2.5 sm:px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-white/10 hover:border-white/30 transition-all font-semibold cursor-pointer rounded-lg flex items-center gap-1.5 shrink-0"
+              className="bg-white/5 border border-white/15 text-neutral-300 hover:text-white px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-white/10 hover:border-white/30 transition-all font-semibold cursor-pointer rounded-lg flex items-center gap-1 shrink-0"
               title="Consultar estado de mis pedidos"
             >
-              <svg className="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
-              <span>Pedidos</span>
+              <span className="hidden xs:inline sm:inline">Pedidos</span>
             </button>
 
             <button 
               onClick={() => setIsCartOpen(true)}
-              className={`relative bg-gradient-to-r from-white to-neutral-200 text-black px-3 sm:px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:from-neutral-100 hover:to-white active:scale-95 flex items-center gap-1.5 cursor-pointer font-bold shrink-0 rounded-lg transition-all duration-300 shadow-[0_4px_15px_rgba(255,255,255,0.15)] ${
+              className={`relative bg-gradient-to-r from-white to-neutral-200 text-black px-2.5 sm:px-4 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:from-neutral-100 hover:to-white active:scale-95 flex items-center gap-1.5 cursor-pointer font-bold shrink-0 rounded-lg transition-all duration-300 shadow-[0_4px_15px_rgba(255,255,255,0.15)] ${
                 isCartBouncing ? "scale-105 ring-2 ring-amber-400 bg-amber-400 text-black shadow-[0_0_25px_rgba(232,198,98,0.7)]" : ""
               }`}
             >
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
-              <span className="font-semibold">Carrito</span>
+              <span>Carrito</span>
               {cartCount > 0 && (
-                <span className="bg-amber-400 text-black text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shadow-sm shrink-0">
+                <span className="bg-amber-400 text-black text-[9px] font-black min-w-4 h-4 px-1 rounded-full flex items-center justify-center border border-black shadow-xs shrink-0">
                   {cartCount}
                 </span>
               )}

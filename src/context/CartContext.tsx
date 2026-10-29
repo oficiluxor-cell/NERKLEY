@@ -394,20 +394,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
       )}
 
       <div
-        className={`fixed top-0 right-0 h-full w-full sm:w-[480px] bg-[#111115] text-white z-[101] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col ${
+        className={`fixed top-0 right-0 h-full w-full max-w-full sm:max-w-[480px] bg-[#111115] text-white z-[101] shadow-2xl transform transition-transform duration-500 ease-in-out flex flex-col overflow-x-hidden ${
           isCartOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >
-        <div className="flex items-center justify-between p-6 border-b border-white/10">
-          <h2 className="text-xl font-serif uppercase tracking-widest font-bold text-white">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-white/10 shrink-0">
+          <h2 className="text-lg sm:text-xl font-serif uppercase tracking-widest font-bold text-white">
             Tu Carrito ({cartCount})
           </h2>
-          <button onClick={() => setIsCartOpen(false)} className="text-neutral-400 hover:text-white text-2xl leading-none cursor-pointer">
+          <button onClick={() => setIsCartOpen(false)} className="text-neutral-400 hover:text-white text-2xl leading-none p-1 cursor-pointer">
             &times;
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 space-y-5 sm:space-y-6">
           {cartItems.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-xs uppercase tracking-widest text-neutral-400 mb-6">Tu carrito está vacío</p>
