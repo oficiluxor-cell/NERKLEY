@@ -8,6 +8,7 @@ import AIChatSupport from "@/components/AIChatSupport";
 import ProductReviewsSection from "@/components/ProductReviewsSection";
 import { getProductReviews } from "@/data/productReviews";
 import { hasFreeShipping, calculateOrderMath, extractDisplayBadge, STANDARD_SHIPPING_COST, COLOMBIA_REGIONS } from "@/lib/shipping";
+import { isProductCombo } from "@/lib/presentation";
 
 interface Product {
   id: string;
@@ -316,8 +317,13 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                 </span>
               )}
 
-              {/* Etiqueta Destacada y Envío Gratis */}
+              {/* Etiqueta Destacada, Combo y Envío Gratis */}
               <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                {isProductCombo(product) && (
+                  <div className="bg-gradient-to-r from-amber-400 to-amber-500 text-black text-[10px] font-black uppercase tracking-wider px-3 py-1 shadow-lg border border-amber-300 flex items-center gap-1">
+                    🎁 COMBO EXCLUSIVO
+                  </div>
+                )}
                 {product.badge && extractDisplayBadge(product.badge) !== "" && (
                   <div className="bg-amber-500/15 border-amber-400/40 text-amber-300 text-[10px] font-bold uppercase tracking-wider px-3 py-1 shadow-lg animate-pulse border border-white/20">
                     ✨ {extractDisplayBadge(product.badge)}
@@ -356,9 +362,20 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
 
           <div className="bg-[#111115] p-3.5 sm:p-6 lg:p-8 border border-white/10 shadow-sm space-y-3 sm:space-y-4 lg:space-y-5">
             <div>
-              <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-neutral-400 font-semibold block mb-1">
-                {product.category || "Edición Exclusiva"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-neutral-400 font-semibold">
+                  {product.category || "Edición Exclusiva"}
+                </span>
+                {isProductCombo(product) ? (
+                  <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[9px] uppercase tracking-wider font-black px-2 py-0.5 rounded-sm">
+                    🎁 Combo Promocional
+                  </span>
+                ) : (
+                  <span className="bg-white/5 text-neutral-400 border border-white/10 text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-sm">
+                    📦 1 Unidad
+                  </span>
+                )}
+              </div>
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-1.5">
                 {product.name}
               </h1>

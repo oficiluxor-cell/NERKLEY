@@ -4,6 +4,13 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { hasFreeShipping, extractDisplayBadge, buildProductBadge } from "@/lib/shipping";
+import {
+  getProductPresentation,
+  isProductCombo,
+  buildPresentationBadge,
+  cleanCustomBadgeText,
+  ProductPresentationType,
+} from "@/lib/presentation";
 
 interface Order {
   id: string;
@@ -110,6 +117,7 @@ export default function AdminDashboard() {
   const [stock, setStock] = useState("");
   const [badge, setBadge] = useState("");
   const [isFreeShippingActive, setIsFreeShippingActive] = useState(false);
+  const [presentationType, setPresentationType] = useState<"unidad" | "combo">("unidad");
   const [creating, setCreating] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -123,6 +131,7 @@ export default function AdminDashboard() {
     stock: string;
     badge: string;
     isFreeShipping: boolean;
+    presentation: "unidad" | "combo";
     sizes: string;
     colors: string;
     images: string;
@@ -136,6 +145,7 @@ export default function AdminDashboard() {
     stock: "",
     badge: "",
     isFreeShipping: false,
+    presentation: "unidad",
     sizes: "",
     colors: "",
     images: "",
@@ -147,6 +157,7 @@ export default function AdminDashboard() {
   // Buscador y filtros de catálogo
   const [productSearch, setProductSearch] = useState("");
   const [productCategoryFilter, setProductCategoryFilter] = useState("Todas");
+  const [productPresentationFilter, setProductPresentationFilter] = useState<ProductPresentationType>("todos");
   const [bulkShippingLoading, setBulkShippingLoading] = useState(false);
 
   const prevOrdersCountRef = useRef<number>(0);
@@ -524,7 +535,7 @@ export default function AdminDashboard() {
     const storedOriginalPrice = discount > 0 ? initialPrice : null;
     const generatedSlug = slug || name.toLowerCase().trim().replace(/ /g, "-").replace(/[^\w-]+/g, "");
     const formattedCategory = category.trim().charAt(0).toUpperCase() + category.trim().slice(1).toLowerCase();
-    const finalBadge = buildProductBadge(badge, isFreeShippingActive);
+    const finalBadge = buildPresentationBadge(badge, presentationType, isFreeShippingActive);
 
     const { error } = await supabase.from("products").insert([
       {
@@ -559,6 +570,7 @@ export default function AdminDashboard() {
       setStock("");
       setBadge("");
       setIsFreeShippingActive(false);
+      setPresentationType("unidad");
       fetchData(false);
     }
     setCreating(false);
@@ -568,7 +580,8 @@ export default function AdminDashboard() {
   const openEditModal = (p: Product) => {
     const base = p.original_price || p.sale_price;
     const isFree = hasFreeShipping(p);
-    const cleanBadge = extractDisplayBadge(p.badge);
+    const cleanBadge = cleanCustomBadgeText(p.badge);
+    const pres = getProductPresentation(p);
     setEditingProduct(p);
     setEditForm({
       name: p.name || "",
@@ -578,6 +591,7 @@ export default function AdminDashboard() {
       stock: String(p.stock ?? 0),
       badge: cleanBadge,
       isFreeShipping: isFree,
+      presentation: pres,
       sizes: p.sizes || "",
       colors: p.colors || "",
       images: p.images || "",
@@ -603,7 +617,7 @@ export default function AdminDashboard() {
     const stockVal = parseInt(editForm.stock) || 0;
     const finalSalePrice = discount > 0 ? Math.round(base * (1 - discount / 100)) : base;
     const finalOriginalPrice = discount > 0 ? base : null;
-    const finalBadge = buildProductBadge(editForm.badge, editForm.isFreeShipping);
+    const finalBadge = buildPresentationBadge(editForm.badge, editForm.presentation, editForm.isFreeShipping);
 
     const updates = {
       name: editForm.name.trim(),
@@ -635,6 +649,27 @@ export default function AdminDashboard() {
       setEditingProduct(null);
     }
     setSavingEdit(false);
+  };
+
+  // Alternar rápidamente modalidad Unidad / Combo directamente desde la tabla
+  const handleToggleProductPresentation = async (p: Product) => {
+    const isCurrentlyCombo = isProductCombo(p);
+    const newPres = isCurrentlyCombo ? "unidad" : "combo";
+    const isFree = hasFreeShipping(p);
+    const cleanBadge = cleanCustomBadgeText(p.badge);
+    const newBadge = buildPresentationBadge(cleanBadge, newPres, isFree);
+
+    setProducts((prev) =>
+      prev.map((item) => (item.id === p.id ? { ...item, badge: newBadge } : item))
+    );
+
+    const { error } = await supabase.from("products").update({ badge: newBadge }).eq("id", p.id);
+    if (error) {
+      alert("Error al cambiar modalidad: " + error.message);
+      fetchData(false);
+    } else {
+      showToast(`¡"${p.name}" ahora es ${newPres === "combo" ? "🎁 COMBO" : "📦 UNIDAD"}!`);
+    }
   };
 
   // Acciones rápidas en línea
@@ -886,11 +921,27 @@ export default function AdminDashboard() {
     );
   };
 
+  // Estadísticas globales de modalidad para el inventario
+  const presentationStats = useMemo(() => {
+    let unidades = 0;
+    let combos = 0;
+    products.forEach((p) => {
+      if (isProductCombo(p)) combos++;
+      else unidades++;
+    });
+    return { total: products.length, unidades, combos };
+  }, [products]);
+
   // Productos filtrados para el inventario
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       if (productCategoryFilter !== "Todas" && p.category?.toLowerCase() !== productCategoryFilter.toLowerCase()) {
         return false;
+      }
+      if (productPresentationFilter !== "todos") {
+        const isCombo = isProductCombo(p);
+        if (productPresentationFilter === "combo" && !isCombo) return false;
+        if (productPresentationFilter === "unidad" && isCombo) return false;
       }
       if (!productSearch.trim()) return true;
       const q = productSearch.toLowerCase().trim();
@@ -900,7 +951,7 @@ export default function AdminDashboard() {
         (p.badge || "").toLowerCase().includes(q)
       );
     });
-  }, [products, productSearch, productCategoryFilter]);
+  }, [products, productSearch, productCategoryFilter, productPresentationFilter]);
 
   // Pantalla de autenticación
   if (!isAuthenticated) {
@@ -1633,6 +1684,76 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
+                  {/* MODALIDAD DE VENTA: UNIDAD O COMBO */}
+                  <div className="md:col-span-3 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-300 font-bold">
+                        Modalidad de Venta / Presentación *
+                      </label>
+                      <span className="text-[10px] text-amber-400 font-mono">
+                        {presentationType === "combo" ? "🎁 Modo: COMBO / DÚO" : "📦 Modo: 1 UNIDAD"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setPresentationType("unidad")}
+                        className={`p-3.5 border rounded-lg text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          presentationType === "unidad"
+                            ? "bg-white/10 border-white text-white shadow-[0_0_15px_rgba(255,255,255,0.1)] ring-1 ring-white/50"
+                            : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${
+                            presentationType === "unidad"
+                              ? "bg-white text-black font-bold"
+                              : "bg-white/5 text-neutral-400"
+                          }`}
+                        >
+                          📦
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold uppercase tracking-wider block text-white truncate">
+                            Unidad Individual
+                          </span>
+                          <span className="text-[10px] text-neutral-400 block font-light truncate">
+                            1 solo artículo (ej: 1 Perfume 100ml)
+                          </span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setPresentationType("combo")}
+                        className={`p-3.5 border rounded-lg text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          presentationType === "combo"
+                            ? "bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400 text-amber-300 shadow-[0_0_20px_rgba(232,198,98,0.25)] ring-1 ring-amber-400/50"
+                            : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${
+                            presentationType === "combo"
+                              ? "bg-amber-400 text-black font-bold shadow-md"
+                              : "bg-white/5 text-neutral-400"
+                          }`}
+                        >
+                          🎁
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold uppercase tracking-wider block text-amber-300 truncate">
+                            Combo / Dúo / Kit
+                          </span>
+                          <span className="text-[10px] text-amber-200/70 block font-light truncate">
+                            2 o más artículos / pack ahorro
+                          </span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="md:col-span-3 space-y-2">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
                       Insignia / Etiqueta Destacada (Opcional)
@@ -1809,10 +1930,51 @@ export default function AdminDashboard() {
 
               {/* BARRA DE BÚSQUEDA Y TOTALES */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                <div>
+                <div className="space-y-1">
                   <h4 className="text-xs uppercase tracking-wider font-bold text-white">
                     {productCategoryFilter === "Todas" ? "Todas las Piezas" : `Categoría: ${productCategoryFilter}`} ({filteredProducts.length} productos)
                   </h4>
+                  {/* PESTAÑAS DE MODALIDAD: TODAS / UNIDADES / COMBOS */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setProductPresentationFilter("todos")}
+                      className={`px-2.5 py-1 text-[9.5px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1 ${
+                        productPresentationFilter === "todos"
+                          ? "bg-white text-black font-bold shadow"
+                          : "bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10"
+                      }`}
+                    >
+                      <span>✨ Todas</span>
+                      <span className="text-[9px] font-mono opacity-70">({presentationStats.total})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProductPresentationFilter("unidad")}
+                      className={`px-2.5 py-1 text-[9.5px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1 ${
+                        productPresentationFilter === "unidad"
+                          ? "bg-white text-black font-bold shadow"
+                          : "bg-white/5 border border-white/10 text-neutral-300 hover:bg-white/10"
+                      }`}
+                    >
+                      <span>📦 Unidades</span>
+                      <span className="text-[9px] font-mono opacity-70">({presentationStats.unidades})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProductPresentationFilter("combo")}
+                      className={`px-2.5 py-1 text-[9.5px] font-semibold uppercase tracking-wider rounded transition-all cursor-pointer flex items-center gap-1 ${
+                        productPresentationFilter === "combo"
+                          ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black font-black shadow-[0_0_15px_rgba(232,198,98,0.3)]"
+                          : "bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+                      }`}
+                    >
+                      <span>🎁 Combos</span>
+                      <span className="text-[9px] font-mono font-bold">({presentationStats.combos})</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="w-full sm:w-auto">
                   <input
@@ -1856,7 +2018,22 @@ export default function AdminDashboard() {
                               </div>
                               <div className="space-y-1">
                                 <span className="font-bold text-white block text-sm">{p.name}</span>
-                                <div className="flex flex-wrap gap-1">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {/* Pill de Modalidad con alternador rápido */}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleProductPresentation(p)}
+                                    title="Haz clic para alternar entre Unidad y Combo"
+                                    className={`inline-flex items-center gap-1 text-[8.5px] uppercase tracking-wider font-bold px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                                      isProductCombo(p)
+                                        ? "text-amber-300 bg-amber-400/15 border-amber-400/40 hover:bg-amber-400/25 shadow-xs"
+                                        : "text-neutral-300 bg-white/5 border-white/15 hover:bg-white/10 hover:border-white/30"
+                                    }`}
+                                  >
+                                    <span>{isProductCombo(p) ? "🎁 COMBO" : "📦 UNIDAD"}</span>
+                                    <span className="text-[7.5px] opacity-60">⇆</span>
+                                  </button>
+
                                   {p.badge && extractDisplayBadge(p.badge) !== "" && (
                                     <span className="inline-block text-[9px] uppercase tracking-wider font-semibold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 border border-amber-400/20">
                                       {extractDisplayBadge(p.badge)}
@@ -2118,6 +2295,56 @@ export default function AdminDashboard() {
                     onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
                     className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white font-mono focus:outline-none focus:border-white"
                   />
+                </div>
+
+                {/* MODALIDAD DE VENTA EN MODAL DE EDICIÓN: UNIDAD O COMBO */}
+                <div className="space-y-1.5 md:col-span-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] uppercase tracking-widest text-neutral-300 font-bold block">
+                      Modalidad / Presentación *
+                    </label>
+                    <span className="text-[10px] text-amber-400 font-mono">
+                      {editForm.presentation === "combo" ? "🎁 COMBO / DÚO" : "📦 UNIDAD"}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, presentation: "unidad" })}
+                      className={`p-3 border rounded-lg text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                        editForm.presentation === "unidad"
+                          ? "bg-white/10 border-white text-white ring-1 ring-white/50"
+                          : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                      }`}
+                    >
+                      <span className="text-base">📦</span>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-wider block text-white truncate">
+                          Unidad Individual
+                        </span>
+                        <span className="text-[9.5px] text-neutral-400 block truncate">1 artículo estándar</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditForm({ ...editForm, presentation: "combo" })}
+                      className={`p-3 border rounded-lg text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                        editForm.presentation === "combo"
+                          ? "bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400 text-amber-300 ring-1 ring-amber-400/50 shadow-md"
+                          : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                      }`}
+                    >
+                      <span className="text-base">🎁</span>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold uppercase tracking-wider block text-amber-300 truncate">
+                          Combo / Dúo / Kit
+                        </span>
+                        <span className="text-[9.5px] text-amber-200/70 block truncate">2 o más productos</span>
+                      </div>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">

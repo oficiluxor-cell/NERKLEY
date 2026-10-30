@@ -1,12 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
 import AIChatSupport from "@/components/AIChatSupport";
 import { SmartSearchableProduct, filterAndSortProducts, matchesCategoryFilter } from "@/lib/smartSearch";
 import { hasFreeShipping, extractDisplayBadge } from "@/lib/shipping";
+import {
+  getProductPresentation,
+  isProductCombo,
+  ProductPresentationType,
+} from "@/lib/presentation";
 
 interface Product extends SmartSearchableProduct {}
 
@@ -20,6 +25,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
+  const [selectedPresentation, setSelectedPresentation] = useState<ProductPresentationType>("todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("featured");
   const [loading, setLoading] = useState(true);
@@ -108,11 +114,34 @@ export default function Home() {
     };
   }, [products]);
 
+  // Productos de la categoría seleccionada para calcular contadores de Unidades y Combos
+  const currentCategoryProducts = useMemo(() => {
+    return products.filter((p) => matchesCategoryFilter(p.category, selectedCategory));
+  }, [products, selectedCategory]);
+
+  const presentationCounts = useMemo(() => {
+    let unidades = 0;
+    let combos = 0;
+    currentCategoryProducts.forEach((p) => {
+      if (isProductCombo(p)) {
+        combos++;
+      } else {
+        unidades++;
+      }
+    });
+    return {
+      todos: currentCategoryProducts.length,
+      unidades,
+      combos,
+    };
+  }, [currentCategoryProducts]);
+
   const filteredProducts = filterAndSortProducts(
     products,
     selectedCategory,
     searchQuery,
-    sortBy
+    sortBy,
+    selectedPresentation
   );
 
   return (
@@ -253,6 +282,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setSelectedCategory("Todas");
+                setSelectedPresentation("todos");
                 const el = document.getElementById("catalogo");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
               }}
@@ -269,6 +299,7 @@ export default function Home() {
                 key={cat}
                 onClick={() => {
                   setSelectedCategory(cat);
+                  setSelectedPresentation("todos");
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
@@ -281,6 +312,60 @@ export default function Home() {
                 {cat}
               </button>
             ))}
+          </div>
+
+          {/* SUB-FILTROS DE MODALIDAD (UNIDADES VS COMBOS) */}
+          <div className="w-full max-w-xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pt-2 pb-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPresentation("todos");
+                const el = document.getElementById("catalogo");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                selectedPresentation === "todos"
+                  ? "bg-neutral-200 text-black shadow-md font-bold"
+                  : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>✨ Todos</span>
+              <span className="text-[9px] font-mono opacity-70">({presentationCounts.todos})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPresentation("unidad");
+                const el = document.getElementById("catalogo");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                selectedPresentation === "unidad"
+                  ? "bg-white text-black shadow-md font-bold"
+                  : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <span>📦 Unidad</span>
+              <span className="text-[9px] font-mono opacity-70">({presentationCounts.unidades})</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPresentation("combo");
+                const el = document.getElementById("catalogo");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                selectedPresentation === "combo"
+                  ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_0_15px_rgba(232,198,98,0.4)] font-black"
+                  : "bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
+              }`}
+            >
+              <span>🎁 Combos</span>
+              <span className="text-[9px] font-mono font-bold">({presentationCounts.combos})</span>
+            </button>
           </div>
 
           {/* MICRO-CINTA DE REASEGURO (RÁPIDA, ELEGANTE Y COMPACTA) */}
@@ -346,9 +431,48 @@ export default function Home() {
                 {filteredProducts.length} {filteredProducts.length === 1 ? "artículo" : "artículos"}
               </span>
             </h2>
-            <p className="text-[10px] sm:text-xs text-neutral-400 mt-0.5">
-              {selectedCategory === "Todas" ? "Mostrando todas las categorías exclusivas" : `Filtrado por: ${selectedCategory}`}
-            </p>
+            <div className="flex flex-wrap items-center gap-2 mt-1">
+              <p className="text-[10px] sm:text-xs text-neutral-400">
+                {selectedCategory === "Todas" ? "Todas las categorías" : `Categoría: ${selectedCategory}`}
+              </p>
+              <span className="text-neutral-600 hidden sm:inline">•</span>
+              {/* SUB-TABS RÁPIDAS EN EL CATÁLOGO */}
+              <div className="inline-flex items-center gap-1 bg-white/5 border border-white/10 p-0.5 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresentation("todos")}
+                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                    selectedPresentation === "todos"
+                      ? "bg-white text-black font-bold shadow-xs"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  Todo ({presentationCounts.todos})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresentation("unidad")}
+                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                    selectedPresentation === "unidad"
+                      ? "bg-white text-black font-bold shadow-xs"
+                      : "text-neutral-400 hover:text-white"
+                  }`}
+                >
+                  Unidad ({presentationCounts.unidades})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresentation("combo")}
+                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-black transition-all cursor-pointer ${
+                    selectedPresentation === "combo"
+                      ? "bg-amber-400 text-black shadow-xs"
+                      : "text-amber-300 hover:text-amber-200"
+                  }`}
+                >
+                  🎁 Combos ({presentationCounts.combos})
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Selector de Ordenamiento Compacto y Elegante */}
@@ -388,6 +512,10 @@ export default function Home() {
             <p className="text-[10px] md:text-xs text-neutral-400 font-light leading-relaxed mb-4">
               {searchQuery ? (
                 <>No encontramos coincidencias para <strong className="text-white">"{searchQuery}"</strong>.</>
+              ) : selectedPresentation === "combo" ? (
+                <>No hay combos registrados bajo la categoría <strong className="text-white">"{selectedCategory}"</strong> todavía. ¡Pronto nuevos lanzamientos en promoción!</>
+              ) : selectedPresentation === "unidad" ? (
+                <>No hay unidades individuales registradas bajo la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
               ) : (
                 <>No hay piezas registradas bajo la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
               )}
@@ -395,6 +523,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setSelectedCategory("Todas");
+                setSelectedPresentation("todos");
                 setSearchQuery("");
               }}
               className="bg-white text-black px-6 py-2 text-[10px] uppercase font-bold tracking-widest hover:bg-neutral-200 transition-all rounded-xs cursor-pointer shadow-md"
@@ -430,9 +559,16 @@ export default function Home() {
                           </div>
                         )}
 
+                        {/* Insignia COMBO destacada sobre la foto */}
+                        {isProductCombo(product) && (
+                          <div className="absolute top-2 left-2 md:top-2.5 md:left-2.5 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 text-black text-[7.5px] md:text-[8.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow-[0_2px_10px_rgba(232,198,98,0.5)] z-10 pointer-events-none flex items-center gap-1">
+                            <span>🎁</span> COMBO
+                          </div>
+                        )}
+
                         {/* Descuento si aplica */}
                         {product.discount_percent && product.discount_percent > 0 ? (
-                          <div className="absolute top-2 left-2 md:top-2.5 md:left-2.5 bg-red-600 text-white text-[7.5px] md:text-[9px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 rounded shadow-md z-10 pointer-events-none">
+                          <div className={`absolute ${isProductCombo(product) ? "top-7 left-2 md:top-8 md:left-2.5" : "top-2 left-2 md:top-2.5 md:left-2.5"} bg-red-600 text-white text-[7.5px] md:text-[9px] font-bold uppercase tracking-wider px-1.5 md:px-2 py-0.5 rounded shadow-md z-10 pointer-events-none`}>
                             -{product.discount_percent}%
                           </div>
                         ) : null}
@@ -449,6 +585,13 @@ export default function Home() {
                       {product.category && (
                         <span className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
                           {product.category}
+                        </span>
+                      )}
+
+                      {/* BADGE COMBO */}
+                      {isProductCombo(product) && (
+                        <span className="bg-gradient-to-r from-amber-500/25 to-amber-600/15 border border-amber-400/50 text-amber-300 text-[7px] md:text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs flex items-center gap-0.5">
+                          🎁 COMBO
                         </span>
                       )}
                       

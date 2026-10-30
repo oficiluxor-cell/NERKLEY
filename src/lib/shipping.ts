@@ -124,13 +124,18 @@ export function hasFreeShipping(product: { badge?: string | null } | null | unde
 }
 
 /**
- * Extrae el badge visual limpio (removiendo la etiqueta interna de Envío Gratis si está presente)
+ * Extrae el badge visual limpio (removiendo etiquetas internas técnicas como Envío Gratis o Combo para evitar duplicados visuales)
  */
 export function extractDisplayBadge(badge?: string | null): string {
   if (!badge) return "";
   return badge
     .replace(/•?\s*env[ií]o gratis\s*•?/gi, "")
     .replace(/\[env[ií]o gratis\]/gi, "")
+    .replace(/•?\s*combo\s*•?/gi, "")
+    .replace(/\[combo\]/gi, "")
+    .replace(/•?\s*unidad\s*•?/gi, "")
+    .replace(/\[unidad\]/gi, "")
+    .replace(/^•\s*|\s*•$/g, "")
     .trim();
 }
 

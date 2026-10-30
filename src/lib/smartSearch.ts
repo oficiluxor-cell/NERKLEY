@@ -1,3 +1,5 @@
+import { ProductPresentationType, matchesPresentationFilter } from "@/lib/presentation";
+
 export interface SmartSearchableProduct {
   id: string;
   name: string;
@@ -173,7 +175,17 @@ const SYNONYM_MAP: Record<string, string[]> = {
   descuento: ["oferta", "rebaja", "promo", "barato"],
   oferta: ["descuento", "rebaja", "promo", "barato"],
   rebaja: ["descuento", "oferta", "promo"],
-  promo: ["descuento", "oferta", "rebaja"]
+  promo: ["descuento", "oferta", "rebaja"],
+
+  // Combos, Unidades & Modalidades
+  combo: ["combos", "duo", "duos", "kit", "kits", "pack", "packs", "set", "promocion", "ahorro"],
+  combos: ["combo", "duo", "kit", "pack", "promocion", "ahorro"],
+  duo: ["combo", "combos", "kit", "pareja"],
+  kit: ["combo", "combos", "set", "pack"],
+  pack: ["combo", "combos", "kit", "set"],
+  set: ["combo", "kit", "pack"],
+  unidad: ["unidades", "individual", "sencillo", "unitario"],
+  unidades: ["unidad", "individual"]
 };
 
 /**
@@ -334,19 +346,22 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
 }
 
 /**
- * Filtra y ordena los productos integrando categoría, motor inteligente de búsqueda y orden seleccionado
+ * Filtra y ordena los productos integrando categoría, modalidad de presentación (unidad/combo),
+ * motor inteligente de búsqueda y orden seleccionado
  */
 export function filterAndSortProducts<T extends SmartSearchableProduct>(
   products: T[],
   selectedCategory: string,
   searchQuery: string,
-  sortBy: string
+  sortBy: string,
+  presentationFilter: ProductPresentationType = "todos"
 ): T[] {
   const isSearching = searchQuery.trim().length > 0;
 
   // Filtrar y calcular scores de búsqueda
   const scoredItems = products
     .filter((p) => matchesCategoryFilter(p.category, selectedCategory))
+    .filter((p) => matchesPresentationFilter(p, presentationFilter))
     .map((p) => ({
       product: p,
       score: isSearching ? scoreProduct(p, searchQuery) : 1
