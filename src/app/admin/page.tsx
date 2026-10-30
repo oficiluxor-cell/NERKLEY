@@ -523,9 +523,10 @@ export default function AdminDashboard() {
     printWindow.document.close();
   };
 
-  // Creación de producto
+  // Creación de producto con generación segura de slug anti-duplicados
   const handleCreateProduct = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creating) return;
     setCreating(true);
 
     const initialPrice = parseFloat(basePrice);
@@ -534,27 +535,61 @@ export default function AdminDashboard() {
 
     const finalSalePrice = discount > 0 ? Math.round(initialPrice * (1 - discount / 100)) : initialPrice;
     const storedOriginalPrice = discount > 0 ? initialPrice : null;
-    const generatedSlug = slug || name.toLowerCase().trim().replace(/ /g, "-").replace(/[^\w-]+/g, "");
+
+    // Normalizar slug limpiando acentos y caracteres especiales
+    const rawSlugBase = (slug || name)
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^\w-]+/g, "")
+      .replace(/--+/g, "-")
+      .replace(/^-+|-+$/g, "");
+
+    let targetSlug = rawSlugBase || `producto-${Date.now()}`;
+
+    // Validar si el slug ya existe en Supabase y agregar sufijo único si es necesario
+    const { data: existingProduct } = await supabase
+      .from("products")
+      .select("id")
+      .eq("slug", targetSlug)
+      .maybeSingle();
+
+    if (existingProduct) {
+      const shortSuffix = Math.random().toString(36).substring(2, 6);
+      targetSlug = `${targetSlug}-${shortSuffix}`;
+    }
+
     const formattedCategory = category.trim().charAt(0).toUpperCase() + category.trim().slice(1).toLowerCase();
     const finalBadge = buildPresentationBadge(badge, presentationType, isFreeShippingActive);
 
-    const { error } = await supabase.from("products").insert([
-      {
-        name: name.trim(),
-        slug: generatedSlug,
-        description: description.trim(),
-        sale_price: finalSalePrice,
-        original_price: storedOriginalPrice,
-        discount_percent: discount,
-        category: formattedCategory,
-        images: images.trim(),
-        sizes: sizes.trim(),
-        colors: colors.trim(),
-        stock: initialStock,
-        is_active: true,
-        badge: finalBadge,
-      },
-    ]);
+    const productPayload = {
+      name: name.trim(),
+      slug: targetSlug,
+      description: description.trim(),
+      sale_price: finalSalePrice,
+      original_price: storedOriginalPrice,
+      discount_percent: discount,
+      category: formattedCategory,
+      images: images.trim(),
+      sizes: sizes.trim(),
+      colors: colors.trim(),
+      stock: initialStock,
+      is_active: true,
+      badge: finalBadge,
+    };
+
+    let { error } = await supabase.from("products").insert([productPayload]);
+
+    // Reintento automático de seguridad si colisiona la clave única
+    if (error && error.message.includes("products_slug_key")) {
+      const retrySlug = `${targetSlug}-${Date.now().toString().slice(-4)}`;
+      const retryRes = await supabase
+        .from("products")
+        .insert([{ ...productPayload, slug: retrySlug }]);
+      error = retryRes.error;
+    }
 
     if (error) {
       alert("Error al crear producto: " + error.message);
