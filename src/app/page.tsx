@@ -304,6 +304,11 @@ export default function Home() {
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
+                  if (e.target.value.trim().length > 0) {
+                    setSelectedCategory("Todas");
+                    setSelectedSubcategory("Todas");
+                    setSelectedPresentation("todos");
+                  }
                   const el = document.getElementById("catalogo");
                   if (el && e.target.value.length === 1) {
                     el.scrollIntoView({ behavior: "smooth" });
@@ -324,35 +329,49 @@ export default function Home() {
               )}
             </div>
 
-            {/* ATAJOS RÁPIDOS DE BÚSQUEDA DE UN TOQUE (SIN COMPLICACIONES) */}
+            {/* ATAJOS RÁPIDOS DE BÚSQUEDA DE UN TOQUE (CONEXIÓN DIRECTA CON COLECCIONES) */}
             <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2.5">
               <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium mr-1 hidden sm:inline">
                 Populares:
               </span>
               {[
-                { label: "👖 Jeans", query: "jean" },
-                { label: "🧢 Gorras", query: "gorra" },
-                { label: "🧥 Chaquetas", query: "chaqueta" },
-                { label: "💎 Árabes", query: "arabe" },
-                { label: "🎁 Combos", query: "combo" },
-              ].map((shortcut) => (
-                <button
-                  key={shortcut.label}
-                  type="button"
-                  onClick={() => {
-                    setSearchQuery(shortcut.query);
-                    const el = document.getElementById("catalogo");
-                    if (el) el.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border transition-all cursor-pointer ${
-                    searchQuery.toLowerCase() === shortcut.query
-                      ? "bg-amber-400 text-black border-amber-400 font-bold shadow-xs"
-                      : "bg-white/5 border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-white"
-                  }`}
-                >
-                  {shortcut.label}
-                </button>
-              ))}
+                { label: "👖 Jeans", category: "Ropa", subcategory: "Jean / Pantalón" },
+                { label: "🧢 Gorras", category: "Ropa", subcategory: "Gorras" },
+                { label: "🧥 Chaquetas", category: "Ropa", subcategory: "Chaquetas / Buzos" },
+                { label: "💎 Árabes", category: "Perfume", subcategory: "Árabes Exclusivos" },
+                { label: "🎁 Combos", category: "Todas", subcategory: "Todas", presentation: "combo" as const },
+              ].map((shortcut) => {
+                const isActive =
+                  shortcut.presentation === "combo"
+                    ? selectedPresentation === "combo"
+                    : selectedCategory === shortcut.category && selectedSubcategory === shortcut.subcategory && !searchQuery;
+
+                return (
+                  <button
+                    key={shortcut.label}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setSelectedCategory(shortcut.category);
+                      setSelectedSubcategory(shortcut.subcategory);
+                      if (shortcut.presentation) {
+                        setSelectedPresentation(shortcut.presentation);
+                      } else {
+                        setSelectedPresentation("todos");
+                      }
+                      const el = document.getElementById("catalogo");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-amber-400 text-black border-amber-400 font-bold shadow-xs"
+                        : "bg-white/5 border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-white"
+                    }`}
+                  >
+                    {shortcut.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -364,11 +383,10 @@ export default function Home() {
                 setSelectedCategory("Todas");
                 setSelectedSubcategory("Todas");
                 setSelectedPresentation("todos");
-                const el = document.getElementById("catalogo");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
+                setSearchQuery("");
               }}
               className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedCategory === "Todas" && selectedPresentation !== "combo"
+                selectedCategory === "Todas" && selectedPresentation !== "combo" && !searchQuery
                   ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_15px_rgba(232,198,98,0.35)] ring-2 ring-amber-300"
                   : "bg-[#14141c] border border-white/15 text-neutral-200 hover:border-amber-400/40 hover:bg-white/10"
               }`}
@@ -386,11 +404,10 @@ export default function Home() {
                   setSelectedCategory(cat);
                   setSelectedSubcategory("Todas");
                   setSelectedPresentation("todos");
-                  const el = document.getElementById("catalogo");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                  setSearchQuery("");
                 }}
                 className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                  selectedCategory === cat && selectedPresentation !== "combo"
+                  selectedCategory === cat && selectedPresentation !== "combo" && !searchQuery
                     ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_15px_rgba(232,198,98,0.35)] ring-2 ring-amber-300"
                     : "bg-[#14141c] border border-white/15 text-neutral-200 hover:border-amber-400/40 hover:bg-white/10"
                 }`}
@@ -408,11 +425,12 @@ export default function Home() {
                   setSelectedCategory("Todas");
                   setSelectedSubcategory("Todas");
                   setSelectedPresentation("combo");
+                  setSearchQuery("");
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
                 className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                  selectedPresentation === "combo" && selectedCategory === "Todas"
+                  selectedPresentation === "combo" && selectedCategory === "Todas" && !searchQuery
                     ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_20px_rgba(232,198,98,0.5)] ring-2 ring-amber-300"
                     : "bg-amber-400/10 border border-amber-400/40 text-amber-300 hover:bg-amber-400/20"
                 }`}
@@ -428,12 +446,25 @@ export default function Home() {
           {availableSubcategories.length > 0 && selectedCategory !== "Todas" && (
             <div className="w-full max-w-2xl mt-3 p-3 sm:p-4 rounded-2xl bg-[#121218]/95 border border-amber-400/30 shadow-[0_8px_25px_rgba(0,0,0,0.6)] backdrop-blur-md">
               <div className="flex items-center justify-between mb-2.5 px-1 border-b border-white/10 pb-2">
-                <span className="text-[11px] sm:text-xs uppercase tracking-wider text-amber-300 font-bold flex items-center gap-1.5">
-                  <span>{getCategoryIcon(selectedCategory)}</span>
-                  <span>Colección {selectedCategory}: Elige lo que buscas</span>
-                </span>
-                <span className="text-[9px] text-neutral-400 font-medium hidden xs:inline">
-                  {currentCategoryProducts.length} artículos disponibles
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubcategory("Todas");
+                    setSearchQuery("");
+                  }}
+                  className="text-left group cursor-pointer"
+                  title="Ver toda esta colección"
+                >
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider text-amber-300 group-hover:text-white font-bold flex items-center gap-1.5 transition-colors">
+                    <span>{getCategoryIcon(selectedCategory)}</span>
+                    <span>Colección {selectedCategory}</span>
+                    <span className="text-[10px] text-amber-400/80 underline font-normal ml-1">
+                      (Ver todo)
+                    </span>
+                  </span>
+                </button>
+                <span className="text-[9.5px] font-mono text-neutral-400 bg-white/5 border border-white/10 px-2 py-0.5 rounded-full">
+                  {currentCategoryProducts.length} artículos
                 </span>
               </div>
 
@@ -443,11 +474,12 @@ export default function Home() {
                   type="button"
                   onClick={() => {
                     setSelectedSubcategory("Todas");
+                    setSearchQuery("");
                     const el = document.getElementById("catalogo");
                     if (el) el.scrollIntoView({ behavior: "smooth" });
                   }}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                    selectedSubcategory === "Todas"
+                    selectedSubcategory === "Todas" && !searchQuery
                       ? "bg-white text-black font-extrabold shadow-sm"
                       : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:text-white"
                   }`}
@@ -463,11 +495,12 @@ export default function Home() {
                     type="button"
                     onClick={() => {
                       setSelectedSubcategory(name);
+                      setSearchQuery("");
                       const el = document.getElementById("catalogo");
                       if (el) el.scrollIntoView({ behavior: "smooth" });
                     }}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
-                      selectedSubcategory === name
+                      selectedSubcategory === name && !searchQuery
                         ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black font-extrabold shadow-md ring-1 ring-amber-300"
                         : "bg-[#161622] border border-white/10 text-neutral-200 hover:border-amber-400/50 hover:bg-white/10 hover:text-white"
                     }`}
@@ -476,7 +509,7 @@ export default function Home() {
                     <span>{name}</span>
                     <span
                       className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded ${
-                        selectedSubcategory === name ? "bg-black/25 text-black font-black" : "bg-white/10 text-amber-300 font-bold"
+                        selectedSubcategory === name && !searchQuery ? "bg-black/25 text-black font-black" : "bg-white/10 text-amber-300 font-bold"
                       }`}
                     >
                       {count}

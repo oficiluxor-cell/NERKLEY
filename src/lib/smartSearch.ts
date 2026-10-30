@@ -398,14 +398,22 @@ export function filterAndSortProducts<T extends SmartSearchableProduct>(
 ): T[] {
   const isSearching = searchQuery.trim().length > 0;
 
-  // Si el usuario está buscando, el motor inteligente abarca todo el catálogo y todas
-  // las subcarpetas/categorías para encontrar cualquier pieza sin bloqueos
-  const pool = isSearching
-    ? products
-    : products
-        .filter((p) => matchesCategoryFilter(p.category, selectedCategory))
-        .filter((p) => matchesPresentationFilter(p, presentationFilter))
-        .filter((p) => matchesSubcategory(p, selectedSubcategory));
+  let pool = products;
+
+  // Filtrado por categoría si se seleccionó una específica
+  if (selectedCategory && selectedCategory !== "Todas") {
+    pool = pool.filter((p) => matchesCategoryFilter(p.category, selectedCategory));
+  }
+
+  // Filtrado por subcategoría / tipo de producto si se seleccionó
+  if (selectedSubcategory && selectedSubcategory !== "Todas") {
+    pool = pool.filter((p) => matchesSubcategory(p, selectedSubcategory));
+  }
+
+  // Filtrado por presentación (combo o individual)
+  if (presentationFilter && presentationFilter !== "todos") {
+    pool = pool.filter((p) => matchesPresentationFilter(p, presentationFilter));
+  }
 
   // Filtrar y calcular scores de búsqueda
   const scoredItems = pool
