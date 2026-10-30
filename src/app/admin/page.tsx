@@ -11,6 +11,7 @@ import {
   cleanCustomBadgeText,
   ProductPresentationType,
 } from "@/lib/presentation";
+import ImageGalleryUploader from "@/components/ImageGalleryUploader";
 
 interface Order {
   id: string;
@@ -1801,16 +1802,13 @@ export default function AdminDashboard() {
                     />
                   </div>
 
-                  <div className="md:col-span-3 space-y-2">
-                    <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
-                      URLs de Fotos (Separadas por comas)
-                    </label>
-                    <input
-                      type="text"
+                  {/* FOTOS DEL PRODUCTO CON SELECTOR DE GALERÍA DIRECTO */}
+                  <div className="md:col-span-3">
+                    <ImageGalleryUploader
                       value={images}
-                      onChange={(e) => setImages(e.target.value)}
-                      placeholder="https://...foto1.jpg, https://...foto2.jpg"
-                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white font-mono text-xs"
+                      onChange={setImages}
+                      label="Fotos del Producto"
+                      helperText="Selecciona fotos de tu galería o toma fotos directamente con la cámara"
                     />
                   </div>
                 </div>
@@ -2406,15 +2404,13 @@ export default function AdminDashboard() {
                   />
                 </div>
 
+                {/* FOTOS DEL PRODUCTO EN MODAL CON SELECTOR DE GALERÍA */}
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
-                    URLs de Fotos (Separadas por comas)
-                  </label>
-                  <input
-                    type="text"
+                  <ImageGalleryUploader
                     value={editForm.images}
-                    onChange={(e) => setEditForm({ ...editForm, images: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-xs text-white font-mono focus:outline-none focus:border-white"
+                    onChange={(newUrls) => setEditForm({ ...editForm, images: newUrls })}
+                    label="Fotos del Producto"
+                    helperText="Agrega nuevas fotos desde tu galería, reordénalas o elimina las que no quieras"
                   />
                 </div>
 
