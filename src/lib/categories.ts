@@ -245,3 +245,39 @@ export function matchesSubcategory(
   if (!sub) return false;
   return normalizeSubcategoryKey(sub) === normalizeSubcategoryKey(selectedSubcategory);
 }
+
+/**
+ * Ícono representativo para cada categoría principal
+ */
+export function getCategoryIcon(categoryName: string): string {
+  const norm = categoryName.toLowerCase().trim();
+  if (norm.includes("ropa") || norm.includes("streetwear")) return "👕";
+  if (norm.includes("perfum") || norm.includes("fraganc")) return "💎";
+  if (norm.includes("zapato") || norm.includes("calzado") || norm.includes("sneaker")) return "👟";
+  if (norm.includes("reloj")) return "⌚";
+  if (norm.includes("oro") || norm.includes("joya")) return "👑";
+  if (norm.includes("combo")) return "🎁";
+  return "✨";
+}
+
+/**
+ * Ícono representativo para cada subcategoría / tipo de producto
+ */
+export function getSubcategoryIcon(subcategoryName: string): string {
+  const norm = normalizeSubcategoryKey(subcategoryName);
+  if (norm.includes("jean") || norm.includes("pantalon")) return "👖";
+  if (norm.includes("gorra") || norm.includes("cap")) return "🧢";
+  if (norm.includes("chaqueta") || norm.includes("buzo") || norm.includes("hoodie") || norm.includes("chaleco")) return "🧥";
+  if (norm.includes("sueter") || norm.includes("camiseta") || norm.includes("polo")) return "👕";
+  if (norm.includes("zapato") || norm.includes("sneaker") || norm.includes("calzado") || norm.includes("botas")) return "👟";
+  if (norm.includes("arabe")) return "🕌";
+  if (norm.includes("disenador")) return "✨";
+  if (norm.includes("nicho")) return "💎";
+  if (norm.includes("decant")) return "🧪";
+  if (norm.includes("cadena") || norm.includes("collar")) return "📿";
+  if (norm.includes("pulsera") || norm.includes("manilla")) return "💫";
+  if (norm.includes("anillo")) return "💍";
+  if (norm.includes("reloj") || norm.includes("cronografo")) return "⌚";
+  if (norm.includes("conjunto") || norm.includes("set")) return "👔";
+  return "🏷️";
+}

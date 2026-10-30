@@ -1,5 +1,5 @@
 import { ProductPresentationType, matchesPresentationFilter } from "@/lib/presentation";
-import { parseCategory, matchesSubcategory } from "@/lib/categories";
+import { parseCategory, matchesSubcategory, getProductSubcategory } from "@/lib/categories";
 
 export interface SmartSearchableProduct {
   id: string;
@@ -159,17 +159,38 @@ const SYNONYM_MAP: Record<string, string[]> = {
   pulsera: ["joya", "pulso", "oro", "plata"],
   pulseras: ["joyas", "oro", "plata"],
 
-  // Ropa & Streetwear
-  ropa: ["camiseta", "hoodie", "chaqueta", "buzo", "pantalon", "streetwear", "oversize"],
-  camiseta: ["ropa", "tshirt", "camisetas", "playera"],
-  camisetas: ["ropa", "camiseta", "streetwear"],
-  hoodie: ["buzo", "chaqueta", "sudadera", "ropa"],
-  hoodies: ["buzos", "chaquetas", "ropa"],
-  buzo: ["hoodie", "chaqueta", "ropa"],
-  buzos: ["hoodies", "ropa"],
-  chaqueta: ["hoodie", "buzo", "ropa"],
-  gorra: ["gorras", "cap", "caps", "snapback"],
-  gorras: ["gorra", "cap", "caps"],
+  // Ropa & Streetwear & Subcategorías
+  ropa: ["camiseta", "hoodie", "chaqueta", "buzo", "pantalon", "jean", "gorra", "chaleco", "streetwear", "oversize"],
+  jean: ["jeans", "pantalon", "pantalones", "baggy", "denim", "vaquero", "true religion", "ropa"],
+  jeans: ["jean", "pantalon", "pantalones", "baggy", "denim", "vaqueros", "ropa"],
+  pantalon: ["jean", "jeans", "pantalones", "baggy", "jogger", "bermuda", "shorts", "ropa"],
+  pantalones: ["jean", "jeans", "pantalon", "baggy", "jogger", "bermuda", "shorts", "ropa"],
+  baggy: ["jean", "jeans", "pantalon", "pantalones", "oversize", "ropa"],
+  denim: ["jean", "jeans", "pantalon", "ropa"],
+  gorra: ["gorras", "cap", "caps", "snapback", "fitted", "cachucha", "cachuchas", "yankees", "tigers", "charlotte", "ropa"],
+  gorras: ["gorra", "cap", "caps", "snapback", "fitted", "cachucha", "cachuchas", "ropa"],
+  cap: ["gorra", "gorras", "snapback", "fitted"],
+  caps: ["gorra", "gorras"],
+  cachucha: ["gorra", "gorras", "cap"],
+  cachuchas: ["gorra", "gorras"],
+  chaqueta: ["chaquetas", "hoodie", "buzo", "buzos", "chaleco", "abrigo", "chamarra", "jordan", "tommy", "hilfiger", "ropa"],
+  chaquetas: ["chaqueta", "hoodie", "buzo", "chaleco", "abrigo", "ropa"],
+  chaleco: ["chalecos", "chaqueta", "buzo", "columbia", "ropa"],
+  chalecos: ["chaleco", "chaqueta", "ropa"],
+  buzo: ["buzos", "hoodie", "hoodies", "chaqueta", "sudadera", "sueter", "ropa"],
+  buzos: ["buzo", "hoodies", "chaquetas", "sueter", "ropa"],
+  hoodie: ["hoodies", "buzo", "buzos", "chaqueta", "sudadera", "ropa"],
+  hoodies: ["hoodie", "buzos", "chaquetas", "ropa"],
+  sueter: ["suéter", "camiseta", "camisetas", "buzo", "polo", "playera", "ropa"],
+  suéter: ["sueter", "camiseta", "camisetas", "buzo", "ropa"],
+  camiseta: ["ropa", "tshirt", "camisetas", "playera", "sueter", "polo"],
+  camisetas: ["ropa", "camiseta", "streetwear", "sueter"],
+  arabe: ["arabes", "lattafa", "khamrah", "yara", "asad", "afnan", "armaf", "dubai", "oud", "perfume", "oriental"],
+  arabes: ["arabe", "lattafa", "khamrah", "yara", "asad", "afnan", "armaf", "dubai", "oud", "perfume"],
+  disenador: ["diseñador", "designer", "dior", "versace", "eros", "sauvage", "gaultier", "carolina herrera", "one million"],
+  diseñador: ["disenador", "designer", "dior", "versace", "sauvage", "gaultier", "carolina herrera", "one million"],
+  nicho: ["autor", "creed", "aventus", "marly", "xerjoff", "baccarat", "tom ford", "exclusivo"],
+  autor: ["nicho", "creed", "xerjoff", "baccarat", "exclusivo"],
 
   // Ofertas & Descuentos
   barato: ["descuento", "oferta", "rebaja", "promo"],
@@ -226,8 +247,12 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
   const queryTokens = normQuery.split(" ").filter(Boolean);
   if (queryTokens.length === 0) return 1;
 
+  const { mainCategory } = parseCategory(product.category || "");
+  const subcategory = getProductSubcategory(product);
+
   const normName = normalizeText(product.name || "");
-  const normCategory = normalizeText(product.category || "");
+  const normCategory = normalizeText(mainCategory || product.category || "");
+  const normSubcategory = normalizeText(subcategory || "");
   const normDesc = normalizeText(product.description || "");
   const normBadge = normalizeText(product.badge || "");
   const normColors = normalizeText(product.colors || "");
@@ -235,6 +260,7 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
 
   const nameWords = normName.split(" ").filter(Boolean);
   const catWords = normCategory.split(" ").filter(Boolean);
+  const subcatWords = normSubcategory.split(" ").filter(Boolean);
   const descWords = normDesc.split(" ").filter(Boolean);
   const badgeWords = normBadge.split(" ").filter(Boolean);
   const colorWords = normColors.split(" ").filter(Boolean);
@@ -248,6 +274,7 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
 
     // 1. Coincidencias directas por subcadena
     if (normName.includes(qToken)) tokenScore += 50;
+    if (normSubcategory.includes(qToken)) tokenScore += 55; // Prioridad alta a subcarpetas/tipo de prenda
     if (normCategory.includes(qToken)) tokenScore += 45;
     if (normBadge.includes(qToken)) tokenScore += 25;
     if (normColors.includes(qToken)) tokenScore += 20;
@@ -259,6 +286,15 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
       for (const w of nameWords) {
         if (isWordMatch(qToken, w)) {
           tokenScore += 40;
+          break;
+        }
+      }
+    }
+
+    if (tokenScore === 0) {
+      for (const w of subcatWords) {
+        if (isWordMatch(qToken, w)) {
+          tokenScore += 45; // Match en subcarpeta con tolerancia a typos
           break;
         }
       }
@@ -315,12 +351,13 @@ export function scoreProduct(product: SmartSearchableProduct, query: string): nu
       for (const syn of synList) {
         if (
           normName.includes(syn) ||
+          normSubcategory.includes(syn) ||
           normCategory.includes(syn) ||
           normDesc.includes(syn) ||
           normBadge.includes(syn) ||
           normColors.includes(syn)
         ) {
-          tokenScore += 25;
+          tokenScore += 30;
           break;
         }
       }
@@ -361,11 +398,17 @@ export function filterAndSortProducts<T extends SmartSearchableProduct>(
 ): T[] {
   const isSearching = searchQuery.trim().length > 0;
 
+  // Si el usuario está buscando, el motor inteligente abarca todo el catálogo y todas
+  // las subcarpetas/categorías para encontrar cualquier pieza sin bloqueos
+  const pool = isSearching
+    ? products
+    : products
+        .filter((p) => matchesCategoryFilter(p.category, selectedCategory))
+        .filter((p) => matchesPresentationFilter(p, presentationFilter))
+        .filter((p) => matchesSubcategory(p, selectedSubcategory));
+
   // Filtrar y calcular scores de búsqueda
-  const scoredItems = products
-    .filter((p) => matchesCategoryFilter(p.category, selectedCategory))
-    .filter((p) => matchesPresentationFilter(p, presentationFilter))
-    .filter((p) => matchesSubcategory(p, selectedSubcategory))
+  const scoredItems = pool
     .map((p) => ({
       product: p,
       score: isSearching ? scoreProduct(p, searchQuery) : 1

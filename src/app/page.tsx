@@ -19,6 +19,8 @@ import {
   getProductSubcategory,
   matchesSubcategory,
   normalizeSubcategoryKey,
+  getCategoryIcon,
+  getSubcategoryIcon,
 } from "@/lib/categories";
 
 interface Product extends SmartSearchableProduct {}
@@ -172,10 +174,12 @@ export default function Home() {
         }
       }
     });
-    return Array.from(subMap.values()).map((item) => ({
-      name: item.displayName,
-      count: item.count,
-    }));
+    return Array.from(subMap.values())
+      .map((item) => ({
+        name: item.displayName,
+        count: item.count,
+      }))
+      .sort((a, b) => b.count - a.count);
   }, [products, selectedCategory]);
 
   const filteredProducts = filterAndSortProducts(
@@ -289,11 +293,11 @@ export default function Home() {
             Perfumería de autor, calzado de diseñador, relojes y piezas seleccionadas con la máxima exigencia de calidad.
           </p>
 
-          {/* BUSCADOR INTELIGENTE EN PRIMER PLANO (COMODIDAD INMEDIATA) */}
-          <div className="w-full max-w-xl mb-4">
+          {/* BUSCADOR INTELIGENTE EN PRIMER PLANO (TOTALMENTE CÓMODO Y ACCESIBLE) */}
+          <div className="w-full max-w-xl mb-3">
             <div className="relative group">
               <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 text-sm pointer-events-none">
-                ✨
+                🔍
               </div>
               <input
                 type="text"
@@ -305,24 +309,57 @@ export default function Home() {
                     el.scrollIntoView({ behavior: "smooth" });
                   }
                 }}
-                placeholder="Buscar perfume (One Million, Club de Nuit, Lattafa...), categoría o marca..."
-                className="w-full bg-[#13131c]/90 border border-white/20 focus:border-amber-400 pl-10 pr-10 py-3 sm:py-3.5 text-xs sm:text-sm text-white placeholder-neutral-400 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] focus:outline-hidden focus:ring-1 focus:ring-amber-400/40 transition-all tracking-wide"
+                placeholder="Buscar prenda, jean, gorra, perfume árabe, marca..."
+                className="w-full bg-[#13131c]/95 border border-white/20 focus:border-amber-400 pl-10 pr-10 py-3 sm:py-3.5 text-xs sm:text-sm text-white placeholder-neutral-400 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.6)] focus:outline-hidden focus:ring-1 focus:ring-amber-400/40 transition-all tracking-wide"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white text-base font-bold cursor-pointer p-1"
+                  title="Borrar búsqueda"
                 >
                   &times;
                 </button>
               )}
             </div>
+
+            {/* ATAJOS RÁPIDOS DE BÚSQUEDA DE UN TOQUE (SIN COMPLICACIONES) */}
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mt-2.5">
+              <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium mr-1 hidden sm:inline">
+                Populares:
+              </span>
+              {[
+                { label: "👖 Jeans", query: "jean" },
+                { label: "🧢 Gorras", query: "gorra" },
+                { label: "🧥 Chaquetas", query: "chaqueta" },
+                { label: "💎 Árabes", query: "arabe" },
+                { label: "🎁 Combos", query: "combo" },
+              ].map((shortcut) => (
+                <button
+                  key={shortcut.label}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(shortcut.query);
+                    const el = document.getElementById("catalogo");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className={`px-2.5 py-1 rounded-full text-[10px] sm:text-[11px] font-semibold border transition-all cursor-pointer ${
+                    searchQuery.toLowerCase() === shortcut.query
+                      ? "bg-amber-400 text-black border-amber-400 font-bold shadow-xs"
+                      : "bg-white/5 border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-white"
+                  }`}
+                >
+                  {shortcut.label}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* CARRUSEL DE CATEGORÍAS ELEGANTE Y DIRECTO (1 SOLA FILA LIMPIA) */}
-          <div className="w-full max-w-2xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
+          {/* CATEGORÍAS PRINCIPALES: ORGANIZADAS, VISIBLES Y CÓMODAS (CERO DESLIZAR) */}
+          <div className="w-full max-w-2xl flex flex-wrap items-center justify-center gap-2 pt-2 pb-1">
             <button
+              type="button"
               onClick={() => {
                 setSelectedCategory("Todas");
                 setSelectedSubcategory("Todas");
@@ -330,17 +367,21 @@ export default function Home() {
                 const el = document.getElementById("catalogo");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
               }}
-              className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
                 selectedCategory === "Todas" && selectedPresentation !== "combo"
-                  ? "bg-white text-black shadow-md font-bold"
-                  : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
+                  ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_15px_rgba(232,198,98,0.35)] ring-2 ring-amber-300"
+                  : "bg-[#14141c] border border-white/15 text-neutral-200 hover:border-amber-400/40 hover:bg-white/10"
               }`}
             >
-              ✨ Todo ({products.length})
+              <span>✨</span>
+              <span>Todo</span>
+              <span className="text-[10px] font-mono opacity-80">({products.length})</span>
             </button>
+
             {categories.map((cat) => (
               <button
                 key={cat}
+                type="button"
                 onClick={() => {
                   setSelectedCategory(cat);
                   setSelectedSubcategory("Todas");
@@ -348,19 +389,21 @@ export default function Home() {
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
                   selectedCategory === cat && selectedPresentation !== "combo"
-                    ? "bg-white text-black shadow-md font-bold"
-                    : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_15px_rgba(232,198,98,0.35)] ring-2 ring-amber-300"
+                    : "bg-[#14141c] border border-white/15 text-neutral-200 hover:border-amber-400/40 hover:bg-white/10"
                 }`}
               >
-                {cat}
+                <span>{getCategoryIcon(cat)}</span>
+                <span>{cat}</span>
               </button>
             ))}
 
-            {/* CHIP DE ACCESO DIRECTO A COMBOS SI EXISTEN */}
+            {/* BOTÓN DESTACADO DE COMBOS */}
             {totalCombosInStore > 0 && (
               <button
+                type="button"
                 onClick={() => {
                   setSelectedCategory("Todas");
                   setSelectedSubcategory("Todas");
@@ -368,63 +411,79 @@ export default function Home() {
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
                   selectedPresentation === "combo" && selectedCategory === "Todas"
-                    ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_0_15px_rgba(232,198,98,0.4)] font-black"
-                    : "bg-amber-400/10 border border-amber-400/35 text-amber-300 hover:bg-amber-400/20"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_4px_20px_rgba(232,198,98,0.5)] ring-2 ring-amber-300"
+                    : "bg-amber-400/10 border border-amber-400/40 text-amber-300 hover:bg-amber-400/20"
                 }`}
               >
-                <span>🎁 Combos</span>
-                <span className="font-mono text-[9px] bg-black/20 px-1 py-0.5 rounded font-bold">({totalCombosInStore})</span>
+                <span>🎁</span>
+                <span>Combos</span>
+                <span className="font-mono text-[10px] bg-black/30 px-1.5 py-0.5 rounded font-bold">({totalCombosInStore})</span>
               </button>
             )}
           </div>
 
-          {/* BARRA DE TIPOS / SUBCATEGORÍAS (SE DESPLIEGA AL TOCAR ROPA, PERFUMES, ETC) */}
+          {/* SUBCATEGORÍAS / TIPOS DE PRODUCTO: PANEL CÓMODO, VISIBLE Y SIN DESLIZAR */}
           {availableSubcategories.length > 0 && selectedCategory !== "Todas" && (
-            <div className="w-full max-w-2xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pt-2 pb-0.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedSubcategory("Todas");
-                  const el = document.getElementById("catalogo");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                  selectedSubcategory === "Todas"
-                    ? "bg-neutral-200 text-black font-bold shadow-xs"
-                    : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                <span>✨ Todo en {selectedCategory}</span>
-                <span className="text-[9px] font-mono opacity-70">({currentCategoryProducts.length})</span>
-              </button>
+            <div className="w-full max-w-2xl mt-3 p-3 sm:p-4 rounded-2xl bg-[#121218]/95 border border-amber-400/30 shadow-[0_8px_25px_rgba(0,0,0,0.6)] backdrop-blur-md">
+              <div className="flex items-center justify-between mb-2.5 px-1 border-b border-white/10 pb-2">
+                <span className="text-[11px] sm:text-xs uppercase tracking-wider text-amber-300 font-bold flex items-center gap-1.5">
+                  <span>{getCategoryIcon(selectedCategory)}</span>
+                  <span>Colección {selectedCategory}: Elige lo que buscas</span>
+                </span>
+                <span className="text-[9px] text-neutral-400 font-medium hidden xs:inline">
+                  {currentCategoryProducts.length} artículos disponibles
+                </span>
+              </div>
 
-              {availableSubcategories.map(({ name, count }) => (
+              {/* Botones organizados en cuadrícula/envoltura cómoda (Todo visible a simple vista) */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
-                  key={name}
                   type="button"
                   onClick={() => {
-                    setSelectedSubcategory(name);
+                    setSelectedSubcategory("Todas");
                     const el = document.getElementById("catalogo");
                     if (el) el.scrollIntoView({ behavior: "smooth" });
                   }}
-                  className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                    selectedSubcategory === name
-                      ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black font-bold shadow-sm"
-                      : "bg-white/5 border border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-white"
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                    selectedSubcategory === "Todas"
+                      ? "bg-white text-black font-extrabold shadow-sm"
+                      : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:text-white"
                   }`}
                 >
-                  <span>{name}</span>
-                  <span
-                    className={`text-[9px] font-mono px-1 rounded ${
-                      selectedSubcategory === name ? "bg-black/20 text-black font-bold" : "bg-white/10 text-neutral-400"
+                  <span>✨</span>
+                  <span>Ver Todo en {selectedCategory}</span>
+                  <span className="text-[9.5px] font-mono opacity-70">({currentCategoryProducts.length})</span>
+                </button>
+
+                {availableSubcategories.map(({ name, count }) => (
+                  <button
+                    key={name}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSubcategory(name);
+                      const el = document.getElementById("catalogo");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedSubcategory === name
+                        ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black font-extrabold shadow-md ring-1 ring-amber-300"
+                        : "bg-[#161622] border border-white/10 text-neutral-200 hover:border-amber-400/50 hover:bg-white/10 hover:text-white"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              ))}
+                    <span>{getSubcategoryIcon(name)}</span>
+                    <span>{name}</span>
+                    <span
+                      className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded ${
+                        selectedSubcategory === name ? "bg-black/25 text-black font-black" : "bg-white/10 text-amber-300 font-bold"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -443,32 +502,49 @@ export default function Home() {
               </span>
             </div>
             <p className="text-[11px] text-neutral-400 mt-1 flex flex-wrap items-center gap-2">
-              <span>
-                {selectedPresentation === "combo"
-                  ? `Combos & Promociones ${selectedCategory !== "Todas" ? `en ${selectedCategory}` : ""}`
-                  : selectedCategory === "Todas"
-                  ? "Todas las piezas de alta selección"
-                  : selectedSubcategory !== "Todas"
-                  ? `Colección: ${selectedCategory} • ${selectedSubcategory}`
-                  : `Categoría: ${selectedCategory}`}
-              </span>
-              {selectedSubcategory !== "Todas" && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedSubcategory("Todas")}
-                  className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
-                >
-                  (✕ Ver todo en {selectedCategory})
-                </button>
-              )}
-              {selectedPresentation === "combo" && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedPresentation("todos")}
-                  className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
-                >
-                  (Ver todos los productos)
-                </button>
+              {searchQuery.trim().length > 0 ? (
+                <>
+                  <span className="text-amber-300 font-semibold">
+                    🔍 Resultados para: <strong className="text-white">"{searchQuery}"</strong> en todo el showroom
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="text-amber-400 hover:text-amber-300 underline text-[10px] font-bold cursor-pointer"
+                  >
+                    (✕ Limpiar búsqueda)
+                  </button>
+                </>
+              ) : (
+                <>
+                  <span>
+                    {selectedPresentation === "combo"
+                      ? `Combos & Promociones ${selectedCategory !== "Todas" ? `en ${selectedCategory}` : ""}`
+                      : selectedCategory === "Todas"
+                      ? "Todas las piezas de alta selección"
+                      : selectedSubcategory !== "Todas"
+                      ? `Colección: ${selectedCategory} > ${selectedSubcategory}`
+                      : `Categoría: ${selectedCategory}`}
+                  </span>
+                  {selectedSubcategory !== "Todas" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubcategory("Todas")}
+                      className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
+                    >
+                      (✕ Ver todo en {selectedCategory})
+                    </button>
+                  )}
+                  {selectedPresentation === "combo" && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPresentation("todos")}
+                      className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
+                    >
+                      (Ver todos los productos)
+                    </button>
+                  )}
+                </>
               )}
             </p>
           </div>
