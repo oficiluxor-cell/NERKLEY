@@ -15,8 +15,10 @@ import {
 import {
   parseCategory,
   formatCategoryName,
+  formatSubcategoryName,
   getProductSubcategory,
   matchesSubcategory,
+  normalizeSubcategoryKey,
 } from "@/lib/categories";
 
 interface Product extends SmartSearchableProduct {}
@@ -147,19 +149,33 @@ export default function Home() {
     };
   }, [currentCategoryProducts]);
 
-  // Subcategorías / Tipos de producto disponibles en la categoría activa
+  // Subcategorías / Tipos de producto disponibles en la categoría activa (sin duplicados)
   const availableSubcategories = useMemo(() => {
     if (selectedCategory === "Todas") return [];
-    const subMap = new Map<string, number>();
+    // Agrupación canónica insensible a mayúsculas/minúsculas y acentos para fusionar duplicados
+    const subMap = new Map<string, { displayName: string; count: number }>();
     products.forEach((p) => {
       if (matchesCategoryFilter(p.category, selectedCategory)) {
         const sub = getProductSubcategory(p);
         if (sub) {
-          subMap.set(sub, (subMap.get(sub) || 0) + 1);
+          const key = normalizeSubcategoryKey(sub);
+          const formatted = formatSubcategoryName(sub);
+          const existing = subMap.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            subMap.set(key, {
+              displayName: formatted || sub,
+              count: 1,
+            });
+          }
         }
       }
     });
-    return Array.from(subMap.entries()).map(([name, count]) => ({ name, count }));
+    return Array.from(subMap.values()).map((item) => ({
+      name: item.displayName,
+      count: item.count,
+    }));
   }, [products, selectedCategory]);
 
   const filteredProducts = filterAndSortProducts(
@@ -411,57 +427,6 @@ export default function Home() {
               ))}
             </div>
           )}
-
-          {/* MICRO-CINTA DE REASEGURO (RÁPIDA, ELEGANTE Y COMPACTA) */}
-          <div className="mt-5 pt-4 border-t border-white/10 w-full grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-left">
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("warranty")}
-              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="text-base sm:text-lg">🛡️</span>
-              <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">100% Originales</span>
-                <span className="text-[8.5px] text-neutral-400 block truncate">Batch codes verificados</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("shipping")}
-              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="text-base sm:text-lg">🚚</span>
-              <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Envíos Nacionales</span>
-                <span className="text-[8.5px] text-neutral-400 block truncate">Rastreo oficial asegurado</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("payments")}
-              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="text-base sm:text-lg">💳</span>
-              <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Pagos Wompi</span>
-                <span className="text-[8.5px] text-neutral-400 block truncate">Nequi, Bancolombia, PSE</span>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => openWarrantyModal("returns")}
-              className="p-2 sm:p-2.5 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/5 hover:border-amber-400/30 transition-all flex items-center gap-2 cursor-pointer"
-            >
-              <span className="text-base sm:text-lg">🔄</span>
-              <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-white block truncate">Garantía Total</span>
-                <span className="text-[8.5px] text-neutral-400 block truncate">Soporte directo 24/7</span>
-              </div>
-            </button>
-          </div>
         </div>
       </section>
 

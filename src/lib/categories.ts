@@ -12,11 +12,11 @@ export interface ParsedCategory {
  */
 export const SUGGESTED_SUBCATEGORIES: Record<string, string[]> = {
   Ropa: [
+    "Jean / Pantalón",
     "Suéter / Camiseta",
     "Gorras",
+    "Chaquetas / Buzos",
     "Zapatos / Calzado",
-    "Hoodies / Buzos",
-    "Pantalones / Shorts",
     "Conjuntos / Sets",
   ],
   Perfume: [
@@ -120,12 +120,42 @@ export function formatCategoryName(name: string): string {
 }
 
 /**
- * Normaliza nombres de subcategorías
+ * Normaliza nombres de subcategorías con capitalización impecable
+ * Convierte "jean/pantalón" o "jean / pantalon" en "Jean / Pantalón"
  */
 export function formatSubcategoryName(name: string): string {
   const clean = name.trim();
   if (!clean) return "";
-  return clean.charAt(0).toUpperCase() + clean.slice(1);
+  
+  // Si contiene separadores '/', capitaliza cada segmento
+  return clean
+    .split("/")
+    .map((part) => {
+      const p = part.trim();
+      if (!p) return "";
+      return p
+        .split(/\s+/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(" ");
+    })
+    .filter(Boolean)
+    .join(" / ");
+}
+
+/**
+ * Llave canónica para agrupar y comparar subcategorías
+ * Elimina acentos, espacios extra y variaciones de mayúsculas/minúsculas.
+ * Ej: "Jean/Pantalón", "Jean/pantalón", "jean / pantalon" -> "jean/pantalon"
+ */
+export function normalizeSubcategoryKey(name?: string | null): string {
+  if (!name) return "";
+  return name
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /**
@@ -141,7 +171,7 @@ export function buildFullCategory(mainCategory: string, subcategory?: string | n
 
 /**
  * Infiere o extrae la subcategoría de un producto
- * Si ya tiene subcategoría explícita ("Ropa // Gorras"), la retorna.
+ * Si ya tiene subcategoría explícita ("Ropa // Gorras"), la formatea y la retorna.
  * Si no, analiza inteligentemente el nombre del producto para productos ya existentes en base de datos.
  */
 export function getProductSubcategory(product: {
@@ -162,10 +192,10 @@ export function getProductSubcategory(product: {
   // Inferencia para categoría Ropa
   if (mainCat.includes("ropa") || mainCat.includes("moda") || mainCat.includes("streetwear")) {
     if (/\b(gorra|gorras|cap|caps|snapback|fitted)\b/i.test(name)) return "Gorras";
+    if (/\b(jean|jeans|pantalon|pantalones|short|shorts|bermuda|jogger|baggy)\b/i.test(name)) return "Jean / Pantalón";
+    if (/\b(chaqueta|chaquetas|chaleco|chalecos|hoodie|hoodies|buzo|buzos)\b/i.test(name)) return "Chaquetas / Buzos";
     if (/\b(sueter|suéter|camiseta|camisetas|tshirt|playera|polo)\b/i.test(name)) return "Suéter / Camiseta";
     if (/\b(zapato|zapatos|sneaker|sneakers|tenis|calzado)\b/i.test(name)) return "Zapatos / Calzado";
-    if (/\b(hoodie|hoodies|buzo|buzos|chaqueta|chaquetas)\b/i.test(name)) return "Hoodies / Buzos";
-    if (/\b(pantalon|pantalones|short|shorts|bermuda|jogger)\b/i.test(name)) return "Pantalones / Shorts";
     if (/\b(conjunto|conjuntos|set)\b/i.test(name)) return "Conjuntos";
   }
 
@@ -213,5 +243,5 @@ export function matchesSubcategory(
   }
   const sub = getProductSubcategory(product);
   if (!sub) return false;
-  return sub.toLowerCase().trim() === selectedSubcategory.toLowerCase().trim();
+  return normalizeSubcategoryKey(sub) === normalizeSubcategoryKey(selectedSubcategory);
 }
