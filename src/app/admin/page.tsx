@@ -11,6 +11,12 @@ import {
   cleanCustomBadgeText,
   ProductPresentationType,
 } from "@/lib/presentation";
+import {
+  parseCategory,
+  buildFullCategory,
+  getProductSubcategory,
+  SUGGESTED_SUBCATEGORIES,
+} from "@/lib/categories";
 import ImageGalleryUploader from "@/components/ImageGalleryUploader";
 
 interface Order {
@@ -112,6 +118,7 @@ export default function AdminDashboard() {
   const [basePrice, setBasePrice] = useState("");
   const [discountPercent, setDiscountPercent] = useState("");
   const [category, setCategory] = useState("Perfume");
+  const [subcategory, setSubcategory] = useState("");
   const [images, setImages] = useState("");
   const [sizes, setSizes] = useState("");
   const [colors, setColors] = useState("");
@@ -127,6 +134,7 @@ export default function AdminDashboard() {
   const [editForm, setEditForm] = useState<{
     name: string;
     category: string;
+    subcategory: string;
     basePrice: string;
     discountPercent: string;
     stock: string;
@@ -141,6 +149,7 @@ export default function AdminDashboard() {
   }>({
     name: "",
     category: "",
+    subcategory: "",
     basePrice: "",
     discountPercent: "",
     stock: "",
@@ -561,7 +570,7 @@ export default function AdminDashboard() {
       targetSlug = `${targetSlug}-${shortSuffix}`;
     }
 
-    const formattedCategory = category.trim().charAt(0).toUpperCase() + category.trim().slice(1).toLowerCase();
+    const fullCategory = buildFullCategory(category, subcategory);
     const finalBadge = buildPresentationBadge(badge, presentationType, isFreeShippingActive);
 
     const productPayload = {
@@ -571,7 +580,7 @@ export default function AdminDashboard() {
       sale_price: finalSalePrice,
       original_price: storedOriginalPrice,
       discount_percent: discount,
-      category: formattedCategory,
+      category: fullCategory,
       images: images.trim(),
       sizes: sizes.trim(),
       colors: colors.trim(),
@@ -607,6 +616,7 @@ export default function AdminDashboard() {
       setBadge("");
       setIsFreeShippingActive(false);
       setPresentationType("unidad");
+      setSubcategory("");
       fetchData(false);
     }
     setCreating(false);
@@ -618,10 +628,14 @@ export default function AdminDashboard() {
     const isFree = hasFreeShipping(p);
     const cleanBadge = cleanCustomBadgeText(p.badge);
     const pres = getProductPresentation(p);
+    const { mainCategory, subcategory: productSub } = parseCategory(p.category);
+    const inferredSub = productSub || getProductSubcategory(p);
+
     setEditingProduct(p);
     setEditForm({
       name: p.name || "",
-      category: p.category || "",
+      category: mainCategory,
+      subcategory: inferredSub,
       basePrice: String(base || ""),
       discountPercent: p.discount_percent ? String(p.discount_percent) : "0",
       stock: String(p.stock ?? 0),
@@ -654,10 +668,11 @@ export default function AdminDashboard() {
     const finalSalePrice = discount > 0 ? Math.round(base * (1 - discount / 100)) : base;
     const finalOriginalPrice = discount > 0 ? base : null;
     const finalBadge = buildPresentationBadge(editForm.badge, editForm.presentation, editForm.isFreeShipping);
+    const fullCategory = buildFullCategory(editForm.category, editForm.subcategory);
 
     const updates = {
       name: editForm.name.trim(),
-      category: editForm.category.trim(),
+      category: fullCategory,
       sale_price: finalSalePrice,
       original_price: finalOriginalPrice,
       discount_percent: discount,
@@ -1681,16 +1696,79 @@ export default function AdminDashboard() {
                   </div>
                   <div className="space-y-2">
                     <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-medium">
-                      Categoría *
+                      Categoría Principal *
                     </label>
                     <input
                       type="text"
                       required
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      placeholder="Ej: Perfume, Ropa, Gorra, Zapatos, Oro"
+                      placeholder="Ej: Ropa, Perfumes, Zapatos, Relojes, Oro"
                       className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-3 text-sm text-white focus:outline-none focus:border-white"
                     />
+                    {/* Chips rápidos de categorías principales */}
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {["Ropa", "Perfumes", "Zapatos", "Relojes", "Oro"].map((catOption) => (
+                        <button
+                          key={catOption}
+                          type="button"
+                          onClick={() => setCategory(catOption)}
+                          className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                            category.toLowerCase() === catOption.toLowerCase()
+                              ? "bg-white text-black font-bold border-white"
+                              : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          {catOption}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SUBCATEGORÍA / TIPO DE PRODUCTO */}
+                  <div className="md:col-span-3 space-y-2 p-3.5 bg-white/[0.02] border border-white/10 rounded-lg">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-[10px] uppercase tracking-[0.2em] text-neutral-300 font-bold">
+                        Tipo de Producto / Subcategoría
+                      </label>
+                      <span className="text-[10px] text-amber-400 font-mono">
+                        {subcategory ? `Tipo: ${subcategory}` : "General (sin subcategoría)"}
+                      </span>
+                    </div>
+
+                    <input
+                      type="text"
+                      value={subcategory}
+                      onChange={(e) => setSubcategory(e.target.value)}
+                      placeholder="Ej: Suéter, Gorras, Zapatos, Hoodies, Árabe, Diseñador..."
+                      className="w-full bg-[#0a0a0c] border border-white/10 px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white"
+                    />
+
+                    {/* Sugerencias contextuales según la categoría seleccionada */}
+                    {SUGGESTED_SUBCATEGORIES[category] && (
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[9.5px] text-neutral-400 font-light block">
+                          Sugerencias rápidas para <strong className="text-white">{category}</strong> (toca para elegir):
+                        </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {SUGGESTED_SUBCATEGORIES[category].map((subOption) => (
+                            <button
+                              key={subOption}
+                              type="button"
+                              onClick={() => setSubcategory(subOption)}
+                              className={`text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-full border transition-all cursor-pointer flex items-center gap-1 ${
+                                subcategory.toLowerCase() === subOption.toLowerCase()
+                                  ? "bg-amber-400 text-black font-bold border-amber-400 shadow-sm"
+                                  : "bg-white/5 border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-amber-300"
+                              }`}
+                            >
+                              <span>+</span>
+                              <span>{subOption}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -2083,7 +2161,12 @@ export default function AdminDashboard() {
                           </td>
 
                           <td className="p-4 text-neutral-300 uppercase tracking-wider text-[11px] font-semibold">
-                            {p.category}
+                            <span className="block text-white font-bold">{parseCategory(p.category).mainCategory}</span>
+                            {getProductSubcategory(p) ? (
+                              <span className="inline-block text-[9px] text-amber-400 font-mono tracking-normal bg-amber-400/10 border border-amber-400/25 px-1.5 py-0.5 rounded mt-0.5">
+                                {getProductSubcategory(p)}
+                              </span>
+                            ) : null}
                           </td>
 
                           <td className="p-4 space-y-1">
@@ -2306,7 +2389,7 @@ export default function AdminDashboard() {
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
-                    Categoría *
+                    Categoría Principal *
                   </label>
                   <input
                     type="text"
@@ -2315,6 +2398,55 @@ export default function AdminDashboard() {
                     onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                     className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
                   />
+                  {/* Chips rápidos */}
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {["Ropa", "Perfumes", "Zapatos", "Relojes", "Oro"].map((catOption) => (
+                      <button
+                        key={catOption}
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, category: catOption })}
+                        className={`text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                          editForm.category.toLowerCase() === catOption.toLowerCase()
+                            ? "bg-white text-black font-bold border-white"
+                            : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                        }`}
+                      >
+                        {catOption}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-[10px] uppercase tracking-widest text-neutral-400 font-medium block">
+                    Tipo / Subcategoría
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.subcategory}
+                    onChange={(e) => setEditForm({ ...editForm, subcategory: e.target.value })}
+                    placeholder="Ej: Suéter, Gorras, Zapatos..."
+                    className="w-full bg-[#0a0a0c] border border-white/10 p-3 text-sm text-white focus:outline-none focus:border-white"
+                  />
+                  {/* Sugerencias contextuales */}
+                  {SUGGESTED_SUBCATEGORIES[editForm.category] && (
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {SUGGESTED_SUBCATEGORIES[editForm.category].slice(0, 4).map((subOption) => (
+                        <button
+                          key={subOption}
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, subcategory: subOption })}
+                          className={`text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                            editForm.subcategory.toLowerCase() === subOption.toLowerCase()
+                              ? "bg-amber-400 text-black font-bold border-amber-400"
+                              : "bg-white/5 border-white/10 text-neutral-400 hover:text-amber-300"
+                          }`}
+                        >
+                          {subOption}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">

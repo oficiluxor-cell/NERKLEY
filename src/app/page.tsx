@@ -12,6 +12,12 @@ import {
   isProductCombo,
   ProductPresentationType,
 } from "@/lib/presentation";
+import {
+  parseCategory,
+  formatCategoryName,
+  getProductSubcategory,
+  matchesSubcategory,
+} from "@/lib/categories";
 
 interface Product extends SmartSearchableProduct {}
 
@@ -25,6 +31,7 @@ export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("Todas");
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>("Todas");
   const [selectedPresentation, setSelectedPresentation] = useState<ProductPresentationType>("todos");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("featured");
@@ -66,10 +73,10 @@ export default function Home() {
         const categoriesMap = new Map<string, string>();
         data.forEach((item: Product) => {
           if (item.category) {
-            const normalizedKey = item.category.trim().toLowerCase();
+            const { mainCategory } = parseCategory(item.category);
+            const normalizedKey = mainCategory.trim().toLowerCase();
             if (!categoriesMap.has(normalizedKey)) {
-              const formattedName = item.category.trim().charAt(0).toUpperCase() + item.category.trim().slice(1).toLowerCase();
-              categoriesMap.set(normalizedKey, formattedName);
+              categoriesMap.set(normalizedKey, formatCategoryName(mainCategory));
             }
           }
         });
@@ -140,12 +147,28 @@ export default function Home() {
     };
   }, [currentCategoryProducts]);
 
+  // Subcategorías / Tipos de producto disponibles en la categoría activa
+  const availableSubcategories = useMemo(() => {
+    if (selectedCategory === "Todas") return [];
+    const subMap = new Map<string, number>();
+    products.forEach((p) => {
+      if (matchesCategoryFilter(p.category, selectedCategory)) {
+        const sub = getProductSubcategory(p);
+        if (sub) {
+          subMap.set(sub, (subMap.get(sub) || 0) + 1);
+        }
+      }
+    });
+    return Array.from(subMap.entries()).map(([name, count]) => ({ name, count }));
+  }, [products, selectedCategory]);
+
   const filteredProducts = filterAndSortProducts(
     products,
     selectedCategory,
     searchQuery,
     sortBy,
-    selectedPresentation
+    selectedPresentation,
+    selectedSubcategory
   );
 
   return (
@@ -286,6 +309,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setSelectedCategory("Todas");
+                setSelectedSubcategory("Todas");
                 setSelectedPresentation("todos");
                 const el = document.getElementById("catalogo");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -303,6 +327,7 @@ export default function Home() {
                 key={cat}
                 onClick={() => {
                   setSelectedCategory(cat);
+                  setSelectedSubcategory("Todas");
                   setSelectedPresentation("todos");
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -322,6 +347,7 @@ export default function Home() {
               <button
                 onClick={() => {
                   setSelectedCategory("Todas");
+                  setSelectedSubcategory("Todas");
                   setSelectedPresentation("combo");
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -337,6 +363,54 @@ export default function Home() {
               </button>
             )}
           </div>
+
+          {/* BARRA DE TIPOS / SUBCATEGORÍAS (SE DESPLIEGA AL TOCAR ROPA, PERFUMES, ETC) */}
+          {availableSubcategories.length > 0 && selectedCategory !== "Todas" && (
+            <div className="w-full max-w-2xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pt-2 pb-0.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSubcategory("Todas");
+                  const el = document.getElementById("catalogo");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  selectedSubcategory === "Todas"
+                    ? "bg-neutral-200 text-black font-bold shadow-xs"
+                    : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
+                }`}
+              >
+                <span>✨ Todo en {selectedCategory}</span>
+                <span className="text-[9px] font-mono opacity-70">({currentCategoryProducts.length})</span>
+              </button>
+
+              {availableSubcategories.map(({ name, count }) => (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubcategory(name);
+                    const el = document.getElementById("catalogo");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className={`px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                    selectedSubcategory === name
+                      ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black font-bold shadow-sm"
+                      : "bg-white/5 border border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-white"
+                  }`}
+                >
+                  <span>{name}</span>
+                  <span
+                    className={`text-[9px] font-mono px-1 rounded ${
+                      selectedSubcategory === name ? "bg-black/20 text-black font-bold" : "bg-white/10 text-neutral-400"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* MICRO-CINTA DE REASEGURO (RÁPIDA, ELEGANTE Y COMPACTA) */}
           <div className="mt-5 pt-4 border-t border-white/10 w-full grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 text-left">
@@ -403,14 +477,25 @@ export default function Home() {
                 {filteredProducts.length} {filteredProducts.length === 1 ? "artículo" : "artículos"}
               </span>
             </div>
-            <p className="text-[11px] text-neutral-400 mt-1 flex items-center gap-2">
+            <p className="text-[11px] text-neutral-400 mt-1 flex flex-wrap items-center gap-2">
               <span>
                 {selectedPresentation === "combo"
                   ? `Combos & Promociones ${selectedCategory !== "Todas" ? `en ${selectedCategory}` : ""}`
                   : selectedCategory === "Todas"
                   ? "Todas las piezas de alta selección"
+                  : selectedSubcategory !== "Todas"
+                  ? `Colección: ${selectedCategory} • ${selectedSubcategory}`
                   : `Categoría: ${selectedCategory}`}
               </span>
+              {selectedSubcategory !== "Todas" && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedSubcategory("Todas")}
+                  className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
+                >
+                  (✕ Ver todo en {selectedCategory})
+                </button>
+              )}
               {selectedPresentation === "combo" && (
                 <button
                   type="button"
@@ -502,6 +587,8 @@ export default function Home() {
             <p className="text-[10px] md:text-xs text-neutral-400 font-light leading-relaxed mb-4">
               {searchQuery ? (
                 <>No encontramos coincidencias para <strong className="text-white">"{searchQuery}"</strong>.</>
+              ) : selectedSubcategory !== "Todas" ? (
+                <>No hay piezas registradas en el tipo <strong className="text-white">"{selectedSubcategory}"</strong> de la categoría <strong className="text-white">"{selectedCategory}"</strong>.</>
               ) : selectedPresentation === "combo" ? (
                 <>No hay combos registrados bajo la categoría <strong className="text-white">"{selectedCategory}"</strong> todavía. ¡Pronto nuevos lanzamientos en promoción!</>
               ) : selectedPresentation === "unidad" ? (
@@ -513,6 +600,7 @@ export default function Home() {
             <button
               onClick={() => {
                 setSelectedCategory("Todas");
+                setSelectedSubcategory("Todas");
                 setSelectedPresentation("todos");
                 setSearchQuery("");
               }}
@@ -574,9 +662,15 @@ export default function Home() {
                     <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
                       {product.category && (
                         <span className="text-[8px] md:text-[9px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block truncate">
-                          {product.category}
+                          {parseCategory(product.category).mainCategory}
                         </span>
                       )}
+
+                      {getProductSubcategory(product) ? (
+                        <span className="text-[7.5px] md:text-[8px] uppercase tracking-wider text-amber-300/90 font-medium bg-amber-400/10 border border-amber-400/20 px-1.5 py-0.5 rounded-xs block truncate">
+                          {getProductSubcategory(product)}
+                        </span>
+                      ) : null}
 
                       {/* BADGE COMBO */}
                       {isProductCombo(product) && (

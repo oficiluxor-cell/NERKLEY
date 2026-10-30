@@ -1,4 +1,5 @@
 import { ProductPresentationType, matchesPresentationFilter } from "@/lib/presentation";
+import { parseCategory, matchesSubcategory } from "@/lib/categories";
 
 export interface SmartSearchableProduct {
   id: string;
@@ -199,7 +200,8 @@ export function matchesCategoryFilter(
   if (!selectedCategory || selectedCategory === "Todas") return true;
   if (!productCategory) return false;
 
-  const pCat = normalizeText(productCategory);
+  const { mainCategory } = parseCategory(productCategory);
+  const pCat = normalizeText(mainCategory);
   const sCat = normalizeText(selectedCategory);
 
   if (pCat === sCat) return true;
@@ -354,7 +356,8 @@ export function filterAndSortProducts<T extends SmartSearchableProduct>(
   selectedCategory: string,
   searchQuery: string,
   sortBy: string,
-  presentationFilter: ProductPresentationType = "todos"
+  presentationFilter: ProductPresentationType = "todos",
+  selectedSubcategory: string = "Todas"
 ): T[] {
   const isSearching = searchQuery.trim().length > 0;
 
@@ -362,6 +365,7 @@ export function filterAndSortProducts<T extends SmartSearchableProduct>(
   const scoredItems = products
     .filter((p) => matchesCategoryFilter(p.category, selectedCategory))
     .filter((p) => matchesPresentationFilter(p, presentationFilter))
+    .filter((p) => matchesSubcategory(p, selectedSubcategory))
     .map((p) => ({
       product: p,
       score: isSearching ? scoreProduct(p, searchQuery) : 1

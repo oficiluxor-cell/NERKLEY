@@ -9,6 +9,7 @@ import ProductReviewsSection from "@/components/ProductReviewsSection";
 import { getProductReviews } from "@/data/productReviews";
 import { hasFreeShipping, calculateOrderMath, extractDisplayBadge, STANDARD_SHIPPING_COST, COLOMBIA_REGIONS } from "@/lib/shipping";
 import { isProductCombo } from "@/lib/presentation";
+import { parseCategory, getProductSubcategory } from "@/lib/categories";
 
 interface Product {
   id: string;
@@ -364,8 +365,13 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
             <div>
               <div className="flex flex-wrap items-center gap-2 mb-1">
                 <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-neutral-400 font-semibold">
-                  {product.category || "Edición Exclusiva"}
+                  {parseCategory(product.category).mainCategory || "Edición Exclusiva"}
                 </span>
+                {getProductSubcategory(product) ? (
+                  <span className="bg-amber-400/10 text-amber-300 border border-amber-400/30 text-[9px] uppercase tracking-wider font-semibold px-2 py-0.5 rounded-sm">
+                    {getProductSubcategory(product)}
+                  </span>
+                ) : null}
                 {isProductCombo(product) ? (
                   <span className="bg-amber-400/20 text-amber-300 border border-amber-400/40 text-[9px] uppercase tracking-wider font-black px-2 py-0.5 rounded-sm">
                     🎁 Combo Promocional
