@@ -97,6 +97,22 @@ function playChime() {
   }
 }
 
+/**
+ * Extrae limpiamente la instrucción de entrega / notas escritas por el cliente
+ */
+function getDeliveryInstruction(notes?: string | null): string {
+  if (!notes) return "";
+  if (notes.includes("INSTRUCCIÓN DE ENTREGA:")) {
+    const after = notes.split("INSTRUCCIÓN DE ENTREGA:")[1] || "";
+    return after.split("[Detalles:")[0].trim();
+  }
+  const lines = notes.split("\n").map((l) => l.trim()).filter(Boolean);
+  const filtered = lines.filter(
+    (l) => !l.startsWith("Ref Pago:") && !l.startsWith("Ref:") && !l.startsWith("Envío:") && !l.startsWith("[")
+  );
+  return filtered.join(" ");
+}
+
 export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
@@ -506,6 +522,11 @@ export default function AdminDashboard() {
               <div class="content">Tel: ${order.customer_phone}</div>
               <div class="content" style="margin-top: 6px;">📍 ${order.address}</div>
               <div class="content" style="font-size: 15px; font-weight: bold;">CIUDAD: ${order.city.toUpperCase()}</div>
+              ${getDeliveryInstruction(order.notes) ? `
+              <div style="margin-top: 10px; padding: 8px; background: #fffbeb; border: 1.5px dashed #d97706; border-radius: 4px;">
+                <div style="font-size: 11px; font-weight: 900; color: #b45309; text-transform: uppercase; letter-spacing: 1px;">⚠️ INSTRUCCIÓN DE ENTREGA:</div>
+                <div style="font-size: 13px; font-weight: 700; color: #78350f; margin-top: 2px;">${getDeliveryInstruction(order.notes)}</div>
+              </div>` : ""}
             </div>
 
             <div class="section">
@@ -1387,6 +1408,16 @@ export default function AdminDashboard() {
                             <span className="text-[10px] text-neutral-400 block font-medium">
                               📍 {o.city} &bull; {o.address}
                             </span>
+                            {getDeliveryInstruction(o.notes) && (
+                              <div className="mt-1.5 p-2 bg-amber-400/10 border border-amber-400/35 rounded max-w-xs text-left">
+                                <span className="text-[9px] uppercase tracking-wider font-bold text-amber-300 flex items-center gap-1">
+                                  <span>📝</span> Instrucción de Entrega:
+                                </span>
+                                <p className="text-[11px] text-amber-100 font-semibold mt-0.5 leading-snug line-clamp-2">
+                                  &ldquo;{getDeliveryInstruction(o.notes)}&rdquo;
+                                </p>
+                              </div>
+                            )}
                           </td>
 
                           <td className="p-4">
@@ -1552,6 +1583,11 @@ export default function AdminDashboard() {
                     </span>
                     <span className="font-semibold text-neutral-200 text-xs">{o.customer_name}</span>
                     <span className="text-[10px] text-neutral-400 ml-2">📍 {o.city}</span>
+                    {getDeliveryInstruction(o.notes) && (
+                      <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold ml-2 rounded">
+                        📝 Con Nota
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="font-mono font-bold text-emerald-400 text-xs">
@@ -2739,11 +2775,36 @@ export default function AdminDashboard() {
                 </div>
                 <div className="space-y-1 flex-1">
                   <p className="text-white text-sm font-semibold">{selectedOrder.product_name}</p>
-                  {selectedOrder.notes && (
+                  {getDeliveryInstruction(selectedOrder.notes) ? (
+                    <div className="mt-2 p-3 bg-amber-400/10 border border-amber-400/35 rounded text-left">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-amber-300 flex items-center gap-1.5">
+                          <span>📝</span> Instrucción de Entrega / Notas:
+                        </span>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(getDeliveryInstruction(selectedOrder.notes));
+                            showToast("¡Instrucción copiada!");
+                          }}
+                          className="text-[9px] text-amber-300 hover:text-white underline cursor-pointer"
+                        >
+                          Copiar Nota
+                        </button>
+                      </div>
+                      <p className="text-xs text-amber-100 font-semibold leading-relaxed">
+                        &ldquo;{getDeliveryInstruction(selectedOrder.notes)}&rdquo;
+                      </p>
+                      {selectedOrder.notes && selectedOrder.notes.includes("[Detalles:") && (
+                        <p className="text-[10px] text-neutral-400 mt-2 pt-1.5 border-t border-white/5 font-mono">
+                          {selectedOrder.notes.split("[Detalles:")[1]?.replace("]", "") || ""}
+                        </p>
+                      )}
+                    </div>
+                  ) : selectedOrder.notes ? (
                     <p className="text-[11px] text-neutral-400 italic bg-black/40 p-2 border border-white/5 font-mono">
                       {selectedOrder.notes}
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 

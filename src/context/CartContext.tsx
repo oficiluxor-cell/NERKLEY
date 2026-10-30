@@ -271,6 +271,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       `${item.quantity}x ${item.name} ${item.size ? `[Talla: ${item.size}]` : ''} ${item.color ? `[Color: ${item.color}]` : ''}`
     ).join(", ");
 
+    const customerNotes = (formData.notes || "").trim();
     const shippingNote = isCartFreeShipping
       ? `Envío: GRATIS a ${formData.city}, ${formData.department} (Promoción activa)`
       : `Envío a ${formData.city}, ${formData.department}: $${shippingQuote.rate.toLocaleString()} COP (${shippingQuote.deliveryTime})`;
@@ -286,7 +287,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
       country: "Colombia",
       city: `${formData.city}, ${formData.department}`,
       address: formData.address,
-      notes: `Ref Pago: ${uniqueRef} | ${shippingNote}\n${formData.notes || ""}`,
+      notes: customerNotes
+        ? `📝 INSTRUCCIÓN DE ENTREGA:\n${customerNotes}\n\n[Detalles: Ref ${uniqueRef} | ${shippingNote}]`
+        : `[Ref Pago: ${uniqueRef} | ${shippingNote}]`,
       status: "pending",
     };
 
