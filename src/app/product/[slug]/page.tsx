@@ -39,10 +39,31 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [quantity, setQuantity] = useState<number>(1);
   const [loading, setLoading] = useState(true);
   const [isAddedSuccess, setIsAddedSuccess] = useState(false);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("Bogotá D.C.");
-  const [selectedCity, setSelectedCity] = useState<string>("Bogotá D.C.");
+  const { 
+    addToCart, 
+    cartCount, 
+    setIsCartOpen, 
+    openWarrantyModal, 
+    isCartBouncing,
+    shippingDestination,
+    setShippingDestination
+  } = useCart();
 
-  const { addToCart, cartCount, setIsCartOpen, openWarrantyModal, isCartBouncing } = useCart();
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(
+    shippingDestination?.department || "Antioquia"
+  );
+  const [selectedCity, setSelectedCity] = useState<string>(
+    shippingDestination?.city || "Medellín"
+  );
+
+  useEffect(() => {
+    if (shippingDestination?.department) {
+      setSelectedDepartment(shippingDestination.department);
+    }
+    if (shippingDestination?.city) {
+      setSelectedCity(shippingDestination.city);
+    }
+  }, [shippingDestination]);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -185,6 +206,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
     }
 
     const firstImage = product.images ? product.images.split(",")[0].trim() : null;
+
+    setShippingDestination(selectedDepartment, selectedCity);
 
     addToCart({
       id: `${product.id}-${selectedSize || 'u'}-${selectedColor || 'u'}`,
@@ -564,8 +587,10 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                           onChange={(e) => {
                             const newDept = e.target.value;
                             setSelectedDepartment(newDept);
-                            const cities = COLOMBIA_REGIONS[newDept] || ["Bogotá D.C."];
-                            setSelectedCity(cities[0] === "Otro Municipio..." ? "" : cities[0]);
+                            const cities = COLOMBIA_REGIONS[newDept] || ["Medellín"];
+                            const defaultCity = cities[0] === "Otro Municipio / Corregimiento..." ? "" : cities[0];
+                            setSelectedCity(defaultCity);
+                            setShippingDestination(newDept, defaultCity);
                           }}
                           className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
                         >
@@ -585,18 +610,21 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                           value={
                             (COLOMBIA_REGIONS[selectedDepartment] || []).includes(selectedCity)
                               ? selectedCity
-                              : "Otro Municipio..."
+                              : "Otro Municipio / Corregimiento..."
                           }
                           onChange={(e) => {
-                            if (e.target.value !== "Otro Municipio...") {
-                              setSelectedCity(e.target.value);
+                            const val = e.target.value;
+                            if (val !== "Otro Municipio / Corregimiento...") {
+                              setSelectedCity(val);
+                              setShippingDestination(selectedDepartment, val);
                             } else {
                               setSelectedCity("");
+                              setShippingDestination(selectedDepartment, "");
                             }
                           }}
                           className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
                         >
-                          {(COLOMBIA_REGIONS[selectedDepartment] || ["Otro Municipio..."]).map((c) => (
+                          {(COLOMBIA_REGIONS[selectedDepartment] || ["Otro Municipio / Corregimiento..."]).map((c) => (
                             <option key={c} value={c} className="bg-[#14141c] text-white">
                               {c}
                             </option>
@@ -604,6 +632,21 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                         </select>
                       </div>
                     </div>
+
+                    {(!(COLOMBIA_REGIONS[selectedDepartment] || []).includes(selectedCity) || selectedCity === "" || selectedCity === "Otro Municipio / Corregimiento...") && (
+                      <div className="pt-2">
+                        <input
+                          type="text"
+                          value={selectedCity === "Otro Municipio / Corregimiento..." ? "" : selectedCity}
+                          onChange={(e) => {
+                            setSelectedCity(e.target.value);
+                            setShippingDestination(selectedDepartment, e.target.value);
+                          }}
+                          placeholder="Escribe el nombre de tu municipio o corregimiento..."
+                          className="w-full bg-[#14141c] text-white border border-amber-400/40 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 placeholder-neutral-500"
+                        />
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t border-white/5 flex flex-wrap items-center justify-between text-[11px] gap-2">
                       <p className="text-[10px] text-neutral-300">

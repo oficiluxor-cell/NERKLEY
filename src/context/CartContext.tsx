@@ -66,6 +66,8 @@ interface CartContextType {
   isCartBouncing: boolean;
   addedNotification: { name: string; price: number; image: string | null } | null;
   setAddedNotification: (val: { name: string; price: number; image: string | null } | null) => void;
+  shippingDestination: { department: string; city: string };
+  setShippingDestination: (department: string, city: string) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -96,24 +98,61 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("open-shipping-modal", handleOpenEvent);
   }, []);
 
+  const [shippingDestination, setShippingDestinationState] = useState<{ department: string; city: string }>({
+    department: "Antioquia",
+    city: "Medellín",
+  });
+
   const [formData, setFormData] = useState({
     fullName: "",
     documentId: "",
     email: "",
     phone: "",
-    department: "Bogotá D.C.",
-    city: "Bogotá D.C.",
+    department: "Antioquia",
+    city: "Medellín",
     address: "",
     notes: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
 
+  const setShippingDestination = (department: string, city: string) => {
+    const cleanDept = department || "Antioquia";
+    const cleanCity = city || "Medellín";
+    setShippingDestinationState({ department: cleanDept, city: cleanCity });
+    setFormData((prev) => ({
+      ...prev,
+      department: cleanDept,
+      city: cleanCity,
+    }));
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "NERKLEY_shipping_destination",
+          JSON.stringify({ department: cleanDept, city: cleanCity })
+        );
+      } catch (e) {}
+    }
+  };
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
         const storedCart = localStorage.getItem("NERKLEY_cart");
         if (storedCart) setCartItems(JSON.parse(storedCart));
+
+        const storedDest = localStorage.getItem("NERKLEY_shipping_destination");
+        if (storedDest) {
+          const parsed = JSON.parse(storedDest);
+          if (parsed.department && parsed.city) {
+            setShippingDestinationState(parsed);
+            setFormData((prev) => ({
+              ...prev,
+              department: parsed.department,
+              city: parsed.city,
+            }));
+          }
+        }
 
         const savedEmail = localStorage.getItem("NERKLEY_client_email");
         if (savedEmail) {
@@ -282,7 +321,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
         isOrdersOpen, setIsOrdersOpen, customerOrders, fetchCustomerOrders,
         isWarrantyOpen, setIsWarrantyOpen, warrantyTab, setWarrantyTab, openWarrantyModal,
         isCartBouncing, addedNotification, setAddedNotification,
-        handleCheckout, submitting, formData, handleInputChange, createdOrderId
+        handleCheckout, submitting, formData, handleInputChange, createdOrderId,
+        shippingDestination, setShippingDestination
       }}
     >
       {children}
@@ -564,13 +604,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
                           value={formData.department}
                           onChange={(e) => {
                             const newDept = e.target.value;
-                            const availableCities = COLOMBIA_REGIONS[newDept] || ["Bogotá D.C."];
-                            const defaultCity = availableCities[0] === "Otro Municipio..." ? "" : availableCities[0];
-                            setFormData((prev) => ({
-                              ...prev,
-                              department: newDept,
-                              city: defaultCity,
-                            }));
+                            const availableCities = COLOMBIA_REGIONS[newDept] || ["Medellín"];
+                            const defaultCity = availableCities[0] === "Otro Municipio / Corregimiento..." ? "" : availableCities[0];
+                            setShippingDestination(newDept, defaultCity);
                           }}
                           className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
                         >
@@ -590,18 +626,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
                           value={
                             (COLOMBIA_REGIONS[formData.department] || []).includes(formData.city)
                               ? formData.city
-                              : "Otro Municipio..."
+                              : "Otro Municipio / Corregimiento..."
                           }
                           onChange={(e) => {
-                            if (e.target.value !== "Otro Municipio...") {
-                              setFormData((prev) => ({ ...prev, city: e.target.value }));
+                            if (e.target.value !== "Otro Municipio / Corregimiento...") {
+                              setShippingDestination(formData.department, e.target.value);
                             } else {
-                              setFormData((prev) => ({ ...prev, city: "" }));
+                              setShippingDestination(formData.department, "");
                             }
                           }}
                           className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
                         >
-                          {(COLOMBIA_REGIONS[formData.department] || ["Otro Municipio..."]).map((c) => (
+                          {(COLOMBIA_REGIONS[formData.department] || ["Otro Municipio / Corregimiento..."]).map((c) => (
                             <option key={c} value={c} className="bg-[#111115] text-white">
                               {c}
                             </option>
@@ -610,13 +646,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
                       </div>
                     </div>
 
-                    {(!(COLOMBIA_REGIONS[formData.department] || []).includes(formData.city) || formData.city === "" || formData.city === "Otro Municipio...") && (
+                    {(!(COLOMBIA_REGIONS[formData.department] || []).includes(formData.city) || formData.city === "" || formData.city === "Otro Municipio / Corregimiento...") && (
                       <input
                         type="text"
                         required
                         name="city"
-                        value={formData.city === "Otro Municipio..." ? "" : formData.city}
-                        onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
+                        value={formData.city === "Otro Municipio / Corregimiento..." ? "" : formData.city}
+                        onChange={(e) => setShippingDestination(formData.department, e.target.value)}
                         placeholder="Escribe el nombre de tu municipio o corregimiento *"
                         className="w-full bg-[#0a0a0c] text-white border border-amber-400/50 px-3 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md"
                       />
