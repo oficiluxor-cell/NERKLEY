@@ -114,6 +114,10 @@ export default function Home() {
     };
   }, [products]);
 
+  const totalCombosInStore = useMemo(() => {
+    return products.filter((p) => isProductCombo(p)).length;
+  }, [products]);
+
   // Productos de la categoría seleccionada para calcular contadores de Unidades y Combos
   const currentCategoryProducts = useMemo(() => {
     return products.filter((p) => matchesCategoryFilter(p.category, selectedCategory));
@@ -277,8 +281,8 @@ export default function Home() {
             </div>
           </div>
 
-          {/* CARRUSEL DE CHIPS DE CATEGORÍAS (1-TAP FILTRADO RÁPIDO) */}
-          <div className="w-full max-w-xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
+          {/* CARRUSEL DE CATEGORÍAS ELEGANTE Y DIRECTO (1 SOLA FILA LIMPIA) */}
+          <div className="w-full max-w-2xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-1">
             <button
               onClick={() => {
                 setSelectedCategory("Todas");
@@ -286,9 +290,9 @@ export default function Home() {
                 const el = document.getElementById("catalogo");
                 if (el) el.scrollIntoView({ behavior: "smooth" });
               }}
-              className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                selectedCategory === "Todas"
-                  ? "bg-white text-black shadow-md"
+              className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                selectedCategory === "Todas" && selectedPresentation !== "combo"
+                  ? "bg-white text-black shadow-md font-bold"
                   : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
               }`}
             >
@@ -303,69 +307,35 @@ export default function Home() {
                   const el = document.getElementById("catalogo");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className={`px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
-                  matchesCategoryFilter(cat, selectedCategory)
-                    ? "bg-white text-black shadow-md"
+                className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                  selectedCategory === cat && selectedPresentation !== "combo"
+                    ? "bg-white text-black shadow-md font-bold"
                     : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10 hover:border-white/30"
                 }`}
               >
                 {cat}
               </button>
             ))}
-          </div>
 
-          {/* SUB-FILTROS DE MODALIDAD (UNIDADES VS COMBOS) */}
-          <div className="w-full max-w-xl flex items-center justify-start sm:justify-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar pt-2 pb-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPresentation("todos");
-                const el = document.getElementById("catalogo");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                selectedPresentation === "todos"
-                  ? "bg-neutral-200 text-black shadow-md font-bold"
-                  : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              <span>✨ Todos</span>
-              <span className="text-[9px] font-mono opacity-70">({presentationCounts.todos})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPresentation("unidad");
-                const el = document.getElementById("catalogo");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                selectedPresentation === "unidad"
-                  ? "bg-white text-black shadow-md font-bold"
-                  : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              <span>📦 Unidad</span>
-              <span className="text-[9px] font-mono opacity-70">({presentationCounts.unidades})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPresentation("combo");
-                const el = document.getElementById("catalogo");
-                if (el) el.scrollIntoView({ behavior: "smooth" });
-              }}
-              className={`px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
-                selectedPresentation === "combo"
-                  ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_0_15px_rgba(232,198,98,0.4)] font-black"
-                  : "bg-amber-400/10 border border-amber-400/30 text-amber-300 hover:bg-amber-400/20"
-              }`}
-            >
-              <span>🎁 Combos</span>
-              <span className="text-[9px] font-mono font-bold">({presentationCounts.combos})</span>
-            </button>
+            {/* CHIP DE ACCESO DIRECTO A COMBOS SI EXISTEN */}
+            {totalCombosInStore > 0 && (
+              <button
+                onClick={() => {
+                  setSelectedCategory("Todas");
+                  setSelectedPresentation("combo");
+                  const el = document.getElementById("catalogo");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
+                className={`px-3.5 py-1.5 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0 cursor-pointer flex items-center gap-1.5 ${
+                  selectedPresentation === "combo" && selectedCategory === "Todas"
+                    ? "bg-gradient-to-r from-amber-400 to-amber-300 text-black shadow-[0_0_15px_rgba(232,198,98,0.4)] font-black"
+                    : "bg-amber-400/10 border border-amber-400/35 text-amber-300 hover:bg-amber-400/20"
+                }`}
+              >
+                <span>🎁 Combos</span>
+                <span className="font-mono text-[9px] bg-black/20 px-1 py-0.5 rounded font-bold">({totalCombosInStore})</span>
+              </button>
+            )}
           </div>
 
           {/* MICRO-CINTA DE REASEGURO (RÁPIDA, ELEGANTE Y COMPACTA) */}
@@ -423,79 +393,99 @@ export default function Home() {
 
       {/* SECCIÓN DEL CATÁLOGO DE PRODUCTOS (INMEDIATO, SIN ESPERAS NI VACÍOS) */}
       <section id="catalogo" className="max-w-7xl mx-auto px-3 sm:px-6 py-8 sm:py-12 w-full relative z-10">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 pb-4 border-b border-white/10 gap-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 pb-4 border-b border-white/10 gap-3">
           <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-light uppercase tracking-wider text-white flex items-center gap-2">
-              <span>Colección Disponible</span>
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl sm:text-2xl font-serif font-light uppercase tracking-wider text-white">
+                Colección Disponible
+              </h2>
               <span className="text-[10px] font-mono bg-amber-400/15 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
                 {filteredProducts.length} {filteredProducts.length === 1 ? "artículo" : "artículos"}
               </span>
-            </h2>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <p className="text-[10px] sm:text-xs text-neutral-400">
-                {selectedCategory === "Todas" ? "Todas las categorías" : `Categoría: ${selectedCategory}`}
-              </p>
-              <span className="text-neutral-600 hidden sm:inline">•</span>
-              {/* SUB-TABS RÁPIDAS EN EL CATÁLOGO */}
-              <div className="inline-flex items-center gap-1 bg-white/5 border border-white/10 p-0.5 rounded-lg">
+            </div>
+            <p className="text-[11px] text-neutral-400 mt-1 flex items-center gap-2">
+              <span>
+                {selectedPresentation === "combo"
+                  ? `Combos & Promociones ${selectedCategory !== "Todas" ? `en ${selectedCategory}` : ""}`
+                  : selectedCategory === "Todas"
+                  ? "Todas las piezas de alta selección"
+                  : `Categoría: ${selectedCategory}`}
+              </span>
+              {selectedPresentation === "combo" && (
                 <button
                   type="button"
                   onClick={() => setSelectedPresentation("todos")}
-                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  className="text-amber-400 hover:text-amber-300 underline text-[10px] font-semibold cursor-pointer"
+                >
+                  (Ver todos los productos)
+                </button>
+              )}
+            </p>
+          </div>
+
+          {/* CONTROLES: SUB-FILTRO ELEGANTE Y ORDENAMIENTO */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+            {/* Solo se muestra si la categoría tiene combos para no confundir al cliente */}
+            {presentationCounts.combos > 0 && selectedCategory !== "Todas" && (
+              <div className="inline-flex bg-[#14141c] border border-white/10 p-0.5 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPresentation("todos")}
+                  className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-semibold rounded-md transition-all cursor-pointer ${
                     selectedPresentation === "todos"
                       ? "bg-white text-black font-bold shadow-xs"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
-                  Todo ({presentationCounts.todos})
+                  Todo
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedPresentation("unidad")}
-                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-semibold transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-semibold rounded-md transition-all cursor-pointer ${
                     selectedPresentation === "unidad"
                       ? "bg-white text-black font-bold shadow-xs"
                       : "text-neutral-400 hover:text-white"
                   }`}
                 >
-                  Unidad ({presentationCounts.unidades})
+                  Unidades
                 </button>
                 <button
                   type="button"
                   onClick={() => setSelectedPresentation("combo")}
-                  className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded font-black transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md transition-all cursor-pointer ${
                     selectedPresentation === "combo"
-                      ? "bg-amber-400 text-black shadow-xs"
+                      ? "bg-amber-400 text-black font-black shadow-xs"
                       : "text-amber-300 hover:text-amber-200"
                   }`}
                 >
                   🎁 Combos ({presentationCounts.combos})
                 </button>
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* Selector de Ordenamiento Compacto y Elegante */}
-          <div className="relative w-full sm:w-auto">
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full sm:w-auto bg-[#14141c] border border-white/15 pl-3 pr-8 py-2 text-xs text-neutral-200 uppercase tracking-wider font-semibold rounded-lg focus:outline-hidden focus:border-amber-400 transition-all cursor-pointer shadow-sm appearance-none"
-            >
-              <option value="featured">✨ Destacados</option>
-              <option value="price-asc">💵 Precio: Menor a Mayor</option>
-              <option value="price-desc">💎 Precio: Mayor a Menor</option>
-              <option value="discount">🔥 Mayor Descuento</option>
-              <option value="name-asc">🔤 Nombre: A - Z</option>
-            </select>
-            <svg
-              className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            {/* Selector de Ordenamiento Compacto y Elegante */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-[#14141c] border border-white/15 pl-3 pr-8 py-2 text-xs text-neutral-200 uppercase tracking-wider font-semibold rounded-lg focus:outline-hidden focus:border-amber-400 transition-all cursor-pointer shadow-sm appearance-none"
+              >
+                <option value="featured">✨ Destacados</option>
+                <option value="price-asc">💵 Precio: Menor a Mayor</option>
+                <option value="price-desc">💎 Precio: Mayor a Menor</option>
+                <option value="discount">🔥 Mayor Descuento</option>
+                <option value="name-asc">🔤 Nombre: A - Z</option>
+              </select>
+              <svg
+                className="w-3.5 h-3.5 text-neutral-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
           </div>
         </div>
 
