@@ -18,6 +18,7 @@ import {
   SUGGESTED_SUBCATEGORIES,
 } from "@/lib/categories";
 import ImageGalleryUploader from "@/components/ImageGalleryUploader";
+import { Seller, calculateOrderCommission } from "@/lib/marketplace";
 
 interface Order {
   id: string;
@@ -117,13 +118,18 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "clientes" | "publicar">("pedidos");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "clientes" | "publicar" | "vendedores">("pedidos");
   const [orderFilter, setOrderFilter] = useState<"despachar" | "enviados" | "entregados" | "pendientes" | "todos">("despachar");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [sellers, setSellers] = useState<Seller[]>([]);
+  const [sellerSearch, setSellerSearch] = useState("");
+  const [sellerStatusFilter, setSellerStatusFilter] = useState<"todos" | "pending" | "verified" | "paused">("todos");
+  const [editingCommissionSellerId, setEditingCommissionSellerId] = useState<string | null>(null);
+  const [newCommissionRate, setNewCommissionRate] = useState<string>("12");
   const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -272,6 +278,27 @@ export default function AdminDashboard() {
 
     if (productsData) setProducts(productsData);
 
+    try {
+      const { data: sellersData, error: sErr } = await supabase
+        .from("sellers")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!sErr && sellersData) {
+        setSellers(sellersData as Seller[]);
+      } else {
+        if (typeof window !== "undefined") {
+          const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+          setSellers(local);
+        }
+      }
+    } catch {
+      if (typeof window !== "undefined") {
+        const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+        setSellers(local);
+      }
+    }
+
     if (showSpinner) setLoading(false);
   }
 
@@ -397,6 +424,138 @@ export default function AdminDashboard() {
       }, {})
     ).sort((a: any, b: any) => b.totalSpent - a.totalSpent);
   }, [orders]);
+
+  // Vendedores & Marketplace
+  const pendingSellersCount = useMemo(() => {
+    return sellers.filter((s) => s.status === "pending").length;
+  }, [sellers]);
+
+  const verifiedSellersCount = useMemo(() => {
+    return sellers.filter((s) => s.status === "verified" || s.is_verified).length;
+  }, [sellers]);
+
+  const filteredSellers = useMemo(() => {
+    return sellers.filter((s) => {
+      const q = sellerSearch.toLowerCase().trim();
+      const matchesSearch =
+        !q ||
+        (s.store_name || "").toLowerCase().includes(q) ||
+        (s.owner_name || "").toLowerCase().includes(q) ||
+        (s.city || "").toLowerCase().includes(q) ||
+        (s.phone || "").includes(q);
+
+      const matchesStatus =
+        sellerStatusFilter === "todos"
+          ? true
+          : sellerStatusFilter === "verified"
+          ? s.status === "verified" || s.is_verified
+          : s.status === sellerStatusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
+  }, [sellers, sellerSearch, sellerStatusFilter]);
+
+  const handleVerifySeller = async (seller: Seller) => {
+    const now = new Date().toISOString();
+    try {
+      await supabase
+        .from("sellers")
+        .update({ status: "verified", is_verified: true, verified_at: now })
+        .eq("id", seller.id);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    setSellers((prev) =>
+      prev.map((s) => (s.id === seller.id ? { ...s, status: "verified", is_verified: true, verified_at: now } : s))
+    );
+
+    if (typeof window !== "undefined") {
+      const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+      const updatedLocal = local.map((s: any) =>
+        s.id === seller.id ? { ...s, status: "verified", is_verified: true, verified_at: now } : s
+      );
+      localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(updatedLocal));
+    }
+
+    showToast(`¡Boutique "${seller.store_name}" Verificada Oficialmente!`);
+  };
+
+  const handleTogglePauseSeller = async (seller: Seller) => {
+    const isCurrentlyVerified = seller.status === "verified" || seller.is_verified;
+    const nextStatus = isCurrentlyVerified ? "paused" : "verified";
+    const nextIsVer = nextStatus === "verified";
+
+    try {
+      await supabase
+        .from("sellers")
+        .update({ status: nextStatus, is_verified: nextIsVer })
+        .eq("id", seller.id);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    setSellers((prev) =>
+      prev.map((s) => (s.id === seller.id ? { ...s, status: nextStatus as any, is_verified: nextIsVer } : s))
+    );
+
+    if (typeof window !== "undefined") {
+      const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+      const updatedLocal = local.map((s: any) =>
+        s.id === seller.id ? { ...s, status: nextStatus, is_verified: nextIsVer } : s
+      );
+      localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(updatedLocal));
+    }
+
+    showToast(`Boutique "${seller.store_name}" ${nextStatus === "verified" ? "Reactivada" : "Pausada"}.`);
+  };
+
+  const handleSaveCommissionRate = async (sellerId: string) => {
+    const rate = Number(newCommissionRate);
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      alert("Por favor ingresa un porcentaje válido entre 0 y 100.");
+      return;
+    }
+
+    try {
+      await supabase.from("sellers").update({ commission_rate: rate }).eq("id", sellerId);
+    } catch (e) {
+      console.warn("Supabase update error:", e);
+    }
+
+    setSellers((prev) =>
+      prev.map((s) => (s.id === sellerId ? { ...s, commission_rate: rate } : s))
+    );
+
+    if (typeof window !== "undefined") {
+      const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+      const updatedLocal = local.map((s: any) => (s.id === sellerId ? { ...s, commission_rate: rate } : s));
+      localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(updatedLocal));
+    }
+
+    setEditingCommissionSellerId(null);
+    showToast(`Comisión fijada en ${rate}% para esta boutique.`);
+  };
+
+  const handleDeleteSeller = async (sellerId: string, storeName: string) => {
+    if (!confirm(`¿Estás seguro de eliminar a "${storeName}" del marketplace?`)) {
+      return;
+    }
+
+    try {
+      await supabase.from("sellers").delete().eq("id", sellerId);
+    } catch (e) {
+      console.warn("Supabase delete error:", e);
+    }
+
+    setSellers((prev) => prev.filter((s) => s.id !== sellerId));
+    if (typeof window !== "undefined") {
+      const local = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+      localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(local.filter((s: any) => s.id !== sellerId)));
+    }
+
+    showToast(`Boutique "${storeName}" eliminada.`);
+  };
 
   // Acciones sobre órdenes
   const handleOrderStatusChange = async (orderId: string, newStatus: string) => {
@@ -1145,6 +1304,27 @@ export default function AdminDashboard() {
               <span className="text-neutral-500 text-[10px]">{products.length}</span>
             </button>
 
+            <button
+              onClick={() => setActiveTab("vendedores")}
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "vendedores"
+                  ? "bg-amber-400 text-black font-bold border-amber-400 shadow-[0_0_20px_rgba(232,198,98,0.3)]"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <span>🛡️</span>
+                <span>Vendedores & Aliados</span>
+              </span>
+              {pendingSellersCount > 0 ? (
+                <span className="bg-amber-500 text-black px-1.5 py-0.5 text-[9px] font-black rounded-full animate-pulse">
+                  {pendingSellersCount}
+                </span>
+              ) : (
+                <span className="text-neutral-500 text-[10px]">{sellers.length}</span>
+              )}
+            </button>
+
             <Link
               href="/video-ad"
               target="_blank"
@@ -1194,6 +1374,7 @@ export default function AdminDashboard() {
               {activeTab === "dashboard" && "Dashboard Financiero & Métricas Dios"}
               {activeTab === "clientes" && "Directorio de Clientes CRM"}
               {activeTab === "publicar" && "Catálogo, Precios & Control de Stock"}
+              {activeTab === "vendedores" && "Marketplace: Vendedores, Verificación & Billeteras"}
             </h1>
             <p className="text-xs text-neutral-400 mt-1 uppercase tracking-widest">
               NERKLEY Luxury Concepts &bull; Actualizado en tiempo real
@@ -2323,6 +2504,343 @@ export default function AdminDashboard() {
                   </tbody>
                 </table>
               </div>
+            </section>
+          </div>
+        )}
+
+        {/* PESTAÑA: MARKETPLACE & GESTIÓN DE VENDEDORES */}
+        {activeTab === "vendedores" && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* TARJETAS DE MÉTRICAS GLOBALES DEL MARKETPLACE */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#111115] border border-white/10 p-5 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block">
+                  Boutiques Registradas
+                </span>
+                <p className="text-3xl font-bold font-mono text-white">
+                  {sellers.length} <span className="text-xs text-neutral-400">Tiendas</span>
+                </p>
+                <p className="text-[10px] text-neutral-500">Total de comercios aliados en la plataforma</p>
+              </div>
+
+              <div className="bg-[#111115] border border-emerald-500/30 p-5 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-semibold block flex items-center gap-1.5">
+                  <span>⭐</span> Boutiques Verificadas
+                </span>
+                <p className="text-3xl font-bold font-mono text-emerald-300">
+                  {verifiedSellersCount} <span className="text-xs text-neutral-400">Activas</span>
+                </p>
+                <p className="text-[10px] text-neutral-500">Vendedores certificados vendiendo al público</p>
+              </div>
+
+              <div className={`p-5 space-y-2 border ${pendingSellersCount > 0 ? "bg-amber-500/10 border-amber-500/40" : "bg-[#111115] border-white/10"}`}>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-amber-300 font-semibold block flex items-center gap-1.5">
+                  <span>⏳</span> Por Auditar / Aprobar
+                </span>
+                <p className="text-3xl font-bold font-mono text-amber-300">
+                  {pendingSellersCount} <span className="text-xs text-neutral-400">Pendientes</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">
+                  {pendingSellersCount > 0 ? "⚠️ Tienes tiendas esperando tu verificación" : "Al día, sin solicitudes pendientes"}
+                </p>
+              </div>
+
+              <div className="bg-[#111115] border border-white/10 p-5 space-y-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block">
+                  Comisión Base NERKLEY
+                </span>
+                <p className="text-3xl font-bold font-mono text-amber-400">
+                  12% <span className="text-xs text-neutral-400">Retención</span>
+                </p>
+                <p className="text-[10px] text-neutral-500">Configurable individualmente por vendedor</p>
+              </div>
+            </div>
+
+            {/* SECCIÓN PRINCIPAL DE GESTIÓN Y AUDITORÍA */}
+            <section className="bg-[#111115] border border-white/10 p-6 space-y-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white flex items-center gap-2">
+                    <span>🛡️</span> Directorio de Vendedores & Control de Auditoría
+                  </h2>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Verifica que sean comercios serios antes de aprobarlos para proteger la reputación de NERKLEY
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/vender"
+                    target="_blank"
+                    className="bg-white/10 hover:bg-white/20 text-white text-[11px] font-semibold uppercase tracking-wider px-3.5 py-2 border border-white/20 rounded transition-all flex items-center gap-1.5"
+                  >
+                    <span>↗</span> Ver Formulario Público (/vender)
+                  </Link>
+                </div>
+              </div>
+
+              {/* FILTROS Y BÚSQUEDA */}
+              <div className="flex flex-col sm:flex-row gap-3 justify-between items-stretch sm:items-center">
+                <div className="flex flex-wrap gap-2 text-xs">
+                  <button
+                    onClick={() => setSellerStatusFilter("todos")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      sellerStatusFilter === "todos"
+                        ? "bg-white text-black"
+                        : "bg-white/5 text-neutral-400 hover:text-white border border-white/10"
+                    }`}
+                  >
+                    Todos ({sellers.length})
+                  </button>
+                  <button
+                    onClick={() => setSellerStatusFilter("pending")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                      sellerStatusFilter === "pending"
+                        ? "bg-amber-400 text-black font-extrabold"
+                        : "bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 border border-amber-400/30"
+                    }`}
+                  >
+                    <span>⏳</span> Pendientes ({pendingSellersCount})
+                  </button>
+                  <button
+                    onClick={() => setSellerStatusFilter("verified")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                      sellerStatusFilter === "verified"
+                        ? "bg-emerald-500 text-black font-extrabold"
+                        : "bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 border border-emerald-500/30"
+                    }`}
+                  >
+                    <span>⭐</span> Verificados ({verifiedSellersCount})
+                  </button>
+                  <button
+                    onClick={() => setSellerStatusFilter("paused")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      sellerStatusFilter === "paused"
+                        ? "bg-white text-black"
+                        : "bg-white/5 text-neutral-400 hover:text-white border border-white/10"
+                    }`}
+                  >
+                    Pausados
+                  </button>
+                </div>
+
+                <div className="relative min-w-[260px]">
+                  <input
+                    type="text"
+                    value={sellerSearch}
+                    onChange={(e) => setSellerSearch(e.target.value)}
+                    placeholder="Buscar por tienda, dueño, ciudad o celular..."
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white placeholder-neutral-500 rounded focus:outline-none focus:border-amber-400"
+                  />
+                  {sellerSearch && (
+                    <button
+                      onClick={() => setSellerSearch("")}
+                      className="absolute right-2.5 top-2 text-neutral-400 hover:text-white text-xs cursor-pointer"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* TABLA DE VENDEDORES */}
+              {filteredSellers.length === 0 ? (
+                <div className="p-12 text-center border border-white/10 bg-white/5 space-y-3 rounded-xl">
+                  <span className="text-3xl">🏪</span>
+                  <p className="text-sm font-semibold text-white">No se encontraron boutiques en este filtro</p>
+                  <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                    Invita a nuevos vendedores y tiendas aliadas compartiéndoles el enlace:{" "}
+                    <code className="text-amber-300 font-mono">/vender</code>
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-white/10 bg-[#0c0c10] rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-white/10 text-[9px] uppercase tracking-[0.2em] text-neutral-400 bg-white/5">
+                        <th className="p-4">Boutique & Categoría</th>
+                        <th className="p-4">Titular / Identidad</th>
+                        <th className="p-4">Ubicación & Contacto</th>
+                        <th className="p-4">Cuenta de Pago</th>
+                        <th className="p-4">Comisión NERKLEY</th>
+                        <th className="p-4">Estado de Verificación</th>
+                        <th className="p-4 text-right">Acciones de Auditoría</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {filteredSellers.map((seller) => {
+                        const isVerified = seller.status === "verified" || seller.is_verified;
+                        const isPending = seller.status === "pending";
+                        const isPaused = seller.status === "paused";
+
+                        return (
+                          <tr key={seller.id} className="hover:bg-white/5 transition-colors">
+                            {/* BOUTIQUE */}
+                            <td className="p-4 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white text-sm">{seller.store_name}</span>
+                                {isVerified && (
+                                  <span className="text-emerald-400 text-xs" title="Verificado Oficial">
+                                    ⭐
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-amber-300 block font-medium">
+                                {seller.category || "Variado"}
+                              </span>
+                              {seller.bio && (
+                                <p className="text-[10px] text-neutral-400 italic line-clamp-1 max-w-xs">
+                                  "{seller.bio}"
+                                </p>
+                              )}
+                            </td>
+
+                            {/* TITULAR */}
+                            <td className="p-4 space-y-1">
+                              <span className="font-semibold text-neutral-200 block">{seller.owner_name}</span>
+                              <span className="text-[10px] text-neutral-400 block font-mono">
+                                CC/NIT: {seller.owner_document}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 block truncate max-w-[160px]">
+                                {seller.email}
+                              </span>
+                            </td>
+
+                            {/* UBICACIÓN Y CONTACTO */}
+                            <td className="p-4 space-y-1">
+                              <span className="text-neutral-300 block font-medium">
+                                📍 {seller.city}, {seller.department}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-neutral-300 text-[11px]">{seller.phone}</span>
+                                <button
+                                  onClick={() =>
+                                    sendWhatsAppDirect(
+                                      seller.phone,
+                                      `Hola ${seller.owner_name}, te saludamos de NERKLEY Concierge respecto a tu postulación con la boutique "${seller.store_name}".`
+                                    )
+                                  }
+                                  className="text-emerald-400 hover:text-emerald-300 text-[10px] underline font-bold cursor-pointer"
+                                >
+                                  WhatsApp
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* CUENTA BANCARIA */}
+                            <td className="p-4 space-y-1 font-mono">
+                              <span className="text-[11px] font-bold text-white block">
+                                {seller.bank_name}
+                              </span>
+                              <span className="text-[10px] text-neutral-300 block">
+                                No. {seller.account_number}
+                              </span>
+                              <span className="text-[9px] text-neutral-500 uppercase block">
+                                {seller.account_type || "Ahorros"}
+                              </span>
+                            </td>
+
+                            {/* COMISIÓN */}
+                            <td className="p-4">
+                              {editingCommissionSellerId === seller.id ? (
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={newCommissionRate}
+                                    onChange={(e) => setNewCommissionRate(e.target.value)}
+                                    className="w-14 bg-black border border-amber-400 text-white font-mono text-xs px-1.5 py-1 rounded text-center"
+                                  />
+                                  <span className="text-xs text-neutral-300">%</span>
+                                  <button
+                                    onClick={() => handleSaveCommissionRate(seller.id)}
+                                    className="bg-emerald-500 text-black px-1.5 py-1 rounded text-[10px] font-bold cursor-pointer"
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    onClick={() => setEditingCommissionSellerId(null)}
+                                    className="text-neutral-400 hover:text-white px-1 text-xs cursor-pointer"
+                                  >
+                                    &times;
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono font-bold text-amber-400 text-sm">
+                                    {seller.commission_rate ?? 12}%
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setEditingCommissionSellerId(seller.id);
+                                      setNewCommissionRate(String(seller.commission_rate ?? 12));
+                                    }}
+                                    className="text-[9px] text-neutral-400 hover:text-white underline cursor-pointer"
+                                  >
+                                    Editar
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+
+                            {/* ESTADO */}
+                            <td className="p-4">
+                              {isVerified ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold uppercase tracking-wider text-[9px] rounded">
+                                  <span>⭐</span> Verificado Oficial
+                                </span>
+                              ) : isPending ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold uppercase tracking-wider text-[9px] rounded animate-pulse">
+                                  <span>⏳</span> Pendiente Revisión
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-red-500/20 border border-red-500/40 text-red-300 font-bold uppercase tracking-wider text-[9px] rounded">
+                                  <span>⏸</span> Pausado
+                                </span>
+                              )}
+                            </td>
+
+                            {/* ACCIONES */}
+                            <td className="p-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {isPending ? (
+                                  <button
+                                    onClick={() => handleVerifySeller(seller)}
+                                    className="bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 text-black px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1"
+                                    title="Aprobar y certificar esta tienda para vender"
+                                  >
+                                    <span>✓</span> Aprobar & Verificar
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => handleTogglePauseSeller(seller)}
+                                    className={`px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider border transition-all cursor-pointer ${
+                                      isPaused
+                                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
+                                        : "bg-white/5 text-neutral-300 border-white/20 hover:bg-white/10"
+                                    }`}
+                                  >
+                                    {isPaused ? "▶ Reactivar" : "⏸ Pausar"}
+                                  </button>
+                                )}
+
+                                <button
+                                  onClick={() => handleDeleteSeller(seller.id, seller.store_name)}
+                                  className="text-red-400 hover:text-red-300 p-1.5 text-xs transition-colors cursor-pointer"
+                                  title="Eliminar tienda permanentemente"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </section>
           </div>
         )}

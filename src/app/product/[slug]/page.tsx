@@ -25,6 +25,8 @@ interface Product {
   colors?: string;
   stock: number;
   badge?: string;
+  seller_name?: string;
+  is_official?: boolean;
 }
 
 function ProductDetailContent({ params }: { params: Promise<{ slug: string }> }) {
@@ -419,6 +421,20 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-serif uppercase tracking-wider text-white font-semibold mb-1.5">
                 {product.name}
               </h1>
+
+              {/* DISTINTIVO DE TIENDA OFICIAL O BOUTIQUE VERIFICADA */}
+              <div className="mb-2.5">
+                {product.is_official !== false && (!product.seller_name || product.seller_name === "Tienda Oficial NERKLEY") ? (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-400/10 border border-amber-400/35 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                    <span>👑</span> Tienda Oficial NERKLEY &bull; Garantía Directa
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/15 text-neutral-200 text-[10px] font-medium">
+                    <span className="text-emerald-400 font-bold">⭐ Boutique Verificada:</span>
+                    <strong className="text-white">{product.seller_name}</strong>
+                  </div>
+                )}
+              </div>
 
               {/* Píldora de Calificación y Botón Directo para Escribir Reseña (Sin Deslizar) */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 mb-2.5 sm:mb-3.5">

@@ -46,6 +46,7 @@ export default function Home() {
   const announcements = [
     "🚀 Envíos Asegurados a todo el país (Colombia)",
     "💎 Concept Store Oficial &bull; Piezas y Calidad Exclusiva",
+    "⭐ ¿Tienes una marca o boutique? <a href='/vender' class='text-amber-300 underline font-bold ml-1'>Vende en NERKLEY aquí ↗</a>",
     "💳 Pagos 100% Blindados con Wompi & Bancolombia",
     "🛡️ Empaque Seguro y Garantía Verificada en Cada Pedido"
   ];
@@ -239,6 +240,13 @@ export default function Home() {
               Garantía & Envíos
               <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
             </button>
+            <Link
+              href="/vender"
+              className="hover:text-amber-300 transition-colors py-1 relative group text-xs font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5"
+            >
+              <span>⭐</span> Vender
+              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-amber-400 transition-all duration-300 group-hover:w-full" />
+            </Link>
           </nav>
 
           {/* Botones de Acción: Mis Pedidos y Carrito (100% contenidos dentro de la pantalla) */}
@@ -947,6 +955,8 @@ export default function Home() {
             <Link href="/privacidad" className="hover:text-amber-400 transition-colors">Política de Privacidad</Link>
             <span>&bull;</span>
             <button onClick={() => openWarrantyModal("shipping")} className="hover:text-amber-400 transition-colors cursor-pointer">Garantías & Envíos</button>
+            <span>&bull;</span>
+            <Link href="/vender" className="text-amber-400 hover:text-amber-300 font-semibold transition-colors">Vender en NERKLEY (Boutiques)</Link>
           </div>
           <p className="text-[8px] md:text-[9px] text-neutral-600 uppercase tracking-[0.2em]">
             &copy; 2026 NERKLEY CONCEPTS. Todos los derechos reservados.
