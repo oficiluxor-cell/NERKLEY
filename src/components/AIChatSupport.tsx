@@ -215,6 +215,34 @@ export default function AIChatSupport({ currentProduct }: Props) {
     }
   }, [messages, isOpen]);
 
+  // Bloquear el scroll de la página de fondo cuando el chat está abierto en móviles/tablets
+  // para que al deslizar mensajes o tocar el chat, lo de atrás permanezca 100% fijo.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 1024;
+    const originalOverflow = document.body.style.overflow;
+    const originalPosition = document.body.style.position;
+    const originalTop = document.body.style.top;
+    const originalWidth = document.body.style.width;
+
+    if (isMobile) {
+      const scrollY = window.scrollY;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+      document.body.style.overflow = "hidden";
+
+      return () => {
+        document.body.style.position = originalPosition;
+        document.body.style.top = originalTop;
+        document.body.style.width = originalWidth;
+        document.body.style.overflow = originalOverflow;
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [isOpen]);
+
   // Si cambia el producto (ej. navega a otro), actualizamos el contexto de forma inteligente
   useEffect(() => {
     if (currentProduct) {
@@ -343,118 +371,145 @@ export default function AIChatSupport({ currentProduct }: Props) {
 
       {/* Ventana de Chat Soporte IA */}
       {isOpen && (
-        <div className="fixed bottom-20 right-3 sm:bottom-24 sm:right-6 z-[85] w-[94vw] sm:w-[410px] h-[550px] max-h-[80vh] bg-[#0c0c10]/98 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden text-white font-sans animate-in fade-in slide-in-from-bottom-5 duration-300">
-          {/* Cabecera del Chat */}
-          <div className="p-3.5 bg-gradient-to-r from-[#14141c] via-[#101017] to-[#0a0a0e] border-b border-white/10 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400/20 to-black border border-amber-400/40 flex items-center justify-center p-1 shadow-inner">
-                <img src="/logo.svg" alt="NERKLEY AI" className="w-full h-full object-contain" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xs sm:text-sm font-bold font-serif tracking-wider text-white">NERKLEY CONCIERGE</h3>
-                  <span className="text-[8px] uppercase tracking-wider font-bold bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded-xs border border-amber-400/30">
-                    IA 24/7
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-emerald-400 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>En línea &bull; Asistente de Compras</span>
-                </div>
-              </div>
-            </div>
+        <>
+          {/* Telón de fondo en móviles para aislar el chat y evitar deslizamientos en la página de fondo */}
+          <div
+            onClick={() => setIsOpen(false)}
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[84] md:hidden transition-opacity"
+            aria-hidden="true"
+          />
 
-            <button
-              onClick={() => setIsOpen(false)}
-              className="text-neutral-400 hover:text-white text-2xl p-1 leading-none cursor-pointer"
+          <div
+            style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+            className="fixed bottom-20 right-3 sm:bottom-24 sm:right-6 z-[85] w-[94vw] sm:w-[410px] h-[550px] max-h-[80vh] bg-[#0c0c10]/98 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.9)] flex flex-col overflow-hidden text-white font-sans animate-in fade-in slide-in-from-bottom-5 duration-300"
+          >
+            {/* Cabecera del Chat */}
+            <div 
+              onTouchMove={(e) => e.stopPropagation()}
+              className="p-3.5 bg-gradient-to-r from-[#14141c] via-[#101017] to-[#0a0a0e] border-b border-white/10 flex items-center justify-between"
             >
-              &times;
-            </button>
-          </div>
-
-          {/* Banner de Contexto de Producto si está en una ficha */}
-          {currentProduct && (
-            <div className="bg-[#15151e] border-b border-white/10 p-2.5 px-3.5 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">Artículo activo:</span>
-                <span className="text-white font-medium truncate max-w-[170px] sm:max-w-[200px]">{currentProduct.name}</span>
-              </div>
-              <span className="text-emerald-400 font-mono font-bold text-xs whitespace-nowrap">
-                ${Number(currentProduct.sale_price).toLocaleString("es-CO")}
-              </span>
-            </div>
-          )}
-
-          {/* Cuerpo de Mensajes */}
-          <div className="flex-1 p-3.5 sm:p-4 overflow-y-auto space-y-3 text-xs">
-            {messages.map((m) => {
-              const isAi = m.role === "assistant";
-              return (
-                <div key={m.id} className={`flex flex-col ${isAi ? "items-start" : "items-end"}`}>
-                  <div
-                    className={`max-w-[88%] rounded-2xl p-3 leading-relaxed shadow-sm ${
-                      isAi
-                        ? "bg-[#181822] text-neutral-100 border border-white/10 rounded-tl-xs"
-                        : "bg-white text-black font-medium rounded-tr-xs"
-                    }`}
-                  >
-                    <div className="whitespace-pre-wrap">{m.content}</div>
-                  </div>
-                  <span className="text-[9px] text-neutral-500 mt-1 px-1">{m.time}</span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400/20 to-black border border-amber-400/40 flex items-center justify-center p-1 shadow-inner">
+                  <img src="/logo.svg" alt="NERKLEY AI" className="w-full h-full object-contain" />
                 </div>
-              );
-            })}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold font-serif tracking-wider text-white">NERKLEY CONCIERGE</h3>
+                    <span className="text-[8px] uppercase tracking-wider font-bold bg-amber-400/15 text-amber-300 px-1.5 py-0.5 rounded-xs border border-amber-400/30">
+                      IA 24/7
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 text-[10px] text-emerald-400 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>En línea &bull; Asistente de Compras</span>
+                  </div>
+                </div>
+              </div>
 
-            {loading && (
-              <div className="flex items-center gap-2 text-neutral-400 text-xs bg-[#181822] border border-white/10 p-2.5 rounded-2xl rounded-tl-xs max-w-[180px]">
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce"></div>
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
-                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
-                <span className="text-[10px] text-neutral-300 font-medium">Asesorando...</span>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="text-neutral-400 hover:text-white text-2xl p-1 leading-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* Banner de Contexto de Producto si está en una ficha */}
+            {currentProduct && (
+              <div 
+                onTouchMove={(e) => e.stopPropagation()}
+                className="bg-[#15151e] border-b border-white/10 p-2.5 px-3.5 flex items-center justify-between text-xs"
+              >
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <span className="text-amber-400 font-bold text-[10px] uppercase tracking-wider">Artículo activo:</span>
+                  <span className="text-white font-medium truncate max-w-[170px] sm:max-w-[200px]">{currentProduct.name}</span>
+                </div>
+                <span className="text-emerald-400 font-mono font-bold text-xs whitespace-nowrap">
+                  ${Number(currentProduct.sale_price).toLocaleString("es-CO")}
+                </span>
               </div>
             )}
-            <div ref={messagesEndRef} />
-          </div>
 
-          {/* Preguntas Rápidas Contextuales */}
-          <div className="px-3 py-2 bg-[#0e0e14] border-t border-white/5 flex gap-1.5 overflow-x-auto no-scrollbar">
-            {quickQuestions.map((q, idx) => (
-              <button
-                key={idx}
-                type="button"
-                onClick={() => handleSendMessage(q)}
-                className="whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-400/40 text-[10px] text-neutral-300 hover:text-white px-2.5 py-1 rounded-full transition-all cursor-pointer shrink-0"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-
-          {/* Entrada de Texto */}
-          <div className="p-3 bg-[#111117] border-t border-white/10 flex items-center gap-2">
-            <input
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={
-                currentProduct
-                  ? `Pregunta sobre ${currentProduct.name}...`
-                  : "Pregunta sobre envíos, pagos o productos..."
-              }
-              className="flex-1 bg-black/60 border border-white/15 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
-            />
-            <button
-              onClick={() => handleSendMessage()}
-              disabled={loading || !inputValue.trim()}
-              className="bg-amber-400 text-black px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0 shadow-md"
+            {/* Cuerpo de Mensajes con aislamiento total de scroll */}
+            <div 
+              style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+              className="flex-1 p-3.5 sm:p-4 overflow-y-auto space-y-3 text-xs overscroll-contain"
             >
-              <svg className="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-              </svg>
-            </button>
+              {messages.map((m) => {
+                const isAi = m.role === "assistant";
+                return (
+                  <div key={m.id} className={`flex flex-col ${isAi ? "items-start" : "items-end"}`}>
+                    <div
+                      className={`max-w-[88%] rounded-2xl p-3 leading-relaxed shadow-sm ${
+                        isAi
+                          ? "bg-[#181822] text-neutral-100 border border-white/10 rounded-tl-xs"
+                          : "bg-white text-black font-medium rounded-tr-xs"
+                      }`}
+                    >
+                      <div className="whitespace-pre-wrap">{m.content}</div>
+                    </div>
+                    <span className="text-[9px] text-neutral-500 mt-1 px-1">{m.time}</span>
+                  </div>
+                );
+              })}
+
+              {loading && (
+                <div className="flex items-center gap-2 text-neutral-400 text-xs bg-[#181822] border border-white/10 p-2.5 rounded-2xl rounded-tl-xs max-w-[180px]">
+                  <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce"></div>
+                  <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                  <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+                  <span className="text-[10px] text-neutral-300 font-medium">Asesorando...</span>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Preguntas Rápidas Contextuales */}
+            <div 
+              style={{ overscrollBehavior: "contain" }}
+              className="px-3 py-2 bg-[#0e0e14] border-t border-white/5 flex gap-1.5 overflow-x-auto no-scrollbar overscroll-contain"
+            >
+              {quickQuestions.map((q, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => handleSendMessage(q)}
+                  className="whitespace-nowrap bg-white/5 hover:bg-white/10 border border-white/10 hover:border-amber-400/40 text-[10px] text-neutral-300 hover:text-white px-2.5 py-1 rounded-full transition-all cursor-pointer shrink-0"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+
+            {/* Entrada de Texto */}
+            <div 
+              onTouchMove={(e) => e.stopPropagation()}
+              className="p-3 bg-[#111117] border-t border-white/10 flex items-center gap-2"
+            >
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder={
+                  currentProduct
+                    ? `Pregunta sobre ${currentProduct.name}...`
+                    : "Pregunta sobre envíos, pagos o productos..."
+                }
+                className="flex-1 bg-black/60 border border-white/15 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-neutral-500 focus:outline-hidden focus:border-amber-400 transition-colors"
+              />
+              <button
+                onClick={() => handleSendMessage()}
+                disabled={loading || !inputValue.trim()}
+                className="bg-amber-400 text-black px-3 py-2 rounded-xl text-xs font-bold hover:bg-amber-300 active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0 shadow-md"
+              >
+                <svg className="w-4 h-4 transform rotate-90" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </>
   );

@@ -103,6 +103,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     city: "Medellín",
   });
 
+  const [isCustomCity, setIsCustomCity] = useState(false);
+  const [customCityText, setCustomCityText] = useState("");
+
   const [formData, setFormData] = useState({
     fullName: "",
     documentId: "",
@@ -118,7 +121,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const setShippingDestination = (department: string, city: string) => {
     const cleanDept = department || "Antioquia";
-    const cleanCity = city || "Medellín";
+    const cleanCity = typeof city === "string" ? city : "";
     setShippingDestinationState({ department: cleanDept, city: cleanCity });
     setFormData((prev) => ({
       ...prev,
@@ -144,13 +147,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const storedDest = localStorage.getItem("NERKLEY_shipping_destination");
         if (storedDest) {
           const parsed = JSON.parse(storedDest);
-          if (parsed.department && parsed.city) {
+          if (parsed.department && typeof parsed.city === "string") {
             setShippingDestinationState(parsed);
             setFormData((prev) => ({
               ...prev,
               department: parsed.department,
               city: parsed.city,
             }));
+            const list = (COLOMBIA_REGIONS[parsed.department] || []).filter((c: string) => c !== "Otro Municipio / Corregimiento...");
+            if (parsed.city && !list.includes(parsed.city)) {
+              setIsCustomCity(true);
+              setCustomCityText(parsed.city);
+            }
           }
         }
 
@@ -608,8 +616,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
                           onChange={(e) => {
                             const newDept = e.target.value;
                             const availableCities = COLOMBIA_REGIONS[newDept] || ["Medellín"];
-                            const defaultCity = availableCities[0] === "Otro Municipio / Corregimiento..." ? "" : availableCities[0];
-                            setShippingDestination(newDept, defaultCity);
+                            const firstCity = availableCities.find((c) => c !== "Otro Municipio / Corregimiento...") || "";
+                            setIsCustomCity(false);
+                            setCustomCityText("");
+                            setShippingDestination(newDept, firstCity);
                           }}
                           className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
                         >
@@ -627,15 +637,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
                         </label>
                         <select
                           value={
-                            (COLOMBIA_REGIONS[formData.department] || []).includes(formData.city)
-                              ? formData.city
-                              : "Otro Municipio / Corregimiento..."
+                            isCustomCity || (formData.city && !(COLOMBIA_REGIONS[formData.department] || []).filter(c => c !== "Otro Municipio / Corregimiento...").includes(formData.city))
+                              ? "Otro Municipio / Corregimiento..."
+                              : formData.city
                           }
                           onChange={(e) => {
-                            if (e.target.value !== "Otro Municipio / Corregimiento...") {
-                              setShippingDestination(formData.department, e.target.value);
-                            } else {
+                            const val = e.target.value;
+                            if (val === "Otro Municipio / Corregimiento...") {
+                              setIsCustomCity(true);
+                              setCustomCityText("");
                               setShippingDestination(formData.department, "");
+                            } else {
+                              setIsCustomCity(false);
+                              setCustomCityText("");
+                              setShippingDestination(formData.department, val);
                             }
                           }}
                           className="w-full bg-[#0a0a0c] text-white border border-white/20 px-2.5 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md cursor-pointer"
@@ -649,13 +664,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
                       </div>
                     </div>
 
-                    {(!(COLOMBIA_REGIONS[formData.department] || []).includes(formData.city) || formData.city === "" || formData.city === "Otro Municipio / Corregimiento...") && (
+                    {(isCustomCity || (formData.city && !(COLOMBIA_REGIONS[formData.department] || []).filter(c => c !== "Otro Municipio / Corregimiento...").includes(formData.city)) || formData.city === "") && (
                       <input
                         type="text"
                         required
                         name="city"
-                        value={formData.city === "Otro Municipio / Corregimiento..." ? "" : formData.city}
-                        onChange={(e) => setShippingDestination(formData.department, e.target.value)}
+                        value={isCustomCity ? customCityText : formData.city}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setIsCustomCity(true);
+                          setCustomCityText(val);
+                          setShippingDestination(formData.department, val);
+                        }}
                         placeholder="Escribe el nombre de tu municipio o corregimiento *"
                         className="w-full bg-[#0a0a0c] text-white border border-amber-400/50 px-3 py-2 text-xs focus:outline-none focus:border-amber-400 rounded-md"
                       />

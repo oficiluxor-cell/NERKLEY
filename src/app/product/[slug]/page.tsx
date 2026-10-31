@@ -55,13 +55,24 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
   const [selectedCity, setSelectedCity] = useState<string>(
     shippingDestination?.city || "Medellín"
   );
+  const [isCustomCity, setIsCustomCity] = useState(false);
+  const [customCityText, setCustomCityText] = useState("");
 
   useEffect(() => {
     if (shippingDestination?.department) {
       setSelectedDepartment(shippingDestination.department);
     }
-    if (shippingDestination?.city) {
-      setSelectedCity(shippingDestination.city);
+    if (typeof shippingDestination?.city === "string") {
+      const city = shippingDestination.city;
+      const dept = shippingDestination.department || "Antioquia";
+      const list = (COLOMBIA_REGIONS[dept] || []).filter((c: string) => c !== "Otro Municipio / Corregimiento...");
+      if (city && !list.includes(city)) {
+        setIsCustomCity(true);
+        setCustomCityText(city);
+        setSelectedCity(city);
+      } else {
+        setSelectedCity(city);
+      }
     }
   }, [shippingDestination]);
 
@@ -588,9 +599,11 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                             const newDept = e.target.value;
                             setSelectedDepartment(newDept);
                             const cities = COLOMBIA_REGIONS[newDept] || ["Medellín"];
-                            const defaultCity = cities[0] === "Otro Municipio / Corregimiento..." ? "" : cities[0];
-                            setSelectedCity(defaultCity);
-                            setShippingDestination(newDept, defaultCity);
+                            const firstCity = cities.find((c) => c !== "Otro Municipio / Corregimiento...") || "";
+                            setIsCustomCity(false);
+                            setCustomCityText("");
+                            setSelectedCity(firstCity);
+                            setShippingDestination(newDept, firstCity);
                           }}
                           className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
                         >
@@ -608,18 +621,22 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                         </label>
                         <select
                           value={
-                            (COLOMBIA_REGIONS[selectedDepartment] || []).includes(selectedCity)
-                              ? selectedCity
-                              : "Otro Municipio / Corregimiento..."
+                            isCustomCity || (selectedCity && !(COLOMBIA_REGIONS[selectedDepartment] || []).filter(c => c !== "Otro Municipio / Corregimiento...").includes(selectedCity))
+                              ? "Otro Municipio / Corregimiento..."
+                              : selectedCity
                           }
                           onChange={(e) => {
                             const val = e.target.value;
-                            if (val !== "Otro Municipio / Corregimiento...") {
-                              setSelectedCity(val);
-                              setShippingDestination(selectedDepartment, val);
-                            } else {
+                            if (val === "Otro Municipio / Corregimiento...") {
+                              setIsCustomCity(true);
+                              setCustomCityText("");
                               setSelectedCity("");
                               setShippingDestination(selectedDepartment, "");
+                            } else {
+                              setIsCustomCity(false);
+                              setCustomCityText("");
+                              setSelectedCity(val);
+                              setShippingDestination(selectedDepartment, val);
                             }
                           }}
                           className="w-full bg-[#14141c] text-white border border-white/20 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
@@ -633,14 +650,17 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                       </div>
                     </div>
 
-                    {(!(COLOMBIA_REGIONS[selectedDepartment] || []).includes(selectedCity) || selectedCity === "" || selectedCity === "Otro Municipio / Corregimiento...") && (
+                    {(isCustomCity || (selectedCity && !(COLOMBIA_REGIONS[selectedDepartment] || []).filter(c => c !== "Otro Municipio / Corregimiento...").includes(selectedCity)) || selectedCity === "") && (
                       <div className="pt-2">
                         <input
                           type="text"
-                          value={selectedCity === "Otro Municipio / Corregimiento..." ? "" : selectedCity}
+                          value={isCustomCity ? customCityText : selectedCity}
                           onChange={(e) => {
-                            setSelectedCity(e.target.value);
-                            setShippingDestination(selectedDepartment, e.target.value);
+                            const val = e.target.value;
+                            setIsCustomCity(true);
+                            setCustomCityText(val);
+                            setSelectedCity(val);
+                            setShippingDestination(selectedDepartment, val);
                           }}
                           placeholder="Escribe el nombre de tu municipio o corregimiento..."
                           className="w-full bg-[#14141c] text-white border border-amber-400/40 px-2.5 py-2 text-xs rounded-lg focus:outline-none focus:border-amber-400 placeholder-neutral-500"
