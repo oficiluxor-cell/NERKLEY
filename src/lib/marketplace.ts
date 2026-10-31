@@ -25,6 +25,7 @@ export interface Seller {
   logo_url?: string | null;
   banner_url?: string | null;
   bio?: string | null;
+  video_url?: string | null;
 }
 
 export interface SellerWallet {

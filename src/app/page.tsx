@@ -23,7 +23,11 @@ import {
   getSubcategoryIcon,
 } from "@/lib/categories";
 
-interface Product extends SmartSearchableProduct {}
+interface Product extends SmartSearchableProduct {
+  seller_id?: string;
+  seller_name?: string;
+  is_official?: boolean;
+}
 
 const RANDOM_NAMES = [
   "Carlos M.", "Valentina R.", "Andrés F.", "Camila P.", "Sebastián G.",
@@ -40,6 +44,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [sortBy, setSortBy] = useState<string>("featured");
   const [loading, setLoading] = useState(true);
+  const [sellers, setSellers] = useState<any[]>([]);
   
   const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart, openWarrantyModal, isCartBouncing } = useCart();
 
@@ -88,11 +93,36 @@ export default function Home() {
 
         setCategories(Array.from(categoriesMap.values()));
       }
+
+      // Cargar boutiques registradas para el buscador inteligente
+      try {
+        const { data: sellersData } = await supabase
+          .from("sellers")
+          .select("id, store_name, slug, logo_url, banner_url, city, department, category, is_verified, bio")
+          .in("status", ["verified", "pending"]);
+
+        if (sellersData) {
+          setSellers(sellersData);
+        }
+      } catch (sellerErr) {
+        console.error("Error al cargar sellers:", sellerErr);
+      }
+
       setLoading(false);
     }
 
     fetchProducts();
   }, []);
+
+  const matchedBoutiques = useMemo(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) return [];
+    const q = searchQuery.toLowerCase().trim();
+    return sellers.filter((s) => {
+      const store = (s.store_name || "").toLowerCase();
+      const slug = (s.slug || "").toLowerCase();
+      return store.includes(q) || slug.includes(q) || (store && q.includes(store));
+    });
+  }, [sellers, searchQuery]);
 
   useEffect(() => {
     if (products.length === 0) return;
@@ -656,6 +686,54 @@ export default function Home() {
           </div>
         </div>
 
+        {/* BOUTIQUES COINCIDENTES CON LA BÚSQUEDA (EJ: FLOR) */}
+        {matchedBoutiques.length > 0 && searchQuery.trim().length > 0 && (
+          <div className="mb-8 space-y-3">
+            {matchedBoutiques.map((boutique) => (
+              <div
+                key={boutique.id}
+                className="p-4 sm:p-6 bg-gradient-to-r from-neutral-900 via-[#191724] to-neutral-900 border-2 border-amber-400/50 rounded-2xl shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-5 animate-in fade-in"
+              >
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-black border-2 border-amber-400/70 overflow-hidden flex items-center justify-center shrink-0 shadow-xl">
+                    {boutique.logo_url ? (
+                      <img src={boutique.logo_url} alt={boutique.store_name} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl sm:text-2xl font-serif font-black text-amber-300">
+                        {boutique.store_name ? boutique.store_name[0].toUpperCase() : "B"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-[10px] uppercase tracking-widest text-amber-400 font-extrabold flex items-center gap-1">
+                        <span>🏛️</span> Boutique Encontrada
+                      </span>
+                      <span className="text-[8.5px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.2 rounded-full font-bold uppercase tracking-wider">
+                        ✓ Verificada
+                      </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-serif font-bold text-white truncate">
+                      {boutique.store_name}
+                    </h3>
+                    <p className="text-xs text-neutral-300 font-light truncate">
+                      {boutique.category || "Moda & Lujo"} &bull; 📍 {boutique.city || "Colombia"}
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/tienda/${boutique.slug || encodeURIComponent(boutique.store_name.toLowerCase())}`}
+                  className="w-full sm:w-auto bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 shrink-0"
+                >
+                  <span>Visitar Perfil de {boutique.store_name}</span>
+                  <span>➔</span>
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+
         {loading ? (
           <div className="text-center py-20 text-[10px] md:text-xs text-neutral-400 uppercase tracking-[0.3em] animate-pulse font-medium">
             Sincronizando inventario exclusivo NERKLEY...
@@ -773,6 +851,19 @@ export default function Home() {
                         </span>
                       )}
                     </div>
+
+                    {product.seller_name && (
+                      <div className="mb-1">
+                        <Link
+                          href={`/tienda/${encodeURIComponent(product.seller_name.toLowerCase())}`}
+                          className="inline-flex items-center gap-1 text-[7.5px] md:text-[8.5px] text-amber-300/90 hover:text-amber-200 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/25 px-1.5 py-0.5 rounded transition-colors truncate max-w-full"
+                          title={`Ver perfil y colección de ${product.seller_name}`}
+                        >
+                          <span>🏛️</span>
+                          <span className="font-semibold truncate">{product.seller_name}</span>
+                        </Link>
+                      </div>
+                    )}
                     
                     <Link href={`/product/${product.slug}`}>
                       <h3 className="text-[11px] md:text-sm font-serif uppercase tracking-wider font-semibold text-white mb-1 md:mb-1.5 line-clamp-none min-h-[2.4rem] md:min-h-[2.6rem] leading-snug hover:text-amber-200 transition-colors cursor-pointer">

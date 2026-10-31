@@ -63,6 +63,17 @@ function toggleToken(current: string, token: string): string {
   }
 }
 
+function extractSellerVideo(bio?: string | null): { cleanBio: string; videoUrl: string | null } {
+  if (!bio) return { cleanBio: "", videoUrl: null };
+  const match = bio.match(/\[video:\s*([^\]]+)\]/i);
+  if (match) {
+    const videoUrl = match[1].trim();
+    const cleanBio = bio.replace(/\[video:\s*([^\]]+)\]/gi, "").trim();
+    return { cleanBio, videoUrl };
+  }
+  return { cleanBio: bio, videoUrl: null };
+}
+
 export default function VenderPage() {
   const [sellerSession, setSellerSession] = useState<Seller | null>(null);
   const [viewMode, setViewMode] = useState<"dashboard" | "register" | "login">("register");
@@ -114,6 +125,7 @@ export default function VenderPage() {
     department: "Antioquia",
     category: "Perfumería & Fragancias",
     bio: "",
+    video_url: "",
     logo_url: "",
     banner_url: "",
     bank_name: "Bancolombia",
@@ -123,6 +135,7 @@ export default function VenderPage() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
+  const [copiedProfileLink, setCopiedProfileLink] = useState(false);
 
   // Formulario de Nuevo Producto de Vendedor con todas las herramientas de nivel Admin
   const [newProdName, setNewProdName] = useState("");
@@ -407,6 +420,7 @@ export default function VenderPage() {
   // Sincronizar datos de perfil cuando la sesión esté disponible
   useEffect(() => {
     if (sellerSession) {
+      const { cleanBio, videoUrl } = extractSellerVideo(sellerSession.bio);
       setProfileForm({
         store_name: sellerSession.store_name || "",
         owner_name: sellerSession.owner_name || "",
@@ -416,7 +430,8 @@ export default function VenderPage() {
         city: sellerSession.city || "Medellín",
         department: sellerSession.department || "Antioquia",
         category: sellerSession.category || "Perfumería & Fragancias",
-        bio: sellerSession.bio || "",
+        bio: cleanBio || "",
+        video_url: sellerSession.video_url || videoUrl || "",
         logo_url: sellerSession.logo_url || "",
         banner_url: sellerSession.banner_url || "",
         bank_name: sellerSession.bank_name || "Bancolombia",
@@ -434,6 +449,11 @@ export default function VenderPage() {
     setSavingProfile(true);
     setProfileSuccessMsg("");
     try {
+      let finalBio = profileForm.bio.trim();
+      if (profileForm.video_url.trim()) {
+        finalBio = `${finalBio}\n[video: ${profileForm.video_url.trim()}]`.trim();
+      }
+
       const updateData: any = {
         store_name: profileForm.store_name.trim(),
         owner_name: profileForm.owner_name.trim(),
@@ -442,7 +462,7 @@ export default function VenderPage() {
         city: profileForm.city.trim(),
         department: profileForm.department.trim(),
         category: profileForm.category.trim(),
-        bio: profileForm.bio.trim(),
+        bio: finalBio,
         logo_url: profileForm.logo_url.trim() || null,
         banner_url: profileForm.banner_url.trim() || null,
         bank_name: profileForm.bank_name.trim(),
@@ -464,6 +484,7 @@ export default function VenderPage() {
       const updatedSession: Seller = {
         ...sellerSession,
         ...updateData,
+        video_url: profileForm.video_url.trim() || null,
       };
 
       setSellerSession(updatedSession);
@@ -1774,6 +1795,64 @@ export default function VenderPage() {
                 </div>
               )}
 
+              {/* CAJA DE ENLACE PÚBLICO Y COMPARTIR DE LA BOUTIQUE */}
+              <div className="bg-gradient-to-r from-amber-500/15 via-[#1a1710] to-neutral-900 border-2 border-amber-400/40 p-5 sm:p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-2xl relative overflow-hidden">
+                <div className="space-y-1.5 z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-amber-400 text-base">🏛️</span>
+                    <h4 className="text-xs uppercase font-extrabold tracking-widest text-amber-300">
+                      Tu Tienda y Perfil Público en NERKLEY
+                    </h4>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
+                      ✓ En Línea
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-white font-mono bg-black/60 px-3 py-1.5 rounded-lg border border-white/10 break-all select-all">
+                    {typeof window !== "undefined" ? `${window.location.origin}/tienda/${sellerSession.slug || encodeURIComponent(sellerSession.store_name.toLowerCase())}` : `https://nerkley-m4t2.vercel.app/tienda/${sellerSession.slug || sellerSession.store_name}`}
+                  </p>
+                  <p className="text-[11px] text-neutral-300">
+                    Tus compradores pueden buscarte por tu nombre <strong>"{sellerSession.store_name}"</strong> o ingresar a este enlace para ver tu portada, presentación, video y comprar tus productos exclusivos directamente.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 z-10 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const publicUrl = `${typeof window !== "undefined" ? window.location.origin : "https://nerkley-m4t2.vercel.app"}/tienda/${sellerSession.slug || encodeURIComponent(sellerSession.store_name.toLowerCase())}`;
+                      navigator.clipboard.writeText(publicUrl);
+                      setCopiedProfileLink(true);
+                      setTimeout(() => setCopiedProfileLink(false), 2500);
+                    }}
+                    className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                  >
+                    <span>{copiedProfileLink ? "✅" : "📋"}</span>
+                    <span>{copiedProfileLink ? "¡Copiado!" : "Copiar Enlace"}</span>
+                  </button>
+
+                  <a
+                    href={`/tienda/${sellerSession.slug || encodeURIComponent(sellerSession.store_name.toLowerCase())}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-lg active:scale-95 cursor-pointer"
+                  >
+                    <span>Ver Perfil Público</span>
+                    <span>↗</span>
+                  </a>
+
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(`¡Hola! Te invito a conocer mi boutique oficial en NERKLEY: ${typeof window !== "undefined" ? window.location.origin : "https://nerkley-m4t2.vercel.app"}/tienda/${sellerSession.slug || encodeURIComponent(sellerSession.store_name.toLowerCase())}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-[#25D366] hover:bg-[#20ba59] text-white px-3.5 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+                    title="Compartir enlace de tu boutique por WhatsApp"
+                  >
+                    <span>📲</span>
+                    <span>Compartir</span>
+                  </a>
+                </div>
+              </div>
+
               {/* TARJETA DE PREVISUALIZACIÓN PÚBLICA DE LA BOUTIQUE */}
               <div className="bg-[#111116] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                 {/* BANNER DE PORTADA */}
@@ -1855,10 +1934,17 @@ export default function VenderPage() {
 
                 {/* BIOGRAFÍA */}
                 {profileForm.bio && (
-                  <div className="px-6 pb-6 pt-2 border-t border-white/5">
+                  <div className="px-6 pb-4 pt-2 border-t border-white/5">
                     <p className="text-xs text-neutral-300 font-light leading-relaxed italic">
                       "{profileForm.bio}"
                     </p>
+                  </div>
+                )}
+
+                {profileForm.video_url && (
+                  <div className="px-6 pb-5 flex items-center gap-2 text-xs text-amber-300">
+                    <span>🎥</span>
+                    <span className="font-medium">Video de presentación configurado para los clientes</span>
                   </div>
                 )}
               </div>
@@ -1944,6 +2030,23 @@ export default function VenderPage() {
                         placeholder="https://ejemplo.com/banner.jpg"
                         className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                       />
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="block text-xs font-semibold text-neutral-300 flex items-center justify-between">
+                        <span>Video de Presentación / Reels de la Boutique (Opcional)</span>
+                        <span className="text-[10px] text-amber-400 font-normal">YouTube, TikTok o enlace directo MP4</span>
+                      </label>
+                      <input
+                        type="url"
+                        value={profileForm.video_url}
+                        onChange={(e) => setProfileForm({ ...profileForm, video_url: e.target.value })}
+                        placeholder="Ej: https://www.youtube.com/watch?v=... o https://www.tiktok.com/@... o https://ejemplo.com/video.mp4"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                      <p className="text-[10px] text-neutral-400">
+                        🎥 Si agregas un video, los clientes podrán reproducirlo directamente en tu perfil público para conocer más de ti y de tus productos.
+                      </p>
                     </div>
                   </div>
                 </div>

@@ -432,10 +432,15 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
                     <span>👑</span> Tienda Oficial NERKLEY &bull; Garantía Directa
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/5 border border-white/15 text-neutral-200 text-[10px] font-medium">
+                  <Link
+                    href={`/tienda/${encodeURIComponent((product.seller_name || "").toLowerCase().trim())}`}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-amber-400/10 border border-white/15 hover:border-amber-400/40 text-neutral-200 hover:text-amber-300 text-xs font-medium transition-all group cursor-pointer shadow-sm"
+                    title={`Ver boutique, perfil y catálogo de ${product.seller_name}`}
+                  >
                     <span className="text-emerald-400 font-bold">⭐ Boutique Verificada:</span>
-                    <strong className="text-white">{product.seller_name}</strong>
-                  </div>
+                    <strong className="text-white group-hover:text-amber-200 underline decoration-amber-400/40">{product.seller_name}</strong>
+                    <span className="text-amber-400 text-xs group-hover:translate-x-0.5 transition-transform">➔</span>
+                  </Link>
                 )}
               </div>
 
