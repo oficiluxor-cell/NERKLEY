@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, use, useMemo } from "react";
+import { useEffect, useState, use, useMemo, Suspense } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useCart } from "@/context/CartContext";
@@ -74,10 +74,10 @@ function formatVideoEmbed(url?: string | null) {
   return { type: "iframe" as const, src: clean };
 }
 
-export default function TiendaPage({ params }: { params: Promise<{ slug: string }> }) {
+function TiendaContent({ params }: { params: Promise<{ slug: string }> }) {
   const resolvedParams = use(params);
-  const rawSlug = resolvedParams.slug;
-  const decodedSlug = decodeURIComponent(rawSlug).toLowerCase().trim();
+  const rawSlug = resolvedParams?.slug || "";
+  const decodedSlug = rawSlug ? decodeURIComponent(rawSlug).toLowerCase().trim() : "";
 
   const [seller, setSeller] = useState<Seller | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -705,5 +705,19 @@ export default function TiendaPage({ params }: { params: Promise<{ slug: string 
         </p>
       </footer>
     </div>
+  );
+}
+
+export default function TiendaPage({ params }: { params: Promise<{ slug: string }> }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
+          Cargando Boutique Oficial NERKLEY...
+        </div>
+      }
+    >
+      <TiendaContent params={params} />
+    </Suspense>
   );
 }
