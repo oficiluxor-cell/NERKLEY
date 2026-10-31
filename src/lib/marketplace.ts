@@ -215,14 +215,21 @@ export async function getFreshSellerSession(): Promise<Seller | null> {
 
   try {
     const cached: Seller = JSON.parse(raw);
-    if (!cached?.id) return null;
+    if (!cached || (!cached.id && !cached.email)) return null;
 
     // Verificar en Supabase para obtener el estado más reciente (ej. si fue aprobado recientemente por el admin)
-    const { data } = await supabase
-      .from("sellers")
-      .select("*")
-      .eq("id", cached.id)
-      .single();
+    const isUuid = cached.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cached.id);
+    let query = supabase.from("sellers").select("*");
+    
+    if (isUuid) {
+      query = query.eq("id", cached.id);
+    } else if (cached.email) {
+      query = query.eq("email", cached.email.toLowerCase().trim());
+    } else {
+      return cached;
+    }
+
+    const { data } = await query.maybeSingle();
 
     if (data) {
       localStorage.setItem("NERKLEY_seller_session", JSON.stringify(data));
@@ -231,15 +238,20 @@ export async function getFreshSellerSession(): Promise<Seller | null> {
 
     // Fallback a local sellers si el admin lo aprobó localmente
     const localSellers: Seller[] = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
-    const localFound = localSellers.find((s) => s.id === cached.id);
+    const localFound = localSellers.find((s) => (cached.id && s.id === cached.id) || (cached.email && s.email.toLowerCase() === cached.email.toLowerCase()));
     if (localFound) {
       localStorage.setItem("NERKLEY_seller_session", JSON.stringify(localFound));
       return localFound;
     }
 
     return cached;
-  } catch {
-    return null;
+  } catch (err) {
+    console.warn("Error leyendo sesión del vendedor:", err);
+    try {
+      return JSON.parse(raw) as Seller;
+    } catch {
+      return null;
+    }
   }
 }
 

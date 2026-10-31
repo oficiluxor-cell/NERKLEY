@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { COLOMBIA_REGIONS } from "@/lib/shipping";
@@ -52,6 +52,7 @@ export default function VenderPage() {
   const [sellerOrders, setSellerOrders] = useState<any[]>([]);
   const [activeSellerTab, setActiveSellerTab] = useState<"productos" | "pedidos" | "billetera">("productos");
   const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [guideInputs, setGuideInputs] = useState<Record<string, { company?: string; guide?: string }>>({});
 
   // Formulario de Nuevo Producto de Vendedor
   const [newProdName, setNewProdName] = useState("");
@@ -113,6 +114,93 @@ export default function VenderPage() {
       }
     } catch (e) {
       console.warn("Error cargando pedidos de vendedor:", e);
+    }
+  };
+
+  // Sincronización Automática en Tiempo Real sin recargar
+  useEffect(() => {
+    if (!sellerSession?.id) return;
+
+    const channel = supabase
+      .channel(`seller_realtime_${sellerSession.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        loadSellerData(sellerSession.id, sellerSession.store_name);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        loadSellerData(sellerSession.id, sellerSession.store_name);
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "sellers" }, async () => {
+        const refreshed = await getFreshSellerSession();
+        if (refreshed) setSellerSession(refreshed);
+      })
+      .subscribe();
+
+    // Sincronización silenciosa en segundo plano cada 6 segundos
+    const interval = setInterval(() => {
+      loadSellerData(sellerSession.id, sellerSession.store_name);
+    }, 6000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+    };
+  }, [sellerSession?.id, sellerSession?.store_name]);
+
+  // Cálculos dinámicos de billetera para el vendedor (Garantía Escrow vs Disponible)
+  const sellerWalletTotals = useMemo(() => {
+    let pending = 0;
+    let available = 0;
+    const commission = sellerSession?.commission_rate ?? 12;
+
+    sellerOrders.forEach((o) => {
+      const isPaid = o.status === "Pagado / En Preparación" || o.status === "En Despacho / Enviado" || o.status === "Entregado" || o.status === "Pagado";
+      if (!isPaid) return;
+      const total = Number(o.total_price) || 0;
+      const { sellerNet } = calculateOrderCommission(total, commission);
+      if (o.notes?.includes("FONDOS_LIBERADOS")) {
+        available += sellerNet;
+      } else {
+        pending += sellerNet;
+      }
+    });
+
+    return { pending, available };
+  }, [sellerOrders, sellerSession]);
+
+  const handleSaveShippingGuide = async (orderId: string, company: string, guide: string) => {
+    if (!guide.trim()) {
+      alert("Por favor ingresa el número de guía asignado por la transportadora.");
+      return;
+    }
+
+    try {
+      const order = sellerOrders.find((o) => o.id === orderId);
+      const noteTag = `[Guía asignada: ${company} - ${guide.trim()} por ${sellerSession?.store_name || "Vendedor"}]`;
+      const updatedNotes = order?.notes ? `${order.notes} ${noteTag}` : noteTag;
+
+      const { error } = await supabase
+        .from("orders")
+        .update({
+          transport_company: company,
+          shipping_guide: guide.trim(),
+          status: "En Despacho / Enviado",
+          notes: updatedNotes,
+        })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      setSellerOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, transport_company: company, shipping_guide: guide.trim(), status: "En Despacho / Enviado", notes: updatedNotes }
+            : o
+        )
+      );
+
+      alert("¡Guía guardada con éxito! La administración de NERKLEY rastreará la entrega para liberar tus fondos.");
+    } catch (err: any) {
+      alert("Error al guardar guía: " + (err.message || JSON.stringify(err)));
     }
   };
 
@@ -348,7 +436,7 @@ export default function VenderPage() {
                   <span>🔒</span> Saldo en Garantía
                 </span>
                 <p className="text-2xl font-bold font-mono text-amber-300">
-                  $ 0 <span className="text-xs text-neutral-400">COP</span>
+                  $ {sellerWalletTotals.pending.toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
                 </p>
                 <p className="text-[10px] text-neutral-400">Dinero retenido de pedidos en camino</p>
               </div>
@@ -358,7 +446,7 @@ export default function VenderPage() {
                   <span>💰</span> Saldo Disponible
                 </span>
                 <p className="text-2xl font-bold font-mono text-emerald-400">
-                  $ 0 <span className="text-xs text-neutral-400">COP</span>
+                  $ {sellerWalletTotals.available.toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
                 </p>
                 <p className="text-[10px] text-neutral-400">Listo para retirar a {sellerSession.bank_name}</p>
               </div>
@@ -665,26 +753,124 @@ export default function VenderPage() {
                   <p className="text-xs text-neutral-400">Cuando un cliente compre uno de tus productos, aparecerá listado aquí.</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {sellerOrders.map((o) => (
-                    <div key={o.id} className="p-4 bg-[#111116] border border-white/10 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-3">
-                      <div className="space-y-1">
-                        <span className="font-mono font-bold text-xs text-white block">{o.reference || `NRK-${o.id.slice(0, 8)}`}</span>
-                        <p className="text-xs text-neutral-300 font-medium">{o.product_name}</p>
-                        <span className="text-[10px] text-neutral-400 block">
-                          📍 {o.city} &bull; {o.address} &bull; Cliente: {o.customer_name} ({o.customer_phone})
-                        </span>
+                <div className="space-y-4">
+                  {sellerOrders.map((o) => {
+                    const isLiberated = o.notes?.includes("FONDOS_LIBERADOS");
+                    const total = Number(o.total_price) || 0;
+                    const { sellerNet } = calculateOrderCommission(total, commission);
+                    const currentGuide = guideInputs[o.id]?.guide !== undefined ? guideInputs[o.id].guide : (o.shipping_guide || "");
+                    const currentCompany = guideInputs[o.id]?.company !== undefined ? guideInputs[o.id].company : (o.transport_company || "Interrapidísimo");
+
+                    return (
+                      <div
+                        key={o.id}
+                        className={`p-5 rounded-2xl border space-y-4 transition-all ${
+                          isLiberated ? "bg-[#0d0d12] border-emerald-500/30" : "bg-[#111116] border-white/10 shadow-sm"
+                        }`}
+                      >
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                          <div className="flex items-center gap-3">
+                            <span className="font-mono font-bold text-white text-sm">
+                              {o.reference || `NRK-${o.id.slice(0, 8)}`}
+                            </span>
+                            <span className="text-[10px] text-neutral-400 font-mono">
+                              {new Date(o.created_at).toLocaleDateString("es-CO")}
+                            </span>
+                          </div>
+
+                          <div>
+                            {isLiberated ? (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold uppercase rounded-full">
+                                <span>✅</span> Dinero Liberado: $ {sellerNet.toLocaleString("es-CO")} COP
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold uppercase rounded-full">
+                                <span>🔒</span> En Garantía Escrow: $ {sellerNet.toLocaleString("es-CO")} COP
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                          <div className="space-y-1.5 bg-black/40 p-3.5 rounded-xl border border-white/5">
+                            <span className="text-[10px] text-neutral-400 uppercase font-bold block border-b border-white/5 pb-1">
+                              🛍️ Producto & Cliente
+                            </span>
+                            <p className="font-semibold text-white text-sm">{o.product_name}</p>
+                            <p className="text-neutral-300">Cliente: <strong className="text-white">{o.customer_name}</strong></p>
+                            <p className="text-neutral-300">Destino: 📍 {o.city} &bull; {o.address}</p>
+                            <p className="text-neutral-400 font-mono">Tel: {o.customer_phone}</p>
+                            <div className="pt-1 text-emerald-400 font-mono font-bold">
+                              Tu ganancia neta ({100 - commission}%): $ {sellerNet.toLocaleString("es-CO")} COP
+                            </div>
+                          </div>
+
+                          <div className="space-y-2.5 bg-black/40 p-3.5 rounded-xl border border-white/5">
+                            <span className="text-[10px] text-neutral-400 uppercase font-bold block border-b border-white/5 pb-1">
+                              🚚 Despacho & Número de Guía
+                            </span>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] uppercase tracking-wider text-neutral-400 block mb-1">
+                                  Transportadora
+                                </label>
+                                <select
+                                  value={currentCompany}
+                                  onChange={(e) =>
+                                    setGuideInputs((prev) => ({
+                                      ...prev,
+                                      [o.id]: { ...prev[o.id], company: e.target.value, guide: currentGuide },
+                                    }))
+                                  }
+                                  className="w-full bg-[#0a0a0c] border border-white/20 p-2 text-xs text-white rounded focus:border-amber-400 cursor-pointer"
+                                >
+                                  <option value="Interrapidísimo">Interrapidísimo</option>
+                                  <option value="Servientrega">Servientrega</option>
+                                  <option value="Coordinadora">Coordinadora</option>
+                                  <option value="Envía">Envía</option>
+                                  <option value="TCC">TCC</option>
+                                  <option value="Otra">Otra Transportadora</option>
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="text-[9px] uppercase tracking-wider text-neutral-400 block mb-1">
+                                  Número de Guía *
+                                </label>
+                                <input
+                                  type="text"
+                                  value={currentGuide}
+                                  onChange={(e) =>
+                                    setGuideInputs((prev) => ({
+                                      ...prev,
+                                      [o.id]: { company: currentCompany, guide: e.target.value },
+                                    }))
+                                  }
+                                  placeholder="Ej: 2400981726"
+                                  className="w-full bg-[#0a0a0c] border border-white/20 p-2 text-xs text-emerald-400 font-mono font-bold rounded focus:border-amber-400 placeholder-neutral-600"
+                                />
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleSaveShippingGuide(o.id, currentCompany || "Interrapidísimo", currentGuide || "")}
+                              className="w-full bg-amber-400 hover:bg-amber-300 text-black py-2 rounded text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-98 flex items-center justify-center gap-1.5"
+                            >
+                              <span>💾</span>
+                              <span>Guardar Guía y Notificar Envío</span>
+                            </button>
+                            {o.shipping_guide && (
+                              <p className="text-[10px] text-emerald-400 text-center font-mono">
+                                ✓ Guía registrada: {o.transport_company} No. {o.shipping_guide}
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-right space-y-1 shrink-0">
-                        <span className="font-mono font-bold text-emerald-400 text-sm block">
-                          $ {Number(o.total_price).toLocaleString("es-CO")} COP
-                        </span>
-                        <span className="text-[9px] uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 inline-block">
-                          {o.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -705,7 +891,9 @@ export default function VenderPage() {
               <div className="bg-[#111116] border border-white/10 p-6 rounded-2xl space-y-4">
                 <div className="flex justify-between items-baseline border-b border-white/10 pb-4">
                   <span className="text-xs text-neutral-400 uppercase font-semibold">Saldo Disponible para Retiro:</span>
-                  <span className="text-2xl font-mono font-bold text-emerald-400">$ 0 COP</span>
+                  <span className="text-2xl font-mono font-bold text-emerald-400">
+                    $ {sellerWalletTotals.available.toLocaleString("es-CO")} COP
+                  </span>
                 </div>
 
                 <div className="p-3 bg-black/40 border border-white/5 rounded-lg space-y-1 text-xs">
@@ -715,13 +903,27 @@ export default function VenderPage() {
                   <p className="text-neutral-400 text-[10px]">Titular: {sellerSession.owner_name} (CC/NIT: {sellerSession.owner_document})</p>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={true}
-                  className="w-full bg-white/10 text-neutral-400 py-3 rounded-lg text-xs font-bold uppercase tracking-wider cursor-not-allowed"
-                >
-                  Solicitar Retiro a {sellerSession.bank_name} (Mínimo $50.000 COP)
-                </button>
+                {sellerWalletTotals.available >= 50000 ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const msg = encodeURIComponent(`Hola NERKLEY Concierge, soy ${sellerSession.owner_name} de la boutique "${sellerSession.store_name}". Solicito el retiro de mi saldo disponible de $ ${sellerWalletTotals.available.toLocaleString("es-CO")} COP a mi cuenta ${sellerSession.bank_name} No. ${sellerSession.account_number}.`);
+                      window.open(`https://wa.me/573009292323?text=${msg}`, "_blank");
+                    }}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black py-3 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-98 flex items-center justify-center gap-2"
+                  >
+                    <span>💸</span>
+                    <span>Solicitar Retiro de $ {sellerWalletTotals.available.toLocaleString("es-CO")} COP</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={true}
+                    className="w-full bg-white/10 text-neutral-400 py-3 rounded-lg text-xs font-bold uppercase tracking-wider cursor-not-allowed"
+                  >
+                    Solicitar Retiro a {sellerSession.bank_name} (Mínimo $50.000 COP)
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -1100,6 +1302,19 @@ export default function VenderPage() {
                 >
                   {regLoading ? "Enviando Solicitud..." : "Postular Mi Boutique para Verificación"}
                 </button>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setViewMode("login");
+                      setErrorMessage("");
+                    }}
+                    className="text-xs text-neutral-400 hover:text-amber-300 underline cursor-pointer"
+                  >
+                    ¿Ya registraste tu boutique antes? Iniciar Sesión aquí &rarr;
+                  </button>
+                </div>
               </div>
             </form>
           </main>

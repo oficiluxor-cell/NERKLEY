@@ -25,6 +25,7 @@ interface Product {
   colors?: string;
   stock: number;
   badge?: string;
+  seller_id?: string;
   seller_name?: string;
   is_official?: boolean;
 }
@@ -233,6 +234,8 @@ function ProductDetailContent({ params }: { params: Promise<{ slug: string }> })
       quantity: quantity,
       maxStock: product.stock,
       free_shipping: hasFreeShipping(product),
+      seller_id: product.seller_id,
+      seller_name: product.seller_name,
     });
 
     setIsCartOpen(true);

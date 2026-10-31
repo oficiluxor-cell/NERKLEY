@@ -57,6 +57,9 @@ interface Product {
   stock: number;
   is_active: boolean;
   badge?: string;
+  seller_id?: string | null;
+  seller_name?: string | null;
+  is_official?: boolean;
 }
 
 const STATUS_OPTIONS = [
@@ -118,7 +121,7 @@ export default function AdminDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "clientes" | "publicar" | "vendedores">("pedidos");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "pedidos" | "clientes" | "publicar" | "vendedores" | "liberaciones">("pedidos");
   const [orderFilter, setOrderFilter] = useState<"despachar" | "enviados" | "entregados" | "pendientes" | "todos">("despachar");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -130,6 +133,10 @@ export default function AdminDashboard() {
   const [sellerStatusFilter, setSellerStatusFilter] = useState<"todos" | "pending" | "verified" | "paused">("todos");
   const [editingCommissionSellerId, setEditingCommissionSellerId] = useState<string | null>(null);
   const [newCommissionRate, setNewCommissionRate] = useState<string>("12");
+  const [inspectingSeller, setInspectingSeller] = useState<Seller | null>(null);
+  const [productOriginFilter, setProductOriginFilter] = useState<"oficiales" | "vendedores" | "todos">("oficiales");
+  const [escrowFilter, setEscrowFilter] = useState<"todos" | "retenidos" | "liberados">("retenidos");
+  const [escrowSearch, setEscrowSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -209,7 +216,7 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  // Suscripción Realtime a Supabase
+  // Suscripción Realtime a Supabase (Actualización Automática sin recargar)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -228,9 +235,24 @@ export default function AdminDashboard() {
           fetchData(false);
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "sellers" },
+        () => {
+          fetchData(false);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "products" },
+        () => {
+          fetchData(false);
+        }
+      )
       .subscribe();
 
-    const interval = setInterval(() => fetchData(false), 12000);
+    // Sincronización silenciosa en segundo plano cada 6 segundos
+    const interval = setInterval(() => fetchData(false), 6000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -1163,9 +1185,134 @@ export default function AdminDashboard() {
     return { total: products.length, unidades, combos };
   }, [products]);
 
-  // Productos filtrados para el inventario
+  // Estadísticas de origen de productos (Aislamiento estricto de catálogo)
+  const officialProductsCount = useMemo(() => {
+    return products.filter((p) => p.is_official !== false && (!p.seller_id || p.seller_name === "Tienda Oficial NERKLEY")).length;
+  }, [products]);
+
+  const vendorProductsCount = useMemo(() => {
+    return products.filter((p) => p.is_official === false || (p.seller_id && p.seller_name !== "Tienda Oficial NERKLEY")).length;
+  }, [products]);
+
+  // Auxiliares para el módulo de Escrow & Liberación de Fondos
+  const extractSellersFromOrder = (order: Order): { sellerName: string; sellerObj?: Seller }[] => {
+    const list: { sellerName: string; sellerObj?: Seller }[] = [];
+    if (order.notes && order.notes.includes("Vendido por:")) {
+      const match = order.notes.match(/Vendido por:\s*([^|\]\n]+)/i);
+      if (match && match[1]) {
+        const parts = match[1].split(",").map((s) => s.trim());
+        for (const p of parts) {
+          const found = sellers.find((s) => s.store_name.toLowerCase() === p.toLowerCase());
+          list.push({ sellerName: p, sellerObj: found });
+        }
+      }
+    }
+    if (list.length === 0) {
+      for (const s of sellers) {
+        if (
+          (order.product_name || "").toLowerCase().includes(s.store_name.toLowerCase()) ||
+          (order.notes || "").toLowerCase().includes(s.store_name.toLowerCase())
+        ) {
+          list.push({ sellerName: s.store_name, sellerObj: s });
+        }
+      }
+    }
+    return list;
+  };
+
+  const isFundsLiberated = (order: Order): boolean => {
+    return !!(order.notes && order.notes.includes("FONDOS_LIBERADOS"));
+  };
+
+  const getTrackingUrl = (company?: string | null, guide?: string | null): string => {
+    if (!guide) return "";
+    const comp = (company || "").toLowerCase();
+    const cleanGuide = encodeURIComponent(guide.trim());
+    if (comp.includes("inter")) return `https://www.interrapidisimo.com/siga/?guia=${cleanGuide}`;
+    if (comp.includes("servi")) return `https://www.servientrega.com/wps/portal/rastreo-envio?guia=${cleanGuide}`;
+    if (comp.includes("coord")) return `https://coordinadora.com/rastreo/rastreo-de-guia/?guia=${cleanGuide}`;
+    if (comp.includes("envia") || comp.includes("envía")) return `https://enviacolvanes.com/`;
+    if (comp.includes("tcc")) return `https://tcc.com.co/rastreo/?guia=${cleanGuide}`;
+    return `https://www.google.com/search?q=rastreo+guia+${encodeURIComponent(company || '')}+${cleanGuide}`;
+  };
+
+  const handleLiberateFunds = async (order: Order, netAmount: number, sellerName: string) => {
+    const confirmRelease = window.confirm(
+      `¿Confirmas que el pedido ${order.reference || order.id.slice(0, 8)} ya fue entregado al comprador según la transportadora?\n\nSe transferirán $ ${netAmount.toLocaleString("es-CO")} COP al saldo disponible de "${sellerName}" para que lo retire.`
+    );
+    if (!confirmRelease) return;
+
+    try {
+      const releaseTag = `[FONDOS_LIBERADOS: $${netAmount.toLocaleString("es-CO")} COP el ${new Date().toLocaleDateString("es-CO")} a las ${new Date().toLocaleTimeString("es-CO")}]`;
+      const updatedNotes = order.notes ? `${order.notes} ${releaseTag}` : releaseTag;
+
+      // 1. Actualizar orden en Supabase
+      const { error: ordErr } = await supabase
+        .from("orders")
+        .update({ notes: updatedNotes, status: "Entregado" })
+        .eq("id", order.id);
+
+      if (ordErr) throw ordErr;
+
+      // 2. Buscar vendedor y transferir de saldo retenido a saldo disponible
+      const matchedSeller = sellers.find(
+        (s) => s.store_name.toLowerCase() === sellerName.toLowerCase() || s.id === (order as any).seller_id
+      );
+
+      if (matchedSeller?.id) {
+        const { data: w } = await supabase
+          .from("seller_wallets")
+          .select("*")
+          .eq("seller_id", matchedSeller.id)
+          .maybeSingle();
+
+        if (w) {
+          await supabase
+            .from("seller_wallets")
+            .update({
+              balance_available: Number(w.balance_available || 0) + netAmount,
+              balance_pending: Math.max(0, Number(w.balance_pending || 0) - netAmount),
+              total_earned: Number(w.total_earned || 0) + netAmount,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("seller_id", matchedSeller.id);
+        }
+      }
+
+      // Actualizar estado local inmediato sin recargar
+      setOrders((prev) =>
+        prev.map((o) => (o.id === order.id ? { ...o, notes: updatedNotes, status: "Entregado" } : o))
+      );
+
+      showToast(`¡Fondos de $ ${netAmount.toLocaleString("es-CO")} COP liberados con éxito para ${sellerName}!`);
+    } catch (err: any) {
+      alert("Error al liberar fondos: " + (err.message || JSON.stringify(err)));
+    }
+  };
+
+  // Pedidos del marketplace con fondos en custodia pendientes por liberar
+  const pendingEscrowOrdersCount = useMemo(() => {
+    return orders.filter((o) => {
+      const isPaid = isPaidOrPrep(o.status) || isShipped(o.status) || isDelivered(o.status);
+      const isVendorOrder = (o.notes || "").toLowerCase().includes("vendido por:") || sellers.some((s) => (o.product_name || "").includes(s.store_name));
+      return isPaid && isVendorOrder && !isFundsLiberated(o);
+    }).length;
+  }, [orders, sellers]);
+
+  // Productos filtrados para el inventario (Aislamiento absoluto de catálogo)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
+      // 1. Filtrado de origen estricto: evita contaminación entre catálogo oficial y vendedores
+      if (productOriginFilter === "oficiales") {
+        if (p.is_official === false || (p.seller_id && p.seller_name !== "Tienda Oficial NERKLEY")) {
+          return false;
+        }
+      } else if (productOriginFilter === "vendedores") {
+        if (p.is_official !== false && (!p.seller_id || p.seller_name === "Tienda Oficial NERKLEY")) {
+          return false;
+        }
+      }
+
       if (productCategoryFilter !== "Todas" && p.category?.toLowerCase() !== productCategoryFilter.toLowerCase()) {
         return false;
       }
@@ -1179,10 +1326,11 @@ export default function AdminDashboard() {
       return (
         p.name.toLowerCase().includes(q) ||
         (p.category || "").toLowerCase().includes(q) ||
-        (p.badge || "").toLowerCase().includes(q)
+        (p.badge || "").toLowerCase().includes(q) ||
+        (p.seller_name || "").toLowerCase().includes(q)
       );
     });
-  }, [products, productSearch, productCategoryFilter, productPresentationFilter]);
+  }, [products, productSearch, productCategoryFilter, productPresentationFilter, productOriginFilter]);
 
   // Pantalla de autenticación
   if (!isAuthenticated) {
@@ -1325,6 +1473,27 @@ export default function AdminDashboard() {
               )}
             </button>
 
+            <button
+              onClick={() => setActiveTab("liberaciones")}
+              className={`w-full text-left px-4 py-3 transition-all cursor-pointer flex items-center justify-between border ${
+                activeTab === "liberaciones"
+                  ? "bg-amber-400 text-black font-bold border-amber-400 shadow-[0_0_20px_rgba(232,198,98,0.3)]"
+                  : "text-neutral-300 border-transparent hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <span className="flex items-center gap-1.5">
+                <span>📦</span>
+                <span>Despachos & Liberación</span>
+              </span>
+              {pendingEscrowOrdersCount > 0 ? (
+                <span className="bg-amber-500 text-black px-1.5 py-0.5 text-[9px] font-black rounded-full animate-pulse">
+                  {pendingEscrowOrdersCount}
+                </span>
+              ) : (
+                <span className="text-neutral-500 text-[10px]">Al día</span>
+              )}
+            </button>
+
             <Link
               href="/video-ad"
               target="_blank"
@@ -1375,6 +1544,7 @@ export default function AdminDashboard() {
               {activeTab === "clientes" && "Directorio de Clientes CRM"}
               {activeTab === "publicar" && "Catálogo, Precios & Control de Stock"}
               {activeTab === "vendedores" && "Marketplace: Vendedores, Verificación & Billeteras"}
+              {activeTab === "liberaciones" && "📦 Despachos & Liberación de Fondos (Escrow)"}
             </h1>
             <p className="text-xs text-neutral-400 mt-1 uppercase tracking-widest">
               NERKLEY Luxury Concepts &bull; Actualizado en tiempo real
@@ -2262,6 +2432,54 @@ export default function AdminDashboard() {
                   <h4 className="text-xs uppercase tracking-wider font-bold text-white">
                     {productCategoryFilter === "Todas" ? "Todas las Piezas" : `Categoría: ${productCategoryFilter}`} ({filteredProducts.length} productos)
                   </h4>
+                  {/* SELECTOR DE ORIGEN: OFICIALES NERKLEY VS VENDEDORES EXTERNOS */}
+                  <div className="flex flex-wrap items-center gap-2 pb-2 border-b border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setProductOriginFilter("oficiales")}
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        productOriginFilter === "oficiales"
+                          ? "bg-amber-400 text-black font-extrabold shadow-[0_0_15px_rgba(232,198,98,0.4)]"
+                          : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>👑</span>
+                      <span>Catálogo Oficial NERKLEY</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 bg-black/20 rounded">
+                        ({officialProductsCount})
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProductOriginFilter("vendedores")}
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        productOriginFilter === "vendedores"
+                          ? "bg-amber-400 text-black font-extrabold shadow-[0_0_15px_rgba(232,198,98,0.4)]"
+                          : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>🏪</span>
+                      <span>Artículos de Vendedores</span>
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 bg-black/20 rounded">
+                        ({vendorProductsCount})
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setProductOriginFilter("todos")}
+                      className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                        productOriginFilter === "todos"
+                          ? "bg-white text-black font-extrabold shadow"
+                          : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
+                      }`}
+                    >
+                      <span>✨</span>
+                      <span>Ver Todo ({products.length})</span>
+                    </button>
+                  </div>
+
                   {/* PESTAÑAS DE MODALIDAD: TODAS / UNIDADES / COMBOS */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
                     <button
@@ -2804,6 +3022,14 @@ export default function AdminDashboard() {
                             {/* ACCIONES */}
                             <td className="p-4 text-right">
                               <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => setInspectingSeller(seller)}
+                                  className="bg-amber-400/15 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 px-2.5 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 shadow-sm"
+                                  title="Inspeccionar perfil y productos subidos por esta boutique"
+                                >
+                                  <span>🔍</span> Ver Boutique
+                                </button>
+
                                 {isPending ? (
                                   <button
                                     onClick={() => handleVerifySeller(seller)}
@@ -2841,6 +3067,409 @@ export default function AdminDashboard() {
                   </table>
                 </div>
               )}
+            </section>
+          </div>
+        )}
+
+        {/* PESTAÑA: DESPACHOS & LIBERACIÓN DE FONDOS (ESCROW) */}
+        {activeTab === "liberaciones" && (
+          <div className="space-y-8 animate-in fade-in duration-200">
+            {/* KPI METRICAS DE ESCROW */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-[#111115] border border-amber-500/40 p-5 space-y-2 rounded-xl">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-amber-300 font-semibold block flex items-center gap-1.5">
+                  <span>🔒</span> Saldo en Custodia (Escrow)
+                </span>
+                <p className="text-3xl font-bold font-mono text-amber-300">
+                  $ {orders.filter((o) => (isPaidOrPrep(o.status) || isShipped(o.status)) && !isFundsLiberated(o) && ((o.notes || "").toLowerCase().includes("vendido por:") || sellers.some((s) => (o.product_name || "").includes(s.store_name)))).reduce((acc, o) => {
+                    const total = Number(o.total_price) || 0;
+                    const matched = sellers.find((s) => (o.notes || "").includes(s.store_name) || (o.product_name || "").includes(s.store_name));
+                    const rate = matched?.commission_rate ?? 12;
+                    return acc + (total - Math.round((total * rate) / 100));
+                  }, 0).toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">Fondos retenidos esperando entrega del paquete</p>
+              </div>
+
+              <div className="bg-[#111115] border border-sky-500/30 p-5 space-y-2 rounded-xl">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-sky-400 font-semibold block flex items-center gap-1.5">
+                  <span>🚚</span> Despachos con Guía Activa
+                </span>
+                <p className="text-3xl font-bold font-mono text-sky-300">
+                  {orders.filter((o) => o.shipping_guide && ((o.notes || "").toLowerCase().includes("vendido por:") || sellers.some((s) => (o.product_name || "").includes(s.store_name)))).length} <span className="text-xs text-neutral-400">Envíos</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">Con número de rastreo asignado por el vendedor</p>
+              </div>
+
+              <div className="bg-[#111115] border border-emerald-500/30 p-5 space-y-2 rounded-xl">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-emerald-400 font-semibold block flex items-center gap-1.5">
+                  <span>✅</span> Total Dinero Liberado
+                </span>
+                <p className="text-3xl font-bold font-mono text-emerald-300">
+                  $ {orders.filter((o) => isFundsLiberated(o)).reduce((acc, o) => {
+                    const total = Number(o.total_price) || 0;
+                    const matched = sellers.find((s) => (o.notes || "").includes(s.store_name) || (o.product_name || "").includes(s.store_name));
+                    const rate = matched?.commission_rate ?? 12;
+                    return acc + (total - Math.round((total * rate) / 100));
+                  }, 0).toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
+                </p>
+                <p className="text-[10px] text-neutral-400">Transferido al saldo disponible de los vendedores</p>
+              </div>
+
+              <div className="bg-[#111115] border border-white/10 p-5 space-y-2 rounded-xl">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-neutral-400 font-semibold block flex items-center gap-1.5">
+                  <span>💰</span> Comisión NERKLEY Ganada
+                </span>
+                <p className="text-3xl font-bold font-mono text-amber-400">
+                  $ {orders.filter((o) => (isPaidOrPrep(o.status) || isShipped(o.status) || isDelivered(o.status)) && ((o.notes || "").toLowerCase().includes("vendido por:") || sellers.some((s) => (o.product_name || "").includes(s.store_name)))).reduce((acc, o) => {
+                    const total = Number(o.total_price) || 0;
+                    const matched = sellers.find((s) => (o.notes || "").includes(s.store_name) || (o.product_name || "").includes(s.store_name));
+                    const rate = matched?.commission_rate ?? 12;
+                    return acc + Math.round((total * rate) / 100);
+                  }, 0).toLocaleString("es-CO")} <span className="text-xs text-neutral-400">COP</span>
+                </p>
+                <p className="text-[10px] text-neutral-500">Utilidad limpia generada por intermediación</p>
+              </div>
+            </div>
+
+            {/* SECCIÓN PRINCIPAL DE GESTIÓN Y LIBERACIÓN */}
+            <section className="bg-[#111115] border border-white/10 p-6 space-y-6 rounded-2xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                <div>
+                  <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-white flex items-center gap-2">
+                    <span>📦</span> Despachos de Vendedores & Liberación de Fondos
+                  </h2>
+                  <p className="text-[10px] text-neutral-400 mt-0.5">
+                    Verifica la entrega en la transportadora mediante el botón directo de rastreo y libera los fondos al vendedor en 1 solo clic.
+                  </p>
+                </div>
+
+                {/* FILTROS Y BÚSQUEDA */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setEscrowFilter("retenidos")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                      escrowFilter === "retenidos"
+                        ? "bg-amber-400 text-black font-extrabold shadow-[0_0_15px_rgba(232,198,98,0.4)]"
+                        : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white"
+                    }`}
+                  >
+                    <span>⏳</span>
+                    <span>Por Verificar / Retenidos</span>
+                  </button>
+
+                  <button
+                    onClick={() => setEscrowFilter("liberados")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 ${
+                      escrowFilter === "liberados"
+                        ? "bg-emerald-500 text-black font-extrabold shadow"
+                        : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white"
+                    }`}
+                  >
+                    <span>✅</span>
+                    <span>Dinero Liberado</span>
+                  </button>
+
+                  <button
+                    onClick={() => setEscrowFilter("todos")}
+                    className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                      escrowFilter === "todos"
+                        ? "bg-white text-black font-bold shadow"
+                        : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white"
+                    }`}
+                  >
+                    <span>Todos</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* BARRA DE BÚSQUEDA */}
+              <div className="w-full">
+                <input
+                  type="text"
+                  value={escrowSearch}
+                  onChange={(e) => setEscrowSearch(e.target.value)}
+                  placeholder="Buscar por comprador, número de guía, orden (NRK-...) o boutique..."
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-4 py-2.5 text-xs text-white placeholder-neutral-500 rounded-lg focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* LISTADO DE PEDIDOS DE VENDEDORES */}
+              {(() => {
+                const marketplaceOrders = orders.filter((o) => {
+                  const isPaid = isPaidOrPrep(o.status) || isShipped(o.status) || isDelivered(o.status);
+                  const isVendorOrder = (o.notes || "").toLowerCase().includes("vendido por:") || sellers.some((s) => (o.product_name || "").includes(s.store_name));
+                  if (!isPaid || !isVendorOrder) return false;
+
+                  const liberated = isFundsLiberated(o);
+                  if (escrowFilter === "retenidos" && liberated) return false;
+                  if (escrowFilter === "liberados" && !liberated) return false;
+
+                  if (!escrowSearch.trim()) return true;
+                  const q = escrowSearch.toLowerCase().trim();
+                  return (
+                    (o.reference || "").toLowerCase().includes(q) ||
+                    (o.customer_name || "").toLowerCase().includes(q) ||
+                    (o.shipping_guide || "").toLowerCase().includes(q) ||
+                    (o.product_name || "").toLowerCase().includes(q) ||
+                    (o.notes || "").toLowerCase().includes(q) ||
+                    (o.city || "").toLowerCase().includes(q)
+                  );
+                });
+
+                if (marketplaceOrders.length === 0) {
+                  return (
+                    <div className="p-12 text-center border border-white/10 bg-white/5 space-y-3 rounded-xl">
+                      <span className="text-3xl">📦</span>
+                      <p className="text-sm font-semibold text-white">No hay despachos en este filtro</p>
+                      <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                        Cuando los clientes compren artículos publicados por boutiques aliadas, aparecerán aquí con su guía de despacho para que liberes sus fondos al ser entregados.
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-4">
+                    {marketplaceOrders.map((order) => {
+                      const liberated = isFundsLiberated(order);
+                      const sellersInOrder = extractSellersFromOrder(order);
+                      const primarySeller = sellersInOrder[0]?.sellerObj || sellers.find((s) => (order.product_name || "").includes(s.store_name));
+                      const sellerName = primarySeller?.store_name || sellersInOrder[0]?.sellerName || "Boutique Aliada";
+                      const commissionRate = primarySeller?.commission_rate ?? 12;
+                      const totalPrice = Number(order.total_price) || 0;
+                      const commissionAmount = Math.round((totalPrice * commissionRate) / 100);
+                      const netSellerAmount = totalPrice - commissionAmount;
+                      const trackingUrl = getTrackingUrl(order.transport_company, order.shipping_guide);
+
+                      return (
+                        <div
+                          key={order.id}
+                          className={`p-5 rounded-2xl border transition-all space-y-4 ${
+                            liberated
+                              ? "bg-[#0d0d12] border-emerald-500/30"
+                              : "bg-[#111116] border-amber-400/30 shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+                          }`}
+                        >
+                          {/* CABECERA DE LA ORDEN */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono font-bold text-white text-base">
+                                {order.reference || `NRK-${order.id.slice(0, 8)}`}
+                              </span>
+                              <span className="text-[10px] text-neutral-400 font-mono">
+                                {new Date(order.created_at).toLocaleString("es-CO")}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              {liberated ? (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-bold uppercase tracking-wider text-[10px] rounded-full">
+                                  <span>✅</span> Dinero Liberado al Vendedor
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold uppercase tracking-wider text-[10px] rounded-full animate-pulse">
+                                  <span>🔒</span> Fondos Retenidos en Custodia (Escrow)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* INFORMACIÓN EN 3 COLUMNAS: CLIENTE / VENDEDOR / LOGÍSTICA */}
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                            {/* COLUMNA 1: COMPRADOR */}
+                            <div className="bg-black/30 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block border-b border-white/5 pb-1">
+                                👤 Comprador & Entrega
+                              </span>
+                              <p className="font-bold text-white text-sm uppercase">{order.customer_name}</p>
+                              <p className="text-neutral-300">📍 {order.city}</p>
+                              <p className="text-neutral-400 text-[11px]">{order.address}</p>
+                              <div className="flex items-center gap-2 pt-1">
+                                <span className="font-mono text-neutral-300 text-[11px]">{order.customer_phone}</span>
+                                <button
+                                  onClick={() =>
+                                    sendWhatsAppDirect(
+                                      order.customer_phone,
+                                      `Hola ${order.customer_name}, te saludamos de NERKLEY con respecto a la entrega de tu orden ${order.reference || ''}.`
+                                    )
+                                  }
+                                  className="text-emerald-400 hover:text-emerald-300 text-[10px] underline font-bold cursor-pointer"
+                                >
+                                  WhatsApp
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* COLUMNA 2: BOUTIQUE & PRODUCTOS */}
+                            <div className="bg-black/30 p-3.5 rounded-xl border border-white/5 space-y-1.5">
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block border-b border-white/5 pb-1">
+                                🏪 Boutique Responsable
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-amber-300 text-sm uppercase">{sellerName}</span>
+                                {primarySeller && (
+                                  <span className="text-[9px] bg-amber-400/20 text-amber-300 px-1.5 py-0.2 rounded font-bold">
+                                    ⭐ Boutique
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-white font-medium text-xs line-clamp-2 mt-1">
+                                🛍️ {order.product_name}
+                              </p>
+                              {primarySeller && (
+                                <div className="flex items-center gap-2 pt-1">
+                                  <span className="text-[10px] text-neutral-400 font-mono">
+                                    {primarySeller.city} &bull; Tel: {primarySeller.phone}
+                                  </span>
+                                  <button
+                                    onClick={() =>
+                                      sendWhatsAppDirect(
+                                        primarySeller.phone,
+                                        `Hola ${primarySeller.owner_name}, te saludamos de NERKLEY Central sobre el despacho de la orden ${order.reference || order.id.slice(0, 8)}.`
+                                      )
+                                    }
+                                    className="text-emerald-400 hover:text-emerald-300 text-[10px] underline font-bold cursor-pointer"
+                                  >
+                                    WhatsApp
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* COLUMNA 3: TRANSPORTADORA & NÚMERO DE GUÍA */}
+                            <div className="bg-black/30 p-3.5 rounded-xl border border-white/5 space-y-2">
+                              <span className="text-[9px] uppercase tracking-wider font-bold text-neutral-400 block border-b border-white/5 pb-1">
+                                🚚 Transportadora & Guía de Envío
+                              </span>
+
+                              {order.shipping_guide ? (
+                                <div className="space-y-2">
+                                  <div>
+                                    <span className="text-[10px] text-neutral-400 uppercase block">Empresa:</span>
+                                    <span className="font-bold text-white text-xs">
+                                      {order.transport_company || "Transportadora Nacional"}
+                                    </span>
+                                  </div>
+
+                                  <div>
+                                    <span className="text-[10px] text-neutral-400 uppercase block">Número de Guía:</span>
+                                    <span className="font-mono font-bold text-emerald-400 text-sm tracking-wider">
+                                      {order.shipping_guide}
+                                    </span>
+                                  </div>
+
+                                  {trackingUrl && (
+                                    <a
+                                      href={trackingUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm"
+                                    >
+                                      <span>🌐</span>
+                                      <span>Rastrear Guía en Vivo ↗</span>
+                                    </a>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded text-amber-200 text-[10px] space-y-1">
+                                    <p className="font-bold">⚠️ Guía no asignada aún</p>
+                                    <p className="text-[9.5px] text-neutral-400">
+                                      El vendedor debe ingresar el número de guía en su portal (/vender) al despachar el paquete.
+                                    </p>
+                                  </div>
+
+                                  {primarySeller && (
+                                    <button
+                                      onClick={() =>
+                                        sendWhatsAppDirect(
+                                          primarySeller.phone,
+                                          `Hola ${primarySeller.owner_name}, de NERKLEY Concierge. Te recordamos ingresar el número de guía para la orden ${order.reference || order.id.slice(0, 8)} para que podamos rastrear la entrega y liberar tus fondos.`
+                                        )
+                                      }
+                                      className="bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer block text-center w-full"
+                                    >
+                                      📲 Pedir Guía al Vendedor
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* BARRA INFERIOR FINANCIERA & ACCIÓN DE LIBERACIÓN */}
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/10 bg-white/5 p-4 rounded-xl">
+                            <div className="flex flex-wrap items-center gap-4 text-xs font-mono">
+                              <div>
+                                <span className="text-[9px] uppercase tracking-wider text-neutral-400 block font-sans">
+                                  Total Pagado Cliente:
+                                </span>
+                                <span className="text-white font-bold text-sm">
+                                  $ {totalPrice.toLocaleString("es-CO")} COP
+                                </span>
+                              </div>
+
+                              <div className="text-amber-400">
+                                <span className="text-[9px] uppercase tracking-wider text-neutral-400 block font-sans">
+                                  Comisión NERKLEY ({commissionRate}%):
+                                </span>
+                                <span className="font-bold text-sm">
+                                  -$ {commissionAmount.toLocaleString("es-CO")} COP
+                                </span>
+                              </div>
+
+                              <div className="text-emerald-400">
+                                <span className="text-[9px] uppercase tracking-wider text-neutral-400 block font-sans">
+                                  Monto Neto a Pagar al Vendedor:
+                                </span>
+                                <span className="font-black text-base">
+                                  $ {netSellerAmount.toLocaleString("es-CO")} COP
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* BOTÓN MAESTRO DE LIBERACIÓN DE FONDOS */}
+                            <div className="flex items-center gap-2">
+                              {!liberated ? (
+                                <button
+                                  onClick={() => handleLiberateFunds(order, netSellerAmount, sellerName)}
+                                  className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_20px_rgba(232,198,98,0.4)] active:scale-95 flex items-center gap-2"
+                                >
+                                  <span>🔓</span>
+                                  <span>Liberar Dinero al Vendedor ($ {netSellerAmount.toLocaleString("es-CO")})</span>
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 px-3.5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
+                                    <span>✅</span>
+                                    <span>Fondos Disponibles para Retiro</span>
+                                  </div>
+
+                                  {primarySeller && (
+                                    <button
+                                      onClick={() =>
+                                        sendWhatsAppDirect(
+                                          primarySeller.phone,
+                                          `¡Hola ${primarySeller.owner_name}! Confirmamos la entrega de tu pedido ${order.reference || order.id.slice(0, 8)}. Hemos liberado $ ${netSellerAmount.toLocaleString("es-CO")} COP en tu billetera de NERKLEY y ya están listos para que los retires a ${primarySeller.bank_name}. ¡Felicitaciones por la venta!`
+                                        )
+                                      }
+                                      className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 px-3 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1"
+                                      title="Notificar al vendedor que su dinero ya fue liberado"
+                                    >
+                                      <span>💬</span> Notificar WhatsApp
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
           </div>
         )}
@@ -3448,6 +4077,184 @@ export default function AdminDashboard() {
                 className="text-red-400 hover:text-red-300 text-[10px] uppercase font-bold tracking-widest underline cursor-pointer"
               >
                 Eliminar Pedido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: INSPECCIÓN DE VENDEDOR & SUS PRODUCTOS */}
+      {inspectingSeller && (
+        <div className="fixed inset-0 z-[170] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+          <div className="bg-[#111116] border border-amber-400/40 max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left rounded-2xl">
+            {/* CABECERA DE LA BOUTIQUE */}
+            <div className="flex items-start justify-between border-b border-white/10 pb-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-2xl">🏪</span>
+                  <h3 className="text-xl md:text-2xl font-serif font-bold uppercase tracking-wider text-white">
+                    {inspectingSeller.store_name}
+                  </h3>
+                  {inspectingSeller.status === "verified" || inspectingSeller.is_verified ? (
+                    <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded">
+                      ⭐ Verificado
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded">
+                      ⏳ En Revisión
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-neutral-400">
+                  Categoría: <strong className="text-amber-300">{inspectingSeller.category || "Variado"}</strong> &bull; Comisión NERKLEY: <strong className="text-amber-300">{inspectingSeller.commission_rate ?? 12}%</strong>
+                </p>
+              </div>
+
+              <button
+                onClick={() => setInspectingSeller(null)}
+                className="text-neutral-400 hover:text-white text-2xl leading-none cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            {/* DATOS DEL TITULAR Y CUENTA DE PAGO */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 bg-white/5 p-4 rounded-xl border border-white/5 text-xs">
+              <div>
+                <span className="text-[10px] text-neutral-400 uppercase block font-semibold">Titular del Negocio:</span>
+                <span className="font-bold text-white block mt-0.5">{inspectingSeller.owner_name}</span>
+                <span className="text-[10px] text-neutral-400 font-mono">CC/NIT: {inspectingSeller.owner_document}</span>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-neutral-400 uppercase block font-semibold">Ubicación & WhatsApp:</span>
+                <span className="text-neutral-200 block mt-0.5 font-medium">📍 {inspectingSeller.city}, {inspectingSeller.department}</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="font-mono text-neutral-300">{inspectingSeller.phone}</span>
+                  <button
+                    onClick={() =>
+                      sendWhatsAppDirect(
+                        inspectingSeller.phone,
+                        `Hola ${inspectingSeller.owner_name}, te saludamos desde la administración de NERKLEY con respecto a tu boutique "${inspectingSeller.store_name}".`
+                      )
+                    }
+                    className="text-emerald-400 hover:text-emerald-300 font-bold underline text-[10px] cursor-pointer"
+                  >
+                    WhatsApp
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] text-neutral-400 uppercase block font-semibold">Cuenta Bancaria para Giros:</span>
+                <span className="font-bold text-amber-300 block mt-0.5">{inspectingSeller.bank_name} &bull; {inspectingSeller.account_type || "Ahorros"}</span>
+                <span className="text-[11px] text-neutral-300 font-mono block">No. {inspectingSeller.account_number}</span>
+              </div>
+            </div>
+
+            {/* PRODUCTOS SUBIDOS POR ESTE VENDEDOR */}
+            {(() => {
+              const sellerProds = products.filter(
+                (p) => p.seller_id === inspectingSeller.id || (p.seller_name || "").toLowerCase() === inspectingSeller.store_name.toLowerCase()
+              );
+
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                    <h4 className="text-xs uppercase tracking-wider font-bold text-white flex items-center gap-2">
+                      <span>🛍️</span>
+                      <span>Productos Subidos por {inspectingSeller.store_name} ({sellerProds.length})</span>
+                    </h4>
+                    <span className="text-[10px] text-neutral-400">
+                      Gestiona o modera los artículos subidos por este aliado
+                    </span>
+                  </div>
+
+                  {sellerProds.length === 0 ? (
+                    <div className="p-8 text-center bg-white/5 border border-white/10 rounded-xl space-y-2">
+                      <span className="text-2xl">📦</span>
+                      <p className="text-xs font-semibold text-white">Esta boutique aún no ha subido productos</p>
+                      <p className="text-[10px] text-neutral-400">
+                        Los productos que publique desde su portal (/vender) se listarán aquí para tu control y moderación.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {sellerProds.map((prod) => {
+                        const img = prod.images ? prod.images.split(",")[0].trim() : null;
+                        return (
+                          <div
+                            key={prod.id}
+                            className={`p-3 rounded-xl border flex flex-col justify-between space-y-2.5 ${
+                              prod.is_active ? "bg-black/40 border-white/10" : "bg-black/60 border-red-500/30 opacity-70"
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <div className="w-14 h-14 bg-black border border-white/10 rounded overflow-hidden shrink-0 flex items-center justify-center">
+                                {img ? (
+                                  <img src={img} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <span className="text-[9px] text-neutral-600">Sin foto</span>
+                                )}
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <h5 className="font-bold text-white text-xs truncate" title={prod.name}>
+                                  {prod.name}
+                                </h5>
+                                <span className="text-[10px] text-amber-300 font-mono block">
+                                  $ {Number(prod.sale_price).toLocaleString("es-CO")} COP
+                                </span>
+                                <span className="text-[9px] text-neutral-400 block font-mono">
+                                  Stock: {prod.stock} uds &bull; {prod.category}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px]">
+                              <button
+                                onClick={() => handleUpdateProductField(prod.id, "is_active", !prod.is_active)}
+                                className={`px-2 py-0.5 rounded font-bold uppercase transition-all cursor-pointer ${
+                                  prod.is_active
+                                    ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+                                    : "bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30"
+                                }`}
+                              >
+                                {prod.is_active ? "🟢 Activo" : "⏸ Pausado"}
+                              </button>
+
+                              <div className="flex items-center gap-2">
+                                <Link
+                                  href={`/product/${prod.slug}`}
+                                  target="_blank"
+                                  className="text-neutral-400 hover:text-white underline cursor-pointer"
+                                >
+                                  Ver ↗
+                                </Link>
+                                <button
+                                  onClick={() => handleDeleteProduct(prod.id, prod.name)}
+                                  className="text-red-400 hover:text-red-300 cursor-pointer"
+                                  title="Eliminar producto"
+                                >
+                                  🗑️
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="flex justify-end pt-4 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setInspectingSeller(null)}
+                className="bg-white text-black px-6 py-2.5 text-xs font-bold uppercase tracking-wider rounded hover:bg-neutral-200 transition-all cursor-pointer"
+              >
+                Cerrar Inspección
               </button>
             </div>
           </div>

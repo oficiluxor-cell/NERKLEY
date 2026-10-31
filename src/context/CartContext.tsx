@@ -18,6 +18,8 @@ interface CartItem {
   quantity: number;
   maxStock: number;
   free_shipping?: boolean;
+  seller_id?: string;
+  seller_name?: string;
 }
 
 interface Order {
@@ -280,6 +282,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     ).join(", ");
 
     const customerNotes = (formData.notes || "").trim();
+    const vendorSellers = Array.from(new Set(cartItems.map((i) => i.seller_name).filter(Boolean)));
+    const sellerTag = vendorSellers.length > 0 ? ` | Vendido por: ${vendorSellers.join(", ")}` : "";
+
     const shippingNote = isCartFreeShipping
       ? `Envío: GRATIS a ${formData.city}, ${formData.department} (Promoción activa)`
       : `Envío a ${formData.city}, ${formData.department}: $${shippingQuote.rate.toLocaleString()} COP (${shippingQuote.deliveryTime})`;
@@ -296,8 +301,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       city: `${formData.city}, ${formData.department}`,
       address: formData.address,
       notes: customerNotes
-        ? `📝 INSTRUCCIÓN DE ENTREGA:\n${customerNotes}\n\n[Detalles: Ref ${uniqueRef} | ${shippingNote}]`
-        : `[Ref Pago: ${uniqueRef} | ${shippingNote}]`,
+        ? `📝 INSTRUCCIÓN DE ENTREGA:\n${customerNotes}\n\n[Detalles: Ref ${uniqueRef}${sellerTag} | ${shippingNote}]`
+        : `[Ref Pago: ${uniqueRef}${sellerTag} | ${shippingNote}]`,
       status: "pending",
     };
 
