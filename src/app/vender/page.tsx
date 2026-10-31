@@ -99,9 +99,30 @@ export default function VenderPage() {
   // Estados de Panel de Vendedor
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [sellerOrders, setSellerOrders] = useState<any[]>([]);
-  const [activeSellerTab, setActiveSellerTab] = useState<"productos" | "pedidos" | "billetera">("productos");
+  const [activeSellerTab, setActiveSellerTab] = useState<"productos" | "pedidos" | "billetera" | "perfil">("productos");
   const [isCreatingProduct, setIsCreatingProduct] = useState(true);
   const [guideInputs, setGuideInputs] = useState<Record<string, { company?: string; guide?: string }>>({});
+
+  // Estados para Edición de Perfil de Vendedor
+  const [profileForm, setProfileForm] = useState({
+    store_name: "",
+    owner_name: "",
+    owner_document: "",
+    phone: "",
+    email: "",
+    city: "Medellín",
+    department: "Antioquia",
+    category: "Perfumería & Fragancias",
+    bio: "",
+    logo_url: "",
+    banner_url: "",
+    bank_name: "Bancolombia",
+    account_number: "",
+    account_type: "Ahorros",
+    new_password: "",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
 
   // Formulario de Nuevo Producto de Vendedor con todas las herramientas de nivel Admin
   const [newProdName, setNewProdName] = useState("");
@@ -381,6 +402,82 @@ export default function VenderPage() {
     setViewMode("dashboard");
     setIsCreatingProduct(true);
     loadSellerData(demoSession.id, demoSession.store_name);
+  };
+
+  // Sincronizar datos de perfil cuando la sesión esté disponible
+  useEffect(() => {
+    if (sellerSession) {
+      setProfileForm({
+        store_name: sellerSession.store_name || "",
+        owner_name: sellerSession.owner_name || "",
+        owner_document: sellerSession.owner_document || "",
+        phone: sellerSession.phone || "",
+        email: sellerSession.email || "",
+        city: sellerSession.city || "Medellín",
+        department: sellerSession.department || "Antioquia",
+        category: sellerSession.category || "Perfumería & Fragancias",
+        bio: sellerSession.bio || "",
+        logo_url: sellerSession.logo_url || "",
+        banner_url: sellerSession.banner_url || "",
+        bank_name: sellerSession.bank_name || "Bancolombia",
+        account_number: sellerSession.account_number || "",
+        account_type: sellerSession.account_type || "Ahorros",
+        new_password: "",
+      });
+    }
+  }, [sellerSession]);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sellerSession) return;
+
+    setSavingProfile(true);
+    setProfileSuccessMsg("");
+    try {
+      const updateData: any = {
+        store_name: profileForm.store_name.trim(),
+        owner_name: profileForm.owner_name.trim(),
+        owner_document: profileForm.owner_document.trim(),
+        phone: profileForm.phone.trim(),
+        city: profileForm.city.trim(),
+        department: profileForm.department.trim(),
+        category: profileForm.category.trim(),
+        bio: profileForm.bio.trim(),
+        logo_url: profileForm.logo_url.trim() || null,
+        banner_url: profileForm.banner_url.trim() || null,
+        bank_name: profileForm.bank_name.trim(),
+        account_number: profileForm.account_number.trim(),
+        account_type: profileForm.account_type.trim(),
+      };
+
+      if (profileForm.new_password.trim()) {
+        updateData.password = profileForm.new_password.trim();
+      }
+
+      const { error } = await supabase
+        .from("sellers")
+        .update(updateData)
+        .eq("id", sellerSession.id);
+
+      if (error) throw error;
+
+      const updatedSession: Seller = {
+        ...sellerSession,
+        ...updateData,
+      };
+
+      setSellerSession(updatedSession);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("NERKLEY_seller_session", JSON.stringify(updatedSession));
+      }
+
+      setProfileSuccessMsg("¡Perfil de tu Boutique actualizado con éxito!");
+      setTimeout(() => setProfileSuccessMsg(""), 4500);
+    } catch (err: any) {
+      alert("Error al actualizar perfil: " + (err.message || JSON.stringify(err)));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
   const handleCreateSellerProduct = async (e: React.FormEvent) => {
@@ -727,10 +824,10 @@ export default function VenderPage() {
           )}
 
           {/* NAVEGACIÓN DE PESTAÑAS DEL PANEL */}
-          <div className="flex border-b border-white/10 gap-6 text-xs uppercase tracking-wider font-semibold">
+          <div className="flex border-b border-white/10 gap-6 text-xs uppercase tracking-wider font-semibold overflow-x-auto pb-0.5">
             <button
               onClick={() => setActiveSellerTab("productos")}
-              className={`pb-3 transition-colors cursor-pointer relative ${
+              className={`pb-3 transition-colors cursor-pointer relative shrink-0 ${
                 activeSellerTab === "productos" ? "text-amber-400 font-bold" : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -742,7 +839,7 @@ export default function VenderPage() {
 
             <button
               onClick={() => setActiveSellerTab("pedidos")}
-              className={`pb-3 transition-colors cursor-pointer relative ${
+              className={`pb-3 transition-colors cursor-pointer relative shrink-0 ${
                 activeSellerTab === "pedidos" ? "text-amber-400 font-bold" : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -754,12 +851,25 @@ export default function VenderPage() {
 
             <button
               onClick={() => setActiveSellerTab("billetera")}
-              className={`pb-3 transition-colors cursor-pointer relative ${
+              className={`pb-3 transition-colors cursor-pointer relative shrink-0 ${
                 activeSellerTab === "billetera" ? "text-amber-400 font-bold" : "text-neutral-400 hover:text-white"
               }`}
             >
               Billetera & Retiros
               {activeSellerTab === "billetera" && (
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400" />
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveSellerTab("perfil")}
+              className={`pb-3 transition-colors cursor-pointer relative shrink-0 flex items-center gap-1.5 ${
+                activeSellerTab === "perfil" ? "text-amber-400 font-bold" : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span>👤</span>
+              <span>Mi Perfil de Boutique</span>
+              {activeSellerTab === "perfil" && (
                 <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400" />
               )}
             </button>
@@ -1642,6 +1752,396 @@ export default function VenderPage() {
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* PESTAÑA: MI PERFIL DE BOUTIQUE */}
+          {activeSellerTab === "perfil" && (
+            <div className="space-y-8 max-w-4xl animate-in fade-in duration-200">
+              <div>
+                <h3 className="text-sm uppercase tracking-wider font-bold text-white flex items-center gap-2">
+                  <span>👤</span> Perfil Oficial de tu Boutique
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Personaliza tu marca, logotipo, información de contacto, ciudad de despacho y datos bancarios para transferencias.
+                </p>
+              </div>
+
+              {profileSuccessMsg && (
+                <div className="p-4 bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-in fade-in">
+                  <span>✅</span>
+                  <span>{profileSuccessMsg}</span>
+                </div>
+              )}
+
+              {/* TARJETA DE PREVISUALIZACIÓN PÚBLICA DE LA BOUTIQUE */}
+              <div className="bg-[#111116] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                {/* BANNER DE PORTADA */}
+                <div className="h-36 sm:h-44 w-full relative bg-gradient-to-r from-neutral-900 via-amber-950/30 to-black overflow-hidden flex items-center justify-center">
+                  {profileForm.banner_url ? (
+                    <img
+                      src={profileForm.banner_url}
+                      alt="Banner"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-center space-y-1 text-neutral-500">
+                      <span className="text-2xl">🏛️</span>
+                      <p className="text-[10px] uppercase tracking-widest">Banner Oficial de Boutique</p>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#111116] via-transparent to-transparent" />
+                </div>
+
+                {/* INFO DEL PERFIL */}
+                <div className="px-6 pb-6 relative -mt-12 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+                  <div className="flex items-end gap-4">
+                    {/* AVATAR / LOGO */}
+                    <div className="w-20 h-20 rounded-2xl bg-black border-2 border-amber-400/60 overflow-hidden shadow-xl shrink-0 flex items-center justify-center relative">
+                      {profileForm.logo_url ? (
+                        <img
+                          src={profileForm.logo_url}
+                          alt="Logo"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-2xl font-serif font-black text-amber-300">
+                          {profileForm.store_name ? profileForm.store_name[0].toUpperCase() : "B"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-0.5 pb-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-lg font-serif font-bold text-white">
+                          {profileForm.store_name || "Nombre de tu Boutique"}
+                        </h4>
+                        {sellerSession.is_verified ? (
+                          <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            ✓ Verificada
+                          </span>
+                        ) : (
+                          <span className="text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            ⏳ En Revisión
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-amber-400 font-medium">
+                        {profileForm.category} &bull; 📍 {profileForm.city}, {profileForm.department}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* ESTADÍSTICAS RÁPIDAS */}
+                  <div className="flex gap-4 border-t sm:border-t-0 border-white/10 pt-3 sm:pt-0">
+                    <div className="text-center sm:text-right">
+                      <span className="text-[10px] uppercase tracking-wider text-neutral-400 block font-medium">
+                        Calificación
+                      </span>
+                      <span className="text-sm font-bold text-amber-300 font-mono">
+                        ⭐ 5.0 / 5.0
+                      </span>
+                    </div>
+                    <div className="text-center sm:text-right">
+                      <span className="text-[10px] uppercase tracking-wider text-neutral-400 block font-medium">
+                        En Catálogo
+                      </span>
+                      <span className="text-sm font-bold text-white font-mono">
+                        {sellerProducts.length} productos
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BIOGRAFÍA */}
+                {profileForm.bio && (
+                  <div className="px-6 pb-6 pt-2 border-t border-white/5">
+                    <p className="text-xs text-neutral-300 font-light leading-relaxed italic">
+                      "{profileForm.bio}"
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* FORMULARIO DE EDICIÓN DEL PERFIL */}
+              <form onSubmit={handleSaveProfile} className="bg-[#111116] border border-white/10 p-6 md:p-8 rounded-2xl space-y-6 shadow-xl">
+                <h4 className="text-xs uppercase font-bold tracking-widest text-amber-300 border-b border-white/10 pb-3 flex items-center gap-2">
+                  <span>⚙️</span> Editar Información de tu Perfil y Boutique
+                </h4>
+
+                {/* SECCIÓN 1: IDENTIDAD */}
+                <div className="space-y-4">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    1. Identidad de la Marca
+                  </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Nombre de la Tienda / Boutique *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.store_name}
+                        onChange={(e) => setProfileForm({ ...profileForm, store_name: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Categoría de la Boutique *
+                      </label>
+                      <select
+                        value={profileForm.category}
+                        onChange={(e) => setProfileForm({ ...profileForm, category: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        <option value="Perfumería & Fragancias">Perfumería & Fragancias</option>
+                        <option value="Sneakers & Calzado">Sneakers & Calzado</option>
+                        <option value="Moda & Ropa Selecta">Moda & Ropa Selecta</option>
+                        <option value="Joyería & Relojería">Joyería & Relojería</option>
+                        <option value="Accesorios de Lujo">Accesorios de Lujo</option>
+                        <option value="Variado / Multi-categoría">Variado / Multi-categoría</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Biografía / Sobre tu Tienda (Lema o Descripción)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={profileForm.bio}
+                        onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                        placeholder="Ej: Especialistas en fragancias de nicho importadas, atención personalizada y envíos asegurados..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Logo / Foto de Perfil (URL)
+                      </label>
+                      <input
+                        type="url"
+                        value={profileForm.logo_url}
+                        onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
+                        placeholder="https://ejemplo.com/mifoto.jpg"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Banner de Portada (URL)
+                      </label>
+                      <input
+                        type="url"
+                        value={profileForm.banner_url}
+                        onChange={(e) => setProfileForm({ ...profileForm, banner_url: e.target.value })}
+                        placeholder="https://ejemplo.com/banner.jpg"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECCIÓN 2: CONTACTO Y LOGÍSTICA */}
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    2. Contacto & Despacho
+                  </span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Nombre del Propietario / Titular *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.owner_name}
+                        onChange={(e) => setProfileForm({ ...profileForm, owner_name: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Cédula / Documento (CC o NIT) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.owner_document}
+                        onChange={(e) => setProfileForm({ ...profileForm, owner_document: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Teléfono / WhatsApp de Contacto *
+                      </label>
+                      <input
+                        type="tel"
+                        required
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Departamento de Despacho *
+                      </label>
+                      <select
+                        value={profileForm.department}
+                        onChange={(e) => {
+                          const dept = e.target.value;
+                          const cities = COLOMBIA_REGIONS[dept] || [];
+                          setProfileForm({
+                            ...profileForm,
+                            department: dept,
+                            city: cities[0] || "",
+                          });
+                        }}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        {Object.keys(COLOMBIA_REGIONS).map((dept) => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Ciudad / Municipio de Despacho *
+                      </label>
+                      <select
+                        value={profileForm.city}
+                        onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        {(COLOMBIA_REGIONS[profileForm.department] || [profileForm.city]).map((cityName) => (
+                          <option key={cityName} value={cityName}>{cityName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECCIÓN 3: DATOS BANCARIOS */}
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    3. Información Bancaria para Desembolsos
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Banco o Billetera *
+                      </label>
+                      <select
+                        value={profileForm.bank_name}
+                        onChange={(e) => setProfileForm({ ...profileForm, bank_name: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        <option value="Bancolombia">Bancolombia</option>
+                        <option value="Nequi">Nequi</option>
+                        <option value="Daviplata">Daviplata</option>
+                        <option value="Davivienda">Davivienda</option>
+                        <option value="Banco de Bogotá">Banco de Bogotá</option>
+                        <option value="BBVA Colombia">BBVA Colombia</option>
+                        <option value="Banco Falabella">Banco Falabella</option>
+                        <option value="Scotiabank Colpatria">Scotiabank Colpatria</option>
+                        <option value="Otro Banco">Otro Banco</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Tipo de Cuenta *
+                      </label>
+                      <select
+                        value={profileForm.account_type}
+                        onChange={(e) => setProfileForm({ ...profileForm, account_type: e.target.value })}
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                      >
+                        <option value="Ahorros">Cuenta de Ahorros</option>
+                        <option value="Corriente">Cuenta Corriente</option>
+                        <option value="Nequi">Nequi / Depósito Digital</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Número de Cuenta *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={profileForm.account_number}
+                        onChange={(e) => setProfileForm({ ...profileForm, account_number: e.target.value })}
+                        placeholder="Ej: 1234567890"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-neutral-400">
+                    🔒 Los fondos liberados de tus ventas se transferirán a esta cuenta tras cada despacho completado.
+                  </p>
+                </div>
+
+                {/* SECCIÓN 4: SEGURIDAD */}
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-neutral-400 block">
+                    4. Seguridad de la Cuenta
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Correo Registrado (Acceso)
+                      </label>
+                      <input
+                        type="email"
+                        disabled
+                        value={profileForm.email}
+                        className="w-full bg-white/5 border border-white/10 px-3.5 py-2.5 text-xs text-neutral-400 rounded-lg cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Nueva Contraseña (Opcional)
+                      </label>
+                      <input
+                        type="password"
+                        value={profileForm.new_password}
+                        onChange={(e) => setProfileForm({ ...profileForm, new_password: e.target.value })}
+                        placeholder="Dejar vacío para no cambiar"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* BOTÓN GUARDAR */}
+                <div className="pt-4 border-t border-white/10 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={savingProfile}
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-8 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <span>💾</span>
+                    <span>{savingProfile ? "Guardando Perfil..." : "Guardar Cambios de mi Perfil"}</span>
+                  </button>
+                </div>
+              </form>
             </div>
           )}
         </main>
