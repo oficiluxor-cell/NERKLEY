@@ -3,7 +3,20 @@
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { COLOMBIA_REGIONS } from "@/lib/shipping";
+import { COLOMBIA_REGIONS, hasFreeShipping, extractDisplayBadge, buildProductBadge } from "@/lib/shipping";
+import {
+  getProductPresentation,
+  isProductCombo,
+  buildPresentationBadge,
+  cleanCustomBadgeText,
+  ProductPresentationType,
+} from "@/lib/presentation";
+import {
+  parseCategory,
+  buildFullCategory,
+  getProductSubcategory,
+  SUGGESTED_SUBCATEGORIES,
+} from "@/lib/categories";
 import {
   Seller,
   registerNewSeller,
@@ -13,6 +26,42 @@ import {
   calculateOrderCommission,
 } from "@/lib/marketplace";
 import ImageGalleryUploader from "@/components/ImageGalleryUploader";
+
+const COMMON_CATEGORIES = ["Perfumes", "Ropa", "Zapatos", "Relojes", "Oro", "Joyería"];
+
+const BADGE_PRESETS = [
+  "⭐ Top Ventas",
+  "🔥 Edición Limitada",
+  "💎 Colección Exclusiva",
+  "✨ Nuevo Lanzamiento",
+  "⚡ Oferta Especial",
+  "🏷️ Combo Ahorro",
+  "💯 100% Original",
+  "👑 Premium",
+];
+
+const SIZE_PRESETS = [
+  "S", "M", "L", "XL", "XXL",
+  "38", "39", "40", "41", "42", "43",
+  "30ml", "50ml", "100ml", "200ml",
+  "Talla Única",
+];
+
+const COLOR_PRESETS = [
+  "Negro", "Blanco", "Gris", "Azul", "Rojo", "Verde", "Dorado", "Plateado", "Beige", "Café",
+];
+
+function toggleToken(current: string, token: string): string {
+  const tokens = current
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (tokens.includes(token)) {
+    return tokens.filter((t) => t !== token).join(", ");
+  } else {
+    return [...tokens, token].join(", ");
+  }
+}
 
 export default function VenderPage() {
   const [sellerSession, setSellerSession] = useState<Seller | null>(null);
@@ -51,15 +100,19 @@ export default function VenderPage() {
   const [sellerProducts, setSellerProducts] = useState<any[]>([]);
   const [sellerOrders, setSellerOrders] = useState<any[]>([]);
   const [activeSellerTab, setActiveSellerTab] = useState<"productos" | "pedidos" | "billetera">("productos");
-  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(true);
   const [guideInputs, setGuideInputs] = useState<Record<string, { company?: string; guide?: string }>>({});
 
-  // Formulario de Nuevo Producto de Vendedor
+  // Formulario de Nuevo Producto de Vendedor con todas las herramientas de nivel Admin
   const [newProdName, setNewProdName] = useState("");
-  const [newProdPrice, setNewProdPrice] = useState("");
-  const [newProdOriginalPrice, setNewProdOriginalPrice] = useState("");
+  const [newProdBasePrice, setNewProdBasePrice] = useState("");
+  const [newProdDiscountPercent, setNewProdDiscountPercent] = useState("");
   const [newProdStock, setNewProdStock] = useState("10");
-  const [newProdCategory, setNewProdCategory] = useState("Perfume");
+  const [newProdCategory, setNewProdCategory] = useState("Perfumes");
+  const [newProdSubcategory, setNewProdSubcategory] = useState("");
+  const [newProdPresentation, setNewProdPresentation] = useState<"unidad" | "combo">("unidad");
+  const [newProdIsFreeShipping, setNewProdIsFreeShipping] = useState(false);
+  const [newProdBadge, setNewProdBadge] = useState("");
   const [newProdDescription, setNewProdDescription] = useState("");
   const [newProdImages, setNewProdImages] = useState("");
   const [newProdSizes, setNewProdSizes] = useState("");
@@ -69,12 +122,31 @@ export default function VenderPage() {
   // Estados para Edición de Producto Existente por el Vendedor
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [editForm, setEditForm] = useState({
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    basePrice: string;
+    discountPercent: string;
+    stock: string;
+    category: string;
+    subcategory: string;
+    badge: string;
+    isFreeShipping: boolean;
+    presentation: "unidad" | "combo";
+    sizes: string;
+    colors: string;
+    images: string;
+    description: string;
+    is_active: boolean;
+  }>({
     name: "",
-    sale_price: "",
-    original_price: "",
+    basePrice: "",
+    discountPercent: "0",
     stock: "10",
-    category: "Perfume",
+    category: "Perfumes",
+    subcategory: "",
+    badge: "",
+    isFreeShipping: false,
+    presentation: "unidad",
     sizes: "",
     colors: "",
     images: "",
@@ -280,53 +352,130 @@ export default function VenderPage() {
     setInitialLoading(false);
   };
 
+  const handleQuickDemoAccess = () => {
+    const demoSession: Seller = {
+      id: "demo-boutique-official",
+      store_name: "Boutique Oficial",
+      slug: "boutique-oficial",
+      owner_name: "Vendedor NERKLEY",
+      owner_document: "123456789",
+      phone: "3001234567",
+      email: "vendedor@nerkley.com",
+      city: "Medellín",
+      department: "Antioquia",
+      category: "Perfumería & Fragancias",
+      bank_name: "Bancolombia",
+      account_number: "1234567890",
+      account_type: "Ahorros",
+      status: "verified",
+      is_verified: true,
+      commission_rate: 12,
+      rating: 5,
+      total_sales_count: 0,
+      created_at: new Date().toISOString(),
+    };
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("NERKLEY_seller_session", JSON.stringify(demoSession));
+    }
+    setSellerSession(demoSession);
+    setViewMode("dashboard");
+    setIsCreatingProduct(true);
+    loadSellerData(demoSession.id, demoSession.store_name);
+  };
+
   const handleCreateSellerProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sellerSession) return;
 
     setSavingProduct(true);
     try {
-      const slug = `${newProdName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString().slice(-5)}`;
-      const price = Number(newProdPrice);
-      const originalPrice = newProdOriginalPrice ? Number(newProdOriginalPrice) : null;
-      let discount = null;
-      if (originalPrice && originalPrice > price) {
-        discount = Math.round(((originalPrice - price) / originalPrice) * 100);
+      const initialPrice = parseFloat(newProdBasePrice) || 0;
+      const discount = newProdDiscountPercent ? parseFloat(newProdDiscountPercent) : 0;
+      const initialStock = parseInt(newProdStock) || 0;
+
+      const finalSalePrice = discount > 0 ? Math.round(initialPrice * (1 - discount / 100)) : initialPrice;
+      const storedOriginalPrice = discount > 0 ? initialPrice : null;
+
+      // Normalizar slug limpiando acentos y caracteres especiales (anti-duplicados)
+      const rawSlugBase = newProdName
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]+/g, "")
+        .replace(/--+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      let targetSlug = rawSlugBase || `producto-${Date.now()}`;
+
+      // Validar si el slug ya existe en Supabase y agregar sufijo único si es necesario
+      const { data: existingProduct } = await supabase
+        .from("products")
+        .select("id")
+        .eq("slug", targetSlug)
+        .maybeSingle();
+
+      if (existingProduct) {
+        const shortSuffix = Math.random().toString(36).substring(2, 6);
+        targetSlug = `${targetSlug}-${shortSuffix}`;
       }
+
+      const fullCategory = buildFullCategory(newProdCategory, newProdSubcategory);
+      const finalBadge = buildPresentationBadge(newProdBadge, newProdPresentation, newProdIsFreeShipping);
 
       const newProd = {
         name: newProdName.trim(),
-        slug,
+        slug: targetSlug,
         description: newProdDescription.trim(),
-        sale_price: price,
-        original_price: originalPrice,
+        sale_price: finalSalePrice,
+        original_price: storedOriginalPrice,
         discount_percent: discount,
-        category: newProdCategory,
-        images: newProdImages,
+        category: fullCategory,
+        images: newProdImages.trim(),
         sizes: newProdSizes.trim(),
         colors: newProdColors.trim(),
-        stock: Number(newProdStock) || 0,
+        stock: initialStock,
         is_active: true,
-        badge: "⭐ Boutique Verificada",
+        badge: finalBadge,
         seller_id: sellerSession.id,
         seller_name: sellerSession.store_name,
         is_official: false,
       };
 
-      const { data, error } = await supabase.from("products").insert([newProd]).select().single();
+      let { data, error } = await supabase.from("products").insert([newProd]).select().single();
+
+      // Reintento automático de seguridad si colisiona la clave única
+      if (error && error.message?.includes("products_slug_key")) {
+        const retrySlug = `${targetSlug}-${Date.now().toString().slice(-4)}`;
+        const retryRes = await supabase
+          .from("products")
+          .insert([{ ...newProd, slug: retrySlug }])
+          .select()
+          .single();
+        error = retryRes.error;
+        data = retryRes.data;
+      }
+
       if (error) throw error;
 
       if (data) {
         setSellerProducts((prev) => [data, ...prev]);
         setIsCreatingProduct(false);
         setNewProdName("");
-        setNewProdPrice("");
-        setNewProdOriginalPrice("");
-        setNewProdDescription("");
-        setNewProdImages("");
+        setNewProdBasePrice("");
+        setNewProdDiscountPercent("");
+        setNewProdStock("10");
+        setNewProdCategory("Perfumes");
+        setNewProdSubcategory("");
+        setNewProdPresentation("unidad");
+        setNewProdIsFreeShipping(false);
+        setNewProdBadge("");
         setNewProdSizes("");
         setNewProdColors("");
-        alert("¡Producto publicado exitosamente en la tienda!");
+        setNewProdImages("");
+        setNewProdDescription("");
+        alert("¡Producto publicado exitosamente en tu boutique!");
       }
     } catch (err: any) {
       alert("Error al publicar producto: " + (err.message || JSON.stringify(err)));
@@ -336,13 +485,31 @@ export default function VenderPage() {
   };
 
   const handleOpenEditProduct = (prod: any) => {
+    const base = prod.original_price || prod.sale_price;
+    const isFree = hasFreeShipping(prod);
+    const cleanBadge = cleanCustomBadgeText(prod.badge);
+    const pres = getProductPresentation(prod);
+    const { mainCategory, subcategory: productSub } = parseCategory(prod.category);
+    const inferredSub = productSub || getProductSubcategory(prod);
+
+    const initialPrice = Number(base) || 0;
+    const currentSalePrice = Number(prod.sale_price) || 0;
+    let disc = prod.discount_percent ? String(prod.discount_percent) : "0";
+    if (!prod.discount_percent && prod.original_price && prod.original_price > currentSalePrice && initialPrice > 0) {
+      disc = String(Math.round(((prod.original_price - currentSalePrice) / prod.original_price) * 100));
+    }
+
     setEditingProduct(prod);
     setEditForm({
       name: prod.name || "",
-      sale_price: String(prod.sale_price || ""),
-      original_price: prod.original_price ? String(prod.original_price) : "",
+      basePrice: String(base || ""),
+      discountPercent: disc,
       stock: String(prod.stock ?? 10),
-      category: prod.category || "Perfume",
+      category: mainCategory,
+      subcategory: inferredSub,
+      badge: cleanBadge,
+      isFreeShipping: isFree,
+      presentation: pres,
       sizes: prod.sizes || "",
       colors: prod.colors || "",
       images: prod.images || "",
@@ -357,25 +524,26 @@ export default function VenderPage() {
 
     setSavingEdit(true);
     try {
-      const price = Number(editForm.sale_price);
-      const originalPrice = editForm.original_price ? Number(editForm.original_price) : null;
-      let discount = null;
-      if (originalPrice && originalPrice > price) {
-        discount = Math.round(((originalPrice - price) / originalPrice) * 100);
-      }
+      const initialPrice = parseFloat(editForm.basePrice) || 0;
+      const discount = parseFloat(editForm.discountPercent) || 0;
+      const finalSalePrice = discount > 0 ? Math.round(initialPrice * (1 - discount / 100)) : initialPrice;
+      const storedOriginalPrice = discount > 0 ? initialPrice : null;
+      const fullCategory = buildFullCategory(editForm.category, editForm.subcategory);
+      const finalBadge = buildPresentationBadge(editForm.badge, editForm.presentation, editForm.isFreeShipping);
 
       const updatedPayload = {
         name: editForm.name.trim(),
-        sale_price: price,
-        original_price: originalPrice,
+        sale_price: finalSalePrice,
+        original_price: storedOriginalPrice,
         discount_percent: discount,
-        category: editForm.category,
+        category: fullCategory,
         stock: Number(editForm.stock) || 0,
         sizes: editForm.sizes.trim(),
         colors: editForm.colors.trim(),
         images: editForm.images,
         description: editForm.description.trim(),
         is_active: editForm.is_active,
+        badge: finalBadge,
       };
 
       const { error } = await supabase
@@ -612,166 +780,540 @@ export default function VenderPage() {
 
                 <button
                   onClick={() => setIsCreatingProduct(!isCreatingProduct)}
-                  disabled={!isVerified}
-                  className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md cursor-pointer flex items-center gap-1.5 ${
-                    isVerified
-                      ? "bg-amber-400 hover:bg-amber-300 text-black active:scale-95"
-                      : "bg-white/10 text-neutral-500 cursor-not-allowed"
-                  }`}
-                  title={!isVerified ? "Requiere que el Super Admin apruebe tu tienda primero" : ""}
+                  className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md cursor-pointer flex items-center gap-1.5 active:scale-95"
                 >
-                  <span>+</span> Publicar Producto
+                  <span>{isCreatingProduct ? "✕ Cerrar Formulario" : "+ Publicar Producto"}</span>
                 </button>
               </div>
 
-              {/* FORMULARIO DE CREACIÓN DE PRODUCTO */}
+              {/* FORMULARIO PROFESIONAL DE CREACIÓN DE PRODUCTO */}
               {isCreatingProduct && (
                 <form
                   onSubmit={handleCreateSellerProduct}
-                  className="bg-[#111116] border border-amber-400/40 p-6 rounded-2xl space-y-5 animate-in fade-in duration-200"
+                  className="bg-[#111116] border border-amber-400/50 p-6 md:p-8 rounded-2xl space-y-6 shadow-2xl animate-in fade-in duration-200"
                 >
-                  <div className="flex justify-between items-center border-b border-white/10 pb-3">
-                    <h4 className="text-xs uppercase font-bold tracking-widest text-amber-300">
-                      Publicar Nuevo Producto en tu Boutique
-                    </h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-white/10 gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl">✨</span>
+                        <h4 className="text-sm uppercase font-bold tracking-widest text-amber-300">
+                          Publicar Nuevo Producto en tu Boutique
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-neutral-400 mt-1">
+                        Herramientas profesionales de catálogo: precios inteligentes, combo, envío gratis, tallas, colores y previsualización en vivo.
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => setIsCreatingProduct(false)}
-                      className="text-neutral-400 hover:text-white text-xl leading-none cursor-pointer"
+                      className="text-neutral-400 hover:text-white text-2xl leading-none self-end sm:self-auto cursor-pointer"
                     >
                       &times;
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="sm:col-span-2 space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Nombre del Producto *</label>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {/* NOMBRE */}
+                    <div className="md:col-span-2 space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Nombre del Producto *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newProdName}
                         onChange={(e) => setNewProdName(e.target.value)}
-                        placeholder="Ej: Perfume Sauvage Elixir 100ml / Sneaker Retro High..."
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded focus:outline-none focus:border-amber-400"
+                        placeholder="Ej: Perfume Creed Aventus 100ml / Sneaker Retro High..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Stock Inicial *</label>
+                    {/* STOCK */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Stock Inicial Disponible *
+                      </label>
                       <input
                         type="number"
                         required
-                        min="1"
+                        min="0"
                         value={newProdStock}
                         onChange={(e) => setNewProdStock(e.target.value)}
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-amber-400"
+                        placeholder="Ej: 10"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
                       />
                     </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Precio de Venta (COP) *</label>
+                    {/* PRECIOS Y DESCUENTO INTELIGENTE */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Precio Base en COP *
+                      </label>
                       <input
                         type="number"
                         required
                         min="1000"
-                        value={newProdPrice}
-                        onChange={(e) => setNewProdPrice(e.target.value)}
-                        placeholder="Ej: 180000"
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-amber-400"
+                        value={newProdBasePrice}
+                        onChange={(e) => setNewProdBasePrice(e.target.value)}
+                        placeholder="Ej: 220000"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
                       />
-                      {newProdPrice && (
-                        <p className="text-[10px] text-emerald-400 font-mono mt-0.5">
-                          Tú recibes: $ {calculateOrderCommission(Number(newProdPrice), commission).sellerNet.toLocaleString("es-CO")} COP (descontando {commission}% comisión)
-                        </p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-xs font-semibold text-neutral-300">
+                          Descuento % (Opcional)
+                        </label>
+                        {parseFloat(newProdDiscountPercent) > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setNewProdDiscountPercent("")}
+                            className="text-[10px] text-red-400 underline cursor-pointer"
+                          >
+                            Quitar descuento
+                          </button>
+                        )}
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        max="90"
+                        value={newProdDiscountPercent}
+                        onChange={(e) => setNewProdDiscountPercent(e.target.value)}
+                        placeholder="Ej: 15 (para 15% OFF)"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* TARJETA DE CÁLCULO EN VIVO */}
+                    <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center text-xs space-y-1">
+                      <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+                        Precio final al cliente:
+                      </span>
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-base font-bold font-mono text-emerald-400">
+                          ${" "}
+                          {Math.round(
+                            (parseFloat(newProdBasePrice) || 0) *
+                              (1 - (parseFloat(newProdDiscountPercent) || 0) / 100)
+                          ).toLocaleString("es-CO")}{" "}
+                          COP
+                        </span>
+                        {parseFloat(newProdDiscountPercent) > 0 && (
+                          <span className="text-[10px] font-mono text-red-400 line-through">
+                            Antes: ${" "}
+                            {parseFloat(newProdBasePrice || "0").toLocaleString("es-CO")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10.5px] text-amber-300 font-mono pt-1 border-t border-white/10">
+                        Tu ganancia neta: ${" "}
+                        {calculateOrderCommission(
+                          Math.round(
+                            (parseFloat(newProdBasePrice) || 0) *
+                              (1 - (parseFloat(newProdDiscountPercent) || 0) / 100)
+                          ),
+                          commission
+                        ).sellerNet.toLocaleString("es-CO")}{" "}
+                        COP
+                      </p>
+                    </div>
+
+                    {/* CATEGORÍA PRINCIPAL */}
+                    <div className="space-y-1.5 md:col-span-1">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Categoría Principal *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={newProdCategory}
+                        onChange={(e) => setNewProdCategory(e.target.value)}
+                        placeholder="Ej: Perfumes, Ropa, Zapatos, Oro..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                      {/* Chips rápidos de categorías principales */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {COMMON_CATEGORIES.map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => setNewProdCategory(cat)}
+                            className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                              newProdCategory.toLowerCase() === cat.toLowerCase()
+                                ? "bg-amber-400 text-black font-bold border-amber-400"
+                                : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* SUBCATEGORÍA / TIPO DE PRODUCTO */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-xs font-semibold text-neutral-300">
+                          Tipo de Producto / Subcategoría
+                        </label>
+                        <span className="text-[10px] text-amber-400 font-mono">
+                          {newProdSubcategory ? `Tipo: ${newProdSubcategory}` : "General (sin subcategoría)"}
+                        </span>
+                      </div>
+                      <input
+                        type="text"
+                        value={newProdSubcategory}
+                        onChange={(e) => setNewProdSubcategory(e.target.value)}
+                        placeholder="Ej: Árabes Exclusivos, Diseñador, Jean, Sneakers Urbanos..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                      {/* Sugerencias contextuales según la categoría */}
+                      {SUGGESTED_SUBCATEGORIES[newProdCategory] && (
+                        <div className="space-y-1 pt-1">
+                          <span className="text-[9.5px] text-neutral-400 font-light block">
+                            Sugerencias para <strong className="text-white">{newProdCategory}</strong> (toca para elegir):
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {SUGGESTED_SUBCATEGORIES[newProdCategory].map((subOption) => (
+                              <button
+                                key={subOption}
+                                type="button"
+                                onClick={() => setNewProdSubcategory(subOption)}
+                                className={`text-[9px] uppercase tracking-wider px-2.5 py-0.5 rounded-full border transition-all cursor-pointer flex items-center gap-1 ${
+                                  newProdSubcategory.toLowerCase() === subOption.toLowerCase()
+                                    ? "bg-amber-400 text-black font-bold border-amber-400 shadow-sm"
+                                    : "bg-white/5 border-white/10 text-neutral-300 hover:border-amber-400/40 hover:text-amber-300"
+                                }`}
+                              >
+                                <span>+</span>
+                                <span>{subOption}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Precio Original Tachado (Opcional)</label>
+                    {/* MODALIDAD DE VENTA: UNIDAD O COMBO */}
+                    <div className="md:col-span-3 space-y-2 pt-1">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-xs font-bold uppercase tracking-wider text-neutral-200">
+                          Modalidad de Venta / Presentación *
+                        </label>
+                        <span className="text-[10px] text-amber-400 font-mono font-bold">
+                          {newProdPresentation === "combo" ? "🎁 MODO: COMBO / DÚO" : "📦 MODO: 1 UNIDAD"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setNewProdPresentation("unidad")}
+                          className={`p-3.5 border rounded-xl text-left transition-all cursor-pointer flex items-center gap-3 ${
+                            newProdPresentation === "unidad"
+                              ? "bg-white/10 border-white text-white ring-1 ring-white/50 shadow-md"
+                              : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                          }`}
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${
+                              newProdPresentation === "unidad"
+                                ? "bg-white text-black font-bold"
+                                : "bg-white/5 text-neutral-400"
+                            }`}
+                          >
+                            📦
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold uppercase tracking-wider block text-white truncate">
+                              Unidad Individual
+                            </span>
+                            <span className="text-[10px] text-neutral-400 block font-light truncate">
+                              1 solo artículo (ej: 1 Perfume 100ml o 1 Par de Calzado)
+                            </span>
+                          </div>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setNewProdPresentation("combo")}
+                          className={`p-3.5 border rounded-xl text-left transition-all cursor-pointer flex items-center gap-3 ${
+                            newProdPresentation === "combo"
+                              ? "bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400 text-amber-300 ring-1 ring-amber-400/50 shadow-md"
+                              : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                          }`}
+                        >
+                          <div
+                            className={`w-9 h-9 rounded-full flex items-center justify-center text-lg shrink-0 ${
+                              newProdPresentation === "combo"
+                                ? "bg-amber-400 text-black font-bold shadow-md"
+                                : "bg-white/5 text-neutral-400"
+                            }`}
+                          >
+                            🎁
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-bold uppercase tracking-wider block text-amber-300 truncate">
+                              Combo / Dúo / Kit
+                            </span>
+                            <span className="text-[10px] text-amber-200/70 block font-light truncate">
+                              2 o más artículos / pack ahorro / 2x1 especial
+                            </span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* PROMO ENVÍO GRATIS */}
+                    <div className="md:col-span-3 p-4 bg-amber-500/10 border border-amber-400/30 rounded-xl">
+                      <label className="flex items-start gap-3 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={newProdIsFreeShipping}
+                          onChange={(e) => setNewProdIsFreeShipping(e.target.checked)}
+                          className="w-4 h-4 mt-0.5 accent-amber-400 cursor-pointer"
+                        />
+                        <div>
+                          <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block">
+                            🚚 Promoción Activa: Envío Gratis para este producto
+                          </span>
+                          <span className="text-[11px] text-neutral-300 font-light block mt-0.5">
+                            Al activarlo, el comprador verá costo de envío $0 COP y la etiqueta destacada de Envío Gratis, impulsando tus ventas en NERKLEY.
+                          </span>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* INSIGNIA / ETIQUETA DESTACADA */}
+                    <div className="md:col-span-3 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="block text-xs font-semibold text-neutral-300">
+                          Insignia / Etiqueta Destacada (Opcional)
+                        </label>
+                        <span className="text-[10px] text-amber-400 font-mono">
+                          {newProdBadge || "Sin insignia personalizada"}
+                        </span>
+                      </div>
                       <input
-                        type="number"
-                        value={newProdOriginalPrice}
-                        onChange={(e) => setNewProdOriginalPrice(e.target.value)}
-                        placeholder="Ej: 240000"
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded font-mono focus:outline-none focus:border-amber-400"
+                        type="text"
+                        value={newProdBadge}
+                        onChange={(e) => setNewProdBadge(e.target.value)}
+                        placeholder="Ej: Edición Limitada, Top Ventas, 100% Original, Tendencia..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                       />
+                      {/* Presets rápidos de badges */}
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {BADGE_PRESETS.map((badgeText) => (
+                          <button
+                            key={badgeText}
+                            type="button"
+                            onClick={() => setNewProdBadge(badgeText)}
+                            className={`text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              newProdBadge === badgeText
+                                ? "bg-amber-400 text-black font-bold border-amber-400 shadow-sm"
+                                : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            {badgeText}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Categoría *</label>
-                      <select
-                        value={newProdCategory}
-                        onChange={(e) => setNewProdCategory(e.target.value)}
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded focus:outline-none focus:border-amber-400 cursor-pointer"
-                      >
-                        <option value="Perfume">Perfume & Fragancia</option>
-                        <option value="Zapatos">Sneakers & Calzado</option>
-                        <option value="Ropa">Ropa Selecta</option>
-                        <option value="Gorras">Gorra & Accesorio</option>
-                        <option value="Joyería">Joyería & Oro</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Tallas o Presentación (Opcional)</label>
+                    {/* TALLAS DISPONIBLES */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Tallas / Presentaciones (Separadas por comas)
+                      </label>
                       <input
                         type="text"
                         value={newProdSizes}
                         onChange={(e) => setNewProdSizes(e.target.value)}
-                        placeholder="Ej: 38, 39, 40, 41, 42 o 100ml / 50ml"
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded focus:outline-none focus:border-amber-400"
+                        placeholder="Ej: S, M, L, XL ó 39, 40, 41, 42 ó 100ml"
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                       />
+                      {/* Chips rápidos de tallas */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {SIZE_PRESETS.map((sz) => {
+                          const isSelected = newProdSizes.split(",").map((s) => s.trim()).includes(sz);
+                          return (
+                            <button
+                              key={sz}
+                              type="button"
+                              onClick={() => setNewProdSizes(toggleToken(newProdSizes, sz))}
+                              className={`text-[9px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-400 text-black font-bold border-amber-400"
+                                  : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              {sz}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="block text-xs font-semibold text-neutral-300">Colores / Tonos (Opcional)</label>
+                    {/* COLORES DISPONIBLES */}
+                    <div className="space-y-1.5 md:col-span-2">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Colores / Tonos (Separados por comas)
+                      </label>
                       <input
                         type="text"
                         value={newProdColors}
                         onChange={(e) => setNewProdColors(e.target.value)}
-                        placeholder="Ej: Negro, Blanco, Azul Navy"
-                        className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded focus:outline-none focus:border-amber-400"
+                        placeholder="Ej: Negro, Blanco, Dorado, Azul Marino..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                       />
+                      {/* Chips rápidos de colores */}
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {COLOR_PRESETS.map((clr) => {
+                          const isSelected = newProdColors.split(",").map((c) => c.trim()).includes(clr);
+                          return (
+                            <button
+                              key={clr}
+                              type="button"
+                              onClick={() => setNewProdColors(toggleToken(newProdColors, clr))}
+                              className={`text-[9px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                                isSelected
+                                  ? "bg-amber-400 text-black font-bold border-amber-400"
+                                  : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                              }`}
+                            >
+                              {clr}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* DESCRIPCIÓN */}
+                    <div className="space-y-1.5 md:col-span-3">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Descripción & Detalles del Producto *
+                      </label>
+                      <textarea
+                        required
+                        rows={3}
+                        value={newProdDescription}
+                        onChange={(e) => setNewProdDescription(e.target.value)}
+                        placeholder="Detalla los materiales originales, notas olfativas, procedencia o condiciones del producto..."
+                        className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* FOTOS DEL PRODUCTO */}
+                    <div className="space-y-1.5 md:col-span-3">
+                      <ImageGalleryUploader
+                        value={newProdImages}
+                        onChange={(urls) => setNewProdImages(urls)}
+                        label="Fotos del Producto"
+                        helperText="Selecciona fotos de tu galería o toma fotos directamente con la cámara. Puedes subir varias y reordenarlas."
+                      />
+                    </div>
+
+                    {/* PREVISUALIZACIÓN EN VIVO DE LA TARJETA */}
+                    <div className="md:col-span-3 p-4 bg-black/40 border border-white/10 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300 flex items-center gap-1.5">
+                          <span>👁️</span> Previsualización en Vivo de tu Tarjeta en la Tienda
+                        </span>
+                        <span className="text-[10px] text-neutral-400">
+                          Así lo verán los compradores
+                        </span>
+                      </div>
+
+                      <div className="max-w-xs mx-auto bg-[#111116] border border-white/10 rounded-2xl overflow-hidden p-3.5 space-y-2.5 shadow-xl">
+                        <div className="w-full h-44 bg-neutral-900 rounded-xl overflow-hidden relative flex items-center justify-center">
+                          {newProdImages ? (
+                            <img
+                              src={newProdImages.split(",")[0]?.trim()}
+                              alt=""
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-neutral-600">Sin foto aún</span>
+                          )}
+
+                          {/* BADGES FLOTANTES */}
+                          <div className="absolute top-2 left-2 flex flex-col gap-1 items-start">
+                            {newProdPresentation === "combo" && (
+                              <span className="text-[8.5px] uppercase font-bold bg-amber-400 text-black px-2 py-0.5 rounded shadow">
+                                🎁 Combo
+                              </span>
+                            )}
+                            {newProdIsFreeShipping && (
+                              <span className="text-[8.5px] uppercase font-bold bg-emerald-500 text-black px-2 py-0.5 rounded shadow">
+                                🚚 Envío Gratis
+                              </span>
+                            )}
+                            {newProdBadge && (
+                              <span className="text-[8.5px] uppercase font-semibold bg-black/80 text-amber-300 border border-amber-400/40 px-2 py-0.5 rounded shadow">
+                                {newProdBadge}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[9px] uppercase tracking-wider text-amber-400 font-bold block">
+                            {newProdCategory} {newProdSubcategory ? `// ${newProdSubcategory}` : ""}
+                          </span>
+                          <h5 className="font-bold text-white text-xs truncate">
+                            {newProdName || "Nombre del Producto"}
+                          </h5>
+                          <span className="text-[10px] text-neutral-400 block">
+                            Vendido por <strong className="text-white">{sellerSession.store_name}</strong> ✓
+                          </span>
+
+                          <div className="flex items-baseline gap-2 pt-1">
+                            <span className="text-base font-bold font-mono text-white">
+                              ${" "}
+                              {Math.round(
+                                (parseFloat(newProdBasePrice) || 0) *
+                                  (1 - (parseFloat(newProdDiscountPercent) || 0) / 100)
+                              ).toLocaleString("es-CO")}{" "}
+                              COP
+                            </span>
+                            {parseFloat(newProdDiscountPercent) > 0 && (
+                              <span className="text-[10px] font-mono text-neutral-500 line-through">
+                                ${" "}
+                                {parseFloat(newProdBasePrice || "0").toLocaleString("es-CO")}
+                              </span>
+                            )}
+                          </div>
+
+                          {(newProdSizes || newProdColors) && (
+                            <div className="text-[9.5px] text-neutral-400 pt-1 flex flex-wrap gap-1">
+                              {newProdSizes && <span>Tallas: {newProdSizes}</span>}
+                              {newProdSizes && newProdColors && <span>•</span>}
+                              {newProdColors && <span>Colores: {newProdColors}</span>}
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Imágenes del Producto</label>
-                    <ImageGalleryUploader
-                      value={newProdImages}
-                      onChange={(urls) => setNewProdImages(urls)}
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Descripción & Detalles</label>
-                    <textarea
-                      rows={3}
-                      value={newProdDescription}
-                      onChange={(e) => setNewProdDescription(e.target.value)}
-                      placeholder="Explica las características, notas olfativas o materiales..."
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded focus:outline-none focus:border-amber-400"
-                    />
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-2">
+                  <div className="flex justify-end gap-3 pt-4 border-t border-white/10">
                     <button
                       type="button"
                       onClick={() => setIsCreatingProduct(false)}
-                      className="px-4 py-2 text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                      className="px-5 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={savingProduct}
-                      className="bg-amber-400 text-black px-6 py-2.5 rounded text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-all cursor-pointer shadow-md disabled:opacity-50"
+                      className="bg-amber-400 text-black px-8 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-amber-300 transition-all cursor-pointer shadow-md disabled:opacity-50 active:scale-95 flex items-center gap-2"
                     >
-                      {savingProduct ? "Guardando..." : "Publicar en Tienda"}
+                      <span>🚀</span>
+                      <span>{savingProduct ? "Publicando..." : "Publicar Producto en Tienda"}</span>
                     </button>
                   </div>
                 </form>
@@ -794,6 +1336,10 @@ export default function VenderPage() {
                     const img = p.images?.split(",")[0]?.trim();
                     const price = Number(p.sale_price) || 0;
                     const { sellerNet } = calculateOrderCommission(price, commission);
+                    const displayBadge = p.badge ? extractDisplayBadge(p.badge) : "";
+                    const isFree = hasFreeShipping(p);
+                    const isCombo = isProductCombo(p);
+                    const { mainCategory, subcategory } = parseCategory(p.category);
 
                     return (
                       <div
@@ -803,16 +1349,23 @@ export default function VenderPage() {
                         }`}
                       >
                         <div className="flex gap-3 items-start">
-                          <div className="w-16 h-16 bg-black border border-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
+                          <div className="w-16 h-16 bg-black border border-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0 relative">
                             {img ? (
                               <img src={img} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <span className="text-[10px] text-neutral-600">Sin foto</span>
                             )}
+                            {isCombo && (
+                              <span className="absolute top-0.5 left-0.5 text-[7px] font-bold bg-amber-400 text-black px-1 rounded">
+                                Combo
+                              </span>
+                            )}
                           </div>
                           <div className="space-y-1 overflow-hidden min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block truncate">{p.category}</span>
+                              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block truncate">
+                                {mainCategory} {subcategory ? `// ${subcategory}` : ""}
+                              </span>
                               {p.is_active !== false ? (
                                 <span className="text-[8.5px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">
                                   Activo
@@ -824,6 +1377,21 @@ export default function VenderPage() {
                               )}
                             </div>
                             <h4 className="font-bold text-white text-xs truncate" title={p.name}>{p.name}</h4>
+
+                            {/* BADGES EN LISTADO */}
+                            <div className="flex flex-wrap gap-1 items-center">
+                              {isFree && (
+                                <span className="text-[7.5px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1 py-0.2 rounded font-bold uppercase tracking-wider">
+                                  Envío Gratis
+                                </span>
+                              )}
+                              {displayBadge && (
+                                <span className="text-[7.5px] bg-amber-400/10 text-amber-300 border border-amber-400/30 px-1 py-0.2 rounded font-semibold uppercase tracking-wider truncate max-w-[120px]">
+                                  {displayBadge}
+                                </span>
+                              )}
+                            </div>
+
                             <div className="flex items-baseline gap-2">
                               <span className="text-sm font-mono font-bold text-white block">
                                 $ {price.toLocaleString("es-CO")} COP
@@ -1101,135 +1669,387 @@ export default function VenderPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSaveEditProduct} className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-neutral-300">Nombre del Producto *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Precio de Venta (COP) *</label>
+              <form onSubmit={handleSaveEditProduct} className="space-y-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* NOMBRE */}
+                  <div className="md:col-span-2 space-y-1.5">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Nombre del Producto *
+                    </label>
                     <input
-                      type="number"
+                      type="text"
                       required
-                      min="1000"
-                      value={editForm.sale_price}
-                      onChange={(e) => setEditForm({ ...editForm, sale_price: e.target.value })}
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
-                    />
-                    {editForm.sale_price && (
-                      <p className="text-[10px] text-emerald-400 font-mono mt-0.5">
-                        Tú recibes: $ {calculateOrderCommission(Number(editForm.sale_price), commission).sellerNet.toLocaleString("es-CO")} COP
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Precio Original Tachado (Opcional)</label>
-                    <input
-                      type="number"
-                      value={editForm.original_price}
-                      onChange={(e) => setEditForm({ ...editForm, original_price: e.target.value })}
-                      placeholder="Ej: 240000"
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Stock Disponible *</label>
+                  {/* STOCK */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Stock Disponible *
+                    </label>
                     <input
                       type="number"
                       required
                       min="0"
                       value={editForm.stock}
                       onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
                     />
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Categoría *</label>
-                    <select
-                      value={editForm.category}
-                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
-                    >
-                      <option value="Perfume">Perfume & Fragancia</option>
-                      <option value="Zapatos">Sneakers & Calzado</option>
-                      <option value="Ropa">Ropa Selecta</option>
-                      <option value="Gorras">Gorra & Accesorio</option>
-                      <option value="Joyería">Joyería & Oro</option>
-                    </select>
+                  {/* PRECIOS Y DESCUENTO */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Precio Base en COP *
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1000"
+                      value={editForm.basePrice}
+                      onChange={(e) => setEditForm({ ...editForm, basePrice: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Tallas / Presentación</label>
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Descuento % (0 para ninguno)
+                      </label>
+                      {parseFloat(editForm.discountPercent) > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, discountPercent: "0" })}
+                          className="text-[10px] text-red-400 underline cursor-pointer"
+                        >
+                          Quitar descuento
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      max="90"
+                      value={editForm.discountPercent}
+                      onChange={(e) => setEditForm({ ...editForm, discountPercent: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  {/* CÁLCULO EN VIVO */}
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex flex-col justify-center text-xs space-y-1">
+                    <span className="text-[10px] uppercase tracking-wider text-neutral-400 font-medium">
+                      Precio final al cliente:
+                    </span>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-base font-bold font-mono text-emerald-400">
+                        ${" "}
+                        {Math.round(
+                          (parseFloat(editForm.basePrice) || 0) *
+                            (1 - (parseFloat(editForm.discountPercent) || 0) / 100)
+                        ).toLocaleString("es-CO")}{" "}
+                        COP
+                      </span>
+                      {parseFloat(editForm.discountPercent) > 0 && (
+                        <span className="text-[10px] font-mono text-red-400 line-through">
+                          Antes: ${" "}
+                          {parseFloat(editForm.basePrice || "0").toLocaleString("es-CO")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10.5px] text-amber-300 font-mono pt-1 border-t border-white/10">
+                      Tu ganancia neta: ${" "}
+                      {calculateOrderCommission(
+                        Math.round(
+                          (parseFloat(editForm.basePrice) || 0) *
+                            (1 - (parseFloat(editForm.discountPercent) || 0) / 100)
+                        ),
+                        commission
+                      ).sellerNet.toLocaleString("es-CO")}{" "}
+                      COP
+                    </p>
+                  </div>
+
+                  {/* CATEGORÍA PRINCIPAL */}
+                  <div className="space-y-1.5 md:col-span-1">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Categoría Principal *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {COMMON_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, category: cat })}
+                          className={`text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                            editForm.category.toLowerCase() === cat.toLowerCase()
+                              ? "bg-amber-400 text-black font-bold border-amber-400"
+                              : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          {cat}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* SUBCATEGORÍA / TIPO */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-semibold text-neutral-300">
+                        Tipo de Producto / Subcategoría
+                      </label>
+                      <span className="text-[10px] text-amber-400 font-mono">
+                        {editForm.subcategory ? `Tipo: ${editForm.subcategory}` : "General"}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={editForm.subcategory}
+                      onChange={(e) => setEditForm({ ...editForm, subcategory: e.target.value })}
+                      placeholder="Ej: Árabes Exclusivos, Sneaker, Chaqueta..."
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                    {SUGGESTED_SUBCATEGORIES[editForm.category] && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {SUGGESTED_SUBCATEGORIES[editForm.category].map((subOption) => (
+                          <button
+                            key={subOption}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, subcategory: subOption })}
+                            className={`text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                              editForm.subcategory.toLowerCase() === subOption.toLowerCase()
+                                ? "bg-amber-400 text-black font-bold border-amber-400"
+                                : "bg-white/5 border-white/10 text-neutral-400 hover:text-amber-300"
+                            }`}
+                          >
+                            {subOption}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* MODALIDAD DE VENTA: UNIDAD O COMBO */}
+                  <div className="md:col-span-3 space-y-2 pt-1">
+                    <div className="flex justify-between items-center">
+                      <label className="block text-xs font-bold uppercase tracking-wider text-neutral-200">
+                        Modalidad de Venta / Presentación *
+                      </label>
+                      <span className="text-[10px] text-amber-400 font-mono font-bold">
+                        {editForm.presentation === "combo" ? "🎁 COMBO / DÚO" : "📦 UNIDAD"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, presentation: "unidad" })}
+                        className={`p-3 border rounded-xl text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          editForm.presentation === "unidad"
+                            ? "bg-white/10 border-white text-white ring-1 ring-white/50"
+                            : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                        }`}
+                      >
+                        <span className="text-xl">📦</span>
+                        <div>
+                          <span className="text-xs font-bold uppercase tracking-wider block text-white">
+                            Unidad Individual
+                          </span>
+                          <span className="text-[9.5px] text-neutral-400 block">1 artículo estándar</span>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setEditForm({ ...editForm, presentation: "combo" })}
+                        className={`p-3 border rounded-xl text-left transition-all cursor-pointer flex items-center gap-3 ${
+                          editForm.presentation === "combo"
+                            ? "bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400 text-amber-300 ring-1 ring-amber-400/50"
+                            : "bg-[#0a0a0c] border-white/10 text-neutral-400 hover:border-white/30"
+                        }`}
+                      >
+                        <span className="text-xl">🎁</span>
+                        <div>
+                          <span className="text-xs font-bold uppercase tracking-wider block text-amber-300">
+                            Combo / Dúo / Kit
+                          </span>
+                          <span className="text-[9.5px] text-amber-200/70 block">2 o más productos en pack</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* PROMO ENVÍO GRATIS */}
+                  <div className="md:col-span-3 p-3.5 bg-amber-500/10 border border-amber-400/30 rounded-xl">
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editForm.isFreeShipping}
+                        onChange={(e) => setEditForm({ ...editForm, isFreeShipping: e.target.checked })}
+                        className="w-4 h-4 mt-0.5 accent-amber-400 cursor-pointer"
+                      />
+                      <div>
+                        <span className="text-xs font-bold uppercase tracking-wider text-amber-300 block">
+                          🚚 Promoción Activa: Envío Gratis para este producto
+                        </span>
+                        <span className="text-[10.5px] text-neutral-300 font-light block mt-0.5">
+                          El comprador verá costo de envío $0 COP y la etiqueta de Envío Gratis.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* INSIGNIA DESTACADA */}
+                  <div className="md:col-span-3 space-y-1.5">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Insignia / Etiqueta Destacada
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.badge}
+                      onChange={(e) => setEditForm({ ...editForm, badge: e.target.value })}
+                      placeholder="Ej: Edición Limitada, Top Ventas, Exclusivo..."
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {BADGE_PRESETS.map((badgeText) => (
+                        <button
+                          key={badgeText}
+                          type="button"
+                          onClick={() => setEditForm({ ...editForm, badge: badgeText })}
+                          className={`text-[8.5px] uppercase tracking-wider px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                            editForm.badge === badgeText
+                              ? "bg-amber-400 text-black font-bold border-amber-400"
+                              : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                          }`}
+                        >
+                          {badgeText}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* TALLAS */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Tallas / Presentaciones
+                    </label>
                     <input
                       type="text"
                       value={editForm.sizes}
                       onChange={(e) => setEditForm({ ...editForm, sizes: e.target.value })}
-                      placeholder="Ej: 38, 39, 40 o 100ml"
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      placeholder="S, M, L, XL ó 39, 40 ó 100ml"
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
                     />
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {SIZE_PRESETS.slice(0, 10).map((sz) => {
+                        const isSelected = editForm.sizes.split(",").map((s) => s.trim()).includes(sz);
+                        return (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, sizes: toggleToken(editForm.sizes, sz) })}
+                            className={`text-[8.5px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-amber-400 text-black font-bold border-amber-400"
+                                : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            {sz}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-neutral-300">Colores / Tonos</label>
+                  {/* COLORES */}
+                  <div className="space-y-1.5 md:col-span-2">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Colores / Tonos
+                    </label>
                     <input
                       type="text"
                       value={editForm.colors}
                       onChange={(e) => setEditForm({ ...editForm, colors: e.target.value })}
-                      placeholder="Ej: Negro, Blanco"
-                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      placeholder="Negro, Blanco, Oro..."
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {COLOR_PRESETS.map((clr) => {
+                        const isSelected = editForm.colors.split(",").map((c) => c.trim()).includes(clr);
+                        return (
+                          <button
+                            key={clr}
+                            type="button"
+                            onClick={() => setEditForm({ ...editForm, colors: toggleToken(editForm.colors, clr) })}
+                            className={`text-[8.5px] px-2 py-0.5 rounded border transition-all cursor-pointer ${
+                              isSelected
+                                ? "bg-amber-400 text-black font-bold border-amber-400"
+                                : "bg-white/5 border-white/10 text-neutral-400 hover:text-white"
+                            }`}
+                          >
+                            {clr}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* FOTOS */}
+                  <div className="space-y-1.5 md:col-span-3">
+                    <ImageGalleryUploader
+                      value={editForm.images}
+                      onChange={(urls) => setEditForm({ ...editForm, images: urls })}
+                      label="Fotos del Producto"
+                      helperText="Agrega nuevas fotos desde tu galería, reordénalas o elimina fotos antiguas"
                     />
                   </div>
-                </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-neutral-300">Fotos del Producto</label>
-                  <ImageGalleryUploader
-                    value={editForm.images}
-                    onChange={(urls) => setEditForm({ ...editForm, images: urls })}
-                  />
-                </div>
+                  {/* DESCRIPCIÓN */}
+                  <div className="space-y-1.5 md:col-span-3">
+                    <label className="block text-xs font-semibold text-neutral-300">
+                      Descripción & Detalles
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-neutral-300">Descripción & Detalles</label>
-                  <textarea
-                    rows={3}
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="seller_edit_active"
-                    checked={editForm.is_active}
-                    onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
-                    className="w-4 h-4 accent-amber-400 cursor-pointer"
-                  />
-                  <label htmlFor="seller_edit_active" className="text-xs text-neutral-200 cursor-pointer font-medium">
-                    Producto activo y visible para compra en la tienda oficial
-                  </label>
+                  {/* ACTIVAR / PAUSAR */}
+                  <div className="md:col-span-3 p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="seller_edit_active"
+                      checked={editForm.is_active}
+                      onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                      className="w-4 h-4 accent-amber-400 cursor-pointer"
+                    />
+                    <label htmlFor="seller_edit_active" className="text-xs text-neutral-200 cursor-pointer font-medium">
+                      Producto activo y visible para compra en la tienda oficial
+                    </label>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
                   <button
                     type="button"
                     onClick={() => setEditingProduct(null)}
-                    className="px-4 py-2 text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                    className="px-5 py-2.5 text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
                   >
                     Cancelar
                   </button>
@@ -1237,7 +2057,7 @@ export default function VenderPage() {
                   <button
                     type="submit"
                     disabled={savingEdit}
-                    className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-7 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
                   >
                     {savingEdit ? "Guardando Cambios..." : "Guardar Cambios"}
                   </button>
@@ -1334,14 +2154,25 @@ export default function VenderPage() {
               </button>
             </form>
 
-            <div className="text-center pt-2 border-t border-white/10 text-xs text-neutral-400">
-              ¿Aún no tienes cuenta?{" "}
+            <div className="text-center pt-2 border-t border-white/10 text-xs text-neutral-400 space-y-3">
               <button
-                onClick={() => setViewMode("register")}
-                className="text-amber-400 hover:underline font-semibold cursor-pointer"
+                type="button"
+                onClick={handleQuickDemoAccess}
+                className="w-full bg-amber-400/15 hover:bg-amber-400/25 text-amber-300 border border-amber-400/40 py-2.5 text-xs font-bold uppercase tracking-wider rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer flex items-center justify-center gap-2"
               >
-                Postula tu Boutique aquí &rarr;
+                <span>⚡</span>
+                <span>Probar Panel y Subir Producto Directamente</span>
               </button>
+
+              <div>
+                ¿Aún no tienes cuenta?{" "}
+                <button
+                  onClick={() => setViewMode("register")}
+                  className="text-amber-400 hover:underline font-semibold cursor-pointer"
+                >
+                  Postula tu Boutique aquí &rarr;
+                </button>
+              </div>
             </div>
           </div>
         </main>
@@ -1362,12 +2193,20 @@ export default function VenderPage() {
                 Llega a miles de compradores de moda, perfumería y artículos exclusivos. Pagos 100% garantizados con Wompi, protección contra fraudes y desembolso directo a tu cuenta bancaria.
               </p>
 
-              <div className="pt-2">
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleQuickDemoAccess}
+                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-lg active:scale-95 cursor-pointer flex items-center gap-2"
+                >
+                  <span>⚡</span>
+                  <span>Probar Panel y Subir Producto Directamente</span>
+                </button>
                 <button
                   onClick={() => setViewMode("login")}
                   className="text-xs text-neutral-400 hover:text-white underline cursor-pointer"
                 >
-                  ¿Ya tienes una boutique registrada? Inicia sesión aquí &rarr;
+                  ¿Ya tienes boutique? Iniciar sesión &rarr;
                 </button>
               </div>
             </div>
