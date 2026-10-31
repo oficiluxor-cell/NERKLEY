@@ -122,13 +122,13 @@ export async function registerNewSeller(data: SellerRegistrationInput): Promise<
       .single();
 
     if (error) {
-      // Si la tabla no ha sido creada en Supabase aún, guardamos en localStorage para no bloquear la experiencia
       console.warn("Error Supabase al registrar vendedor, usando almacenamiento seguro local:", error.message);
       if (typeof window !== "undefined") {
         const localSellers = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
         const fallbackSeller = { ...newSellerData, id: `seller_${Date.now()}`, created_at: new Date().toISOString() };
         localSellers.push(fallbackSeller);
         localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(localSellers));
+        localStorage.setItem("NERKLEY_seller_session", JSON.stringify(fallbackSeller));
         return { success: true, seller: fallbackSeller as unknown as Seller };
       }
       return { success: false, error: error.message };
@@ -148,12 +148,106 @@ export async function registerNewSeller(data: SellerRegistrationInput): Promise<
           },
         ]);
       } catch (wErr) {
-        console.warn("No se pudo inicializar wallet automáticamente:", wErr);
+        console.warn("Wallet creation error:", wErr);
       }
+    }
+
+    if (typeof window !== "undefined") {
+      localStorage.setItem("NERKLEY_seller_session", JSON.stringify(inserted));
     }
 
     return { success: true, seller: inserted as Seller };
   } catch (err: any) {
     return { success: false, error: err.message || "Error al procesar el registro" };
+  }
+}
+
+/**
+ * Iniciar sesión de vendedor
+ */
+export async function loginSeller(email: string, password?: string): Promise<{ success: boolean; error?: string; seller?: Seller }> {
+  try {
+    const cleanEmail = email.trim().toLowerCase();
+    
+    // 1. Buscar en Supabase
+    const { data, error } = await supabase
+      .from("sellers")
+      .select("*")
+      .eq("email", cleanEmail)
+      .single();
+
+    if (!error && data) {
+      if (password && data.password && data.password !== password) {
+        return { success: false, error: "Contraseña incorrecta. Por favor verifica tus datos." };
+      }
+      if (typeof window !== "undefined") {
+        localStorage.setItem("NERKLEY_seller_session", JSON.stringify(data));
+      }
+      return { success: true, seller: data as Seller };
+    }
+
+    // 2. Fallback a almacenamiento local si no está en la nube aún
+    if (typeof window !== "undefined") {
+      const localSellers: Seller[] = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+      const found = localSellers.find((s) => s.email.toLowerCase() === cleanEmail);
+      if (found) {
+        if (password && found.password && found.password !== password) {
+          return { success: false, error: "Contraseña incorrecta." };
+        }
+        localStorage.setItem("NERKLEY_seller_session", JSON.stringify(found));
+        return { success: true, seller: found };
+      }
+    }
+
+    return { success: false, error: "No encontramos ninguna boutique con este correo electrónico." };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error al iniciar sesión" };
+  }
+}
+
+/**
+ * Obtener la sesión actual del vendedor y sincronizar con la nube
+ */
+export async function getFreshSellerSession(): Promise<Seller | null> {
+  if (typeof window === "undefined") return null;
+  const raw = localStorage.getItem("NERKLEY_seller_session");
+  if (!raw) return null;
+
+  try {
+    const cached: Seller = JSON.parse(raw);
+    if (!cached?.id) return null;
+
+    // Verificar en Supabase para obtener el estado más reciente (ej. si fue aprobado recientemente por el admin)
+    const { data } = await supabase
+      .from("sellers")
+      .select("*")
+      .eq("id", cached.id)
+      .single();
+
+    if (data) {
+      localStorage.setItem("NERKLEY_seller_session", JSON.stringify(data));
+      return data as Seller;
+    }
+
+    // Fallback a local sellers si el admin lo aprobó localmente
+    const localSellers: Seller[] = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
+    const localFound = localSellers.find((s) => s.id === cached.id);
+    if (localFound) {
+      localStorage.setItem("NERKLEY_seller_session", JSON.stringify(localFound));
+      return localFound;
+    }
+
+    return cached;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Cerrar sesión del vendedor
+ */
+export function logoutSeller() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("NERKLEY_seller_session");
   }
 }
