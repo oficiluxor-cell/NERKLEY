@@ -66,6 +66,22 @@ export default function VenderPage() {
   const [newProdColors, setNewProdColors] = useState("");
   const [savingProduct, setSavingProduct] = useState(false);
 
+  // Estados para Edición de Producto Existente por el Vendedor
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    sale_price: "",
+    original_price: "",
+    stock: "10",
+    category: "Perfume",
+    sizes: "",
+    colors: "",
+    images: "",
+    description: "",
+    is_active: true,
+  });
+
   // Cargar sesión del vendedor al montar
   useEffect(() => {
     async function initSession() {
@@ -316,6 +332,85 @@ export default function VenderPage() {
       alert("Error al publicar producto: " + (err.message || JSON.stringify(err)));
     } finally {
       setSavingProduct(false);
+    }
+  };
+
+  const handleOpenEditProduct = (prod: any) => {
+    setEditingProduct(prod);
+    setEditForm({
+      name: prod.name || "",
+      sale_price: String(prod.sale_price || ""),
+      original_price: prod.original_price ? String(prod.original_price) : "",
+      stock: String(prod.stock ?? 10),
+      category: prod.category || "Perfume",
+      sizes: prod.sizes || "",
+      colors: prod.colors || "",
+      images: prod.images || "",
+      description: prod.description || "",
+      is_active: prod.is_active !== false,
+    });
+  };
+
+  const handleSaveEditProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProduct) return;
+
+    setSavingEdit(true);
+    try {
+      const price = Number(editForm.sale_price);
+      const originalPrice = editForm.original_price ? Number(editForm.original_price) : null;
+      let discount = null;
+      if (originalPrice && originalPrice > price) {
+        discount = Math.round(((originalPrice - price) / originalPrice) * 100);
+      }
+
+      const updatedPayload = {
+        name: editForm.name.trim(),
+        sale_price: price,
+        original_price: originalPrice,
+        discount_percent: discount,
+        category: editForm.category,
+        stock: Number(editForm.stock) || 0,
+        sizes: editForm.sizes.trim(),
+        colors: editForm.colors.trim(),
+        images: editForm.images,
+        description: editForm.description.trim(),
+        is_active: editForm.is_active,
+      };
+
+      const { error } = await supabase
+        .from("products")
+        .update(updatedPayload)
+        .eq("id", editingProduct.id);
+
+      if (error) throw error;
+
+      setSellerProducts((prev) =>
+        prev.map((p) => (p.id === editingProduct.id ? { ...p, ...updatedPayload } : p))
+      );
+      setEditingProduct(null);
+      alert("¡Producto actualizado exitosamente!");
+    } catch (err: any) {
+      alert("Error al guardar cambios: " + (err.message || JSON.stringify(err)));
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteSellerProduct = async (productId: string, productName: string) => {
+    const confirmDelete = window.confirm(
+      `¿Confirmas que deseas eliminar permanentemente el producto "${productName}" de tu boutique?\n\nEsta acción no se puede deshacer y el artículo se retirará de la tienda pública.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase.from("products").delete().eq("id", productId);
+      if (error) throw error;
+
+      setSellerProducts((prev) => prev.filter((p) => p.id !== productId));
+      alert(`¡El producto "${productName}" ha sido eliminado exitosamente!`);
+    } catch (err: any) {
+      alert("Error al eliminar producto: " + (err.message || JSON.stringify(err)));
     }
   };
 
@@ -697,33 +792,87 @@ export default function VenderPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {sellerProducts.map((p) => {
                     const img = p.images?.split(",")[0]?.trim();
+                    const price = Number(p.sale_price) || 0;
+                    const { sellerNet } = calculateOrderCommission(price, commission);
+
                     return (
-                      <div key={p.id} className="bg-[#111116] border border-white/10 rounded-xl overflow-hidden flex flex-col justify-between p-4 space-y-3">
-                        <div className="flex gap-3 items-center">
-                          <div className="w-16 h-16 bg-black border border-white/10 rounded flex items-center justify-center overflow-hidden shrink-0">
+                      <div
+                        key={p.id}
+                        className={`bg-[#111116] border rounded-2xl overflow-hidden flex flex-col justify-between p-4 space-y-3 transition-all ${
+                          p.is_active !== false ? "border-white/10 hover:border-amber-400/40 shadow-sm" : "border-red-500/30 opacity-75"
+                        }`}
+                      >
+                        <div className="flex gap-3 items-start">
+                          <div className="w-16 h-16 bg-black border border-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
                             {img ? (
                               <img src={img} alt="" className="w-full h-full object-cover" />
                             ) : (
-                              <span className="text-xs text-neutral-600">Sin foto</span>
+                              <span className="text-[10px] text-neutral-600">Sin foto</span>
                             )}
                           </div>
-                          <div className="space-y-0.5 overflow-hidden">
-                            <h4 className="font-semibold text-white text-xs truncate">{p.name}</h4>
-                            <span className="text-[10px] text-amber-400 font-bold block">{p.category}</span>
-                            <span className="text-xs font-mono font-bold text-white block">
-                              $ {Number(p.sale_price).toLocaleString("es-CO")} COP
+                          <div className="space-y-1 overflow-hidden min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-amber-400 font-bold uppercase tracking-wider block truncate">{p.category}</span>
+                              {p.is_active !== false ? (
+                                <span className="text-[8.5px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">
+                                  Activo
+                                </span>
+                              ) : (
+                                <span className="text-[8.5px] bg-red-500/20 text-red-300 border border-red-500/40 px-1.5 py-0.2 rounded font-bold uppercase tracking-wider shrink-0">
+                                  Pausado
+                                </span>
+                              )}
+                            </div>
+                            <h4 className="font-bold text-white text-xs truncate" title={p.name}>{p.name}</h4>
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-sm font-mono font-bold text-white block">
+                                $ {price.toLocaleString("es-CO")} COP
+                              </span>
+                              {p.original_price && p.original_price > price && (
+                                <span className="text-[10px] font-mono text-neutral-500 line-through">
+                                  ${Number(p.original_price).toLocaleString("es-CO")}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[9.5px] text-emerald-400 font-mono">
+                              Recibes neto: $ {sellerNet.toLocaleString("es-CO")} COP
+                            </p>
+                            <span className="text-[10px] text-neutral-400 font-mono block">
+                              Stock: {p.stock} uds {p.sizes ? `• ${p.sizes}` : ""}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex justify-between items-center pt-2 border-t border-white/10 text-[10px]">
-                          <span className="text-neutral-400 font-mono">Stock: {p.stock} uds</span>
+                        {/* BOTONES DE EDICIÓN Y ELIMINACIÓN */}
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditProduct(p)}
+                              className="bg-amber-400/15 hover:bg-amber-400/30 text-amber-300 border border-amber-400/40 px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                              title="Editar precio, stock o datos del producto"
+                            >
+                              <span>✏️</span>
+                              <span>Editar</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSellerProduct(p.id, p.name)}
+                              className="bg-red-500/15 hover:bg-red-500/30 text-red-300 border border-red-500/40 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1 active:scale-95"
+                              title="Eliminar este producto de tu tienda"
+                            >
+                              <span>🗑️</span>
+                              <span>Eliminar</span>
+                            </button>
+                          </div>
+
                           <Link
                             href={`/product/${p.slug}`}
                             target="_blank"
-                            className="text-amber-300 hover:underline font-semibold"
+                            className="text-neutral-400 hover:text-white text-[10px] font-semibold underline"
                           >
-                            Ver en Tienda &rarr;
+                            Ver en Tienda ↗
                           </Link>
                         </div>
                       </div>
@@ -928,6 +1077,175 @@ export default function VenderPage() {
             </div>
           )}
         </main>
+
+        {/* MODAL: EDICIÓN DE PRODUCTO DEL VENDEDOR */}
+        {editingProduct && (
+          <div className="fixed inset-0 z-[150] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 md:p-6 overflow-y-auto">
+            <div className="bg-[#111116] border border-amber-400/40 max-w-2xl w-full max-h-[92vh] overflow-y-auto p-6 md:p-8 space-y-6 shadow-2xl relative text-left rounded-2xl animate-in fade-in duration-200">
+              <div className="flex items-start justify-between border-b border-white/10 pb-4">
+                <div>
+                  <h3 className="text-lg font-serif font-bold text-white uppercase tracking-wider">
+                    Editar Producto &bull; {editingProduct.name}
+                  </h3>
+                  <p className="text-[10px] text-neutral-400 uppercase tracking-widest mt-1">
+                    Actualiza precio, stock, fotos o descripción en tiempo real
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="text-neutral-400 hover:text-white text-2xl leading-none cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEditProduct} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">Nombre del Producto *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editForm.name}
+                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Precio de Venta (COP) *</label>
+                    <input
+                      type="number"
+                      required
+                      min="1000"
+                      value={editForm.sale_price}
+                      onChange={(e) => setEditForm({ ...editForm, sale_price: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    />
+                    {editForm.sale_price && (
+                      <p className="text-[10px] text-emerald-400 font-mono mt-0.5">
+                        Tú recibes: $ {calculateOrderCommission(Number(editForm.sale_price), commission).sellerNet.toLocaleString("es-CO")} COP
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Precio Original Tachado (Opcional)</label>
+                    <input
+                      type="number"
+                      value={editForm.original_price}
+                      onChange={(e) => setEditForm({ ...editForm, original_price: e.target.value })}
+                      placeholder="Ej: 240000"
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Stock Disponible *</label>
+                    <input
+                      type="number"
+                      required
+                      min="0"
+                      value={editForm.stock}
+                      onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Categoría *</label>
+                    <select
+                      value={editForm.category}
+                      onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                    >
+                      <option value="Perfume">Perfume & Fragancia</option>
+                      <option value="Zapatos">Sneakers & Calzado</option>
+                      <option value="Ropa">Ropa Selecta</option>
+                      <option value="Gorras">Gorra & Accesorio</option>
+                      <option value="Joyería">Joyería & Oro</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Tallas / Presentación</label>
+                    <input
+                      type="text"
+                      value={editForm.sizes}
+                      onChange={(e) => setEditForm({ ...editForm, sizes: e.target.value })}
+                      placeholder="Ej: 38, 39, 40 o 100ml"
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-neutral-300">Colores / Tonos</label>
+                    <input
+                      type="text"
+                      value={editForm.colors}
+                      onChange={(e) => setEditForm({ ...editForm, colors: e.target.value })}
+                      placeholder="Ej: Negro, Blanco"
+                      className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">Fotos del Producto</label>
+                  <ImageGalleryUploader
+                    value={editForm.images}
+                    onChange={(urls) => setEditForm({ ...editForm, images: urls })}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">Descripción & Detalles</label>
+                  <textarea
+                    rows={3}
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="p-3 bg-white/5 border border-white/10 rounded-xl flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="seller_edit_active"
+                    checked={editForm.is_active}
+                    onChange={(e) => setEditForm({ ...editForm, is_active: e.target.checked })}
+                    className="w-4 h-4 accent-amber-400 cursor-pointer"
+                  />
+                  <label htmlFor="seller_edit_active" className="text-xs text-neutral-200 cursor-pointer font-medium">
+                    Producto activo y visible para compra en la tienda oficial
+                  </label>
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="px-4 py-2 text-xs text-neutral-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={savingEdit}
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
+                  >
+                    {savingEdit ? "Guardando Cambios..." : "Guardar Cambios"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
