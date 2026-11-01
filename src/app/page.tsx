@@ -285,40 +285,40 @@ export default function Home() {
             {!currentSeller && (
               <Link
                 href="/vender"
-                className="hover:text-amber-300 transition-colors py-1 relative group text-xs font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5"
+                className="hover:text-white transition-colors py-1 relative group text-xs font-semibold uppercase tracking-[0.2em] text-[#dfc89d] flex items-center gap-1.5"
               >
                 <span>⭐</span> Vender
-                <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-amber-400 transition-all duration-300 group-hover:w-full" />
+                <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[#dfc89d] transition-all duration-300 group-hover:w-full" />
               </Link>
             )}
           </nav>
 
           {/* Botones de Acción: Perfil de Vendedor, Mis Pedidos y Carrito */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* Si el usuario tiene boutique creada, muestra su avatar circular con aro dorado en vez del botón vender */}
+            {/* Si el usuario tiene boutique creada, muestra su avatar circular con aro dorado sutil */}
             {currentSeller ? (
               <Link
                 href={`/tienda/${currentSeller.slug || encodeURIComponent(currentSeller.store_name.toLowerCase().trim())}`}
-                className="flex items-center gap-1.5 p-0.5 rounded-full ring-2 ring-amber-400 hover:ring-amber-300 bg-[#16161f] transition-all hover:scale-105 shrink-0 shadow-md group"
+                className="flex items-center gap-1.5 p-0.5 rounded-full ring-2 ring-[#c5a880]/60 hover:ring-[#c5a880] bg-[#16161f] transition-all hover:scale-105 shrink-0 shadow-md group"
                 title={`Mi Boutique Oficial: ${currentSeller.store_name}`}
               >
-                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-black flex items-center justify-center border border-amber-400/50 shrink-0">
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-black flex items-center justify-center border border-white/20 shrink-0">
                   {currentSeller.logo_url ? (
                     <img src={currentSeller.logo_url} alt={currentSeller.store_name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-[10px] sm:text-xs font-bold text-amber-300">
+                    <span className="text-[10px] sm:text-xs font-bold text-[#dfc89d]">
                       {currentSeller.store_name.slice(0, 2).toUpperCase()}
                     </span>
                   )}
                 </div>
-                <span className="hidden lg:inline text-[11px] font-serif font-bold text-amber-300 group-hover:text-white pr-2 truncate max-w-[100px]">
+                <span className="hidden lg:inline text-[11px] font-serif font-bold text-[#dfc89d] group-hover:text-white pr-2 truncate max-w-[100px]">
                   {currentSeller.store_name}
                 </span>
               </Link>
             ) : (
               <Link
                 href="/vender"
-                className="hover:text-amber-300 transition-colors py-1 relative group text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1 md:hidden"
+                className="hover:text-white transition-colors py-1 relative group text-[11px] font-semibold uppercase tracking-[0.2em] text-[#dfc89d] flex items-center gap-1 md:hidden"
               >
                 <span>⭐</span> Vender
               </Link>

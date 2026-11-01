@@ -344,8 +344,9 @@ export async function getSellerBySlug(slugOrId: string): Promise<Seller | null> 
         );
       });
       if (match) {
-        const stories = await getSellerStories(match.id);
-        return { ...match, stories };
+        const { bioText, stories } = parseSellerBio(match.bio);
+        const liveStories = stories && stories.length > 0 ? stories : await getSellerStories(match.id);
+        return { ...match, bio: bioText, stories: liveStories };
       }
     }
 
@@ -411,23 +412,84 @@ export async function getSellerProducts(sellerId: string, storeName?: string): P
 }
 
 /**
- * Obtener historias (Stories) de una boutique
+ * Analiza la columna bio de sellers para extraer el texto limpio de la biografía
+ * y el array de historias (Stories) sincronizadas en la nube para todos los usuarios.
  */
-export async function getSellerStories(sellerId: string): Promise<SellerStory[]> {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(`NERKLEY_stories_${sellerId}`);
-    if (raw) {
-      return JSON.parse(raw) as SellerStory[];
+export function parseSellerBio(rawBio?: string | null): { bioText: string; stories: SellerStory[] } {
+  if (!rawBio) return { bioText: "", stories: [] };
+  const marker = "<!-- NERKLEY_STORIES:";
+  const markerEnd = " -->";
+  const idx = rawBio.indexOf(marker);
+  if (idx !== -1) {
+    const bioText = rawBio.substring(0, idx).trim();
+    const endIdx = rawBio.indexOf(markerEnd, idx);
+    if (endIdx !== -1) {
+      try {
+        const jsonStr = rawBio.substring(idx + marker.length, endIdx);
+        const stories = JSON.parse(jsonStr) as SellerStory[];
+        return { bioText, stories: Array.isArray(stories) ? stories : [] };
+      } catch {
+        return { bioText, stories: [] };
+      }
     }
-    return [];
-  } catch {
-    return [];
   }
+
+  if (rawBio.trim().startsWith("{") && rawBio.includes('"stories"')) {
+    try {
+      const parsed = JSON.parse(rawBio);
+      return { bioText: parsed.bioText || parsed.bio || "", stories: parsed.stories || [] };
+    } catch {}
+  }
+
+  return { bioText: rawBio, stories: [] };
+}
+
+export function buildSellerBio(bioText: string, stories: SellerStory[]): string {
+  const cleanBio = bioText.replace(/<!-- NERKLEY_STORIES:[\s\S]*?-->/g, "").trim();
+  if (!stories || stories.length === 0) {
+    return cleanBio;
+  }
+  return cleanBio
+    ? `${cleanBio}\n\n<!-- NERKLEY_STORIES:${JSON.stringify(stories)} -->`
+    : `<!-- NERKLEY_STORIES:${JSON.stringify(stories)} -->`;
 }
 
 /**
- * Guardar una nueva historia para la boutique
+ * Obtener historias (Stories) de una boutique desde la nube de Supabase
+ * (Disponibles públicamente para cualquier cuenta y dispositivo).
+ */
+export async function getSellerStories(sellerId: string): Promise<SellerStory[]> {
+  try {
+    const { data } = await supabase
+      .from("sellers")
+      .select("bio")
+      .eq("id", sellerId)
+      .maybeSingle();
+
+    if (data?.bio) {
+      const { stories } = parseSellerBio(data.bio);
+      if (stories && stories.length > 0) {
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`NERKLEY_stories_${sellerId}`, JSON.stringify(stories));
+        }
+        return stories;
+      }
+    }
+  } catch (err) {
+    console.warn("Error consultando historias en Supabase:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(`NERKLEY_stories_${sellerId}`);
+      if (raw) return JSON.parse(raw) as SellerStory[];
+    } catch {}
+  }
+  return [];
+}
+
+/**
+ * Guardar una nueva historia para la boutique (Guardado global en Supabase)
  */
 export async function saveSellerStory(
   sellerId: string,
@@ -452,27 +514,95 @@ export async function saveSellerStory(
     product_slug: storyData.product_slug,
   };
 
-  if (typeof window !== "undefined") {
-    const existing = await getSellerStories(sellerId);
-    const updated = [newStory, ...existing];
-    localStorage.setItem(`NERKLEY_stories_${sellerId}`, JSON.stringify(updated));
-    return updated;
+  let currentBioText = "";
+  let existingStories: SellerStory[] = [];
+
+  try {
+    const { data } = await supabase
+      .from("sellers")
+      .select("bio")
+      .eq("id", sellerId)
+      .maybeSingle();
+
+    if (data?.bio) {
+      const parsed = parseSellerBio(data.bio);
+      currentBioText = parsed.bioText;
+      existingStories = parsed.stories;
+    }
+  } catch (err) {
+    console.warn("Error leyendo bio de Supabase para historias:", err);
   }
 
-  return [newStory];
+  if (existingStories.length === 0 && typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(`NERKLEY_stories_${sellerId}`);
+      if (raw) existingStories = JSON.parse(raw);
+    } catch {}
+  }
+
+  const updatedStories = [newStory, ...existingStories.filter((s) => s.id !== newStory.id)];
+  const updatedBio = buildSellerBio(currentBioText, updatedStories);
+
+  try {
+    await supabase
+      .from("sellers")
+      .update({ bio: updatedBio })
+      .eq("id", sellerId);
+  } catch (err) {
+    console.warn("Error guardando historia en Supabase:", err);
+  }
+
+  if (typeof window !== "undefined") {
+    localStorage.setItem(`NERKLEY_stories_${sellerId}`, JSON.stringify(updatedStories));
+    const rawSess = localStorage.getItem("NERKLEY_seller_session");
+    if (rawSess) {
+      try {
+        const sess = JSON.parse(rawSess);
+        if (sess.id === sellerId) {
+          sess.bio = currentBioText;
+          sess.stories = updatedStories;
+          localStorage.setItem("NERKLEY_seller_session", JSON.stringify(sess));
+        }
+      } catch {}
+    }
+  }
+
+  return updatedStories;
 }
 
 /**
- * Eliminar una historia de la boutique
+ * Eliminar una historia de la boutique (en Supabase y localmente)
  */
 export async function deleteSellerStory(sellerId: string, storyId: string): Promise<SellerStory[]> {
+  let currentBioText = "";
+  let existingStories: SellerStory[] = [];
+
+  try {
+    const { data } = await supabase
+      .from("sellers")
+      .select("bio")
+      .eq("id", sellerId)
+      .maybeSingle();
+
+    if (data?.bio) {
+      const parsed = parseSellerBio(data.bio);
+      currentBioText = parsed.bioText;
+      existingStories = parsed.stories;
+    }
+  } catch {}
+
+  const updatedStories = existingStories.filter((s) => s.id !== storyId);
+  const updatedBio = buildSellerBio(currentBioText, updatedStories);
+
+  try {
+    await supabase.from("sellers").update({ bio: updatedBio }).eq("id", sellerId);
+  } catch {}
+
   if (typeof window !== "undefined") {
-    const existing = await getSellerStories(sellerId);
-    const updated = existing.filter((s) => s.id !== storyId);
-    localStorage.setItem(`NERKLEY_stories_${sellerId}`, JSON.stringify(updated));
-    return updated;
+    localStorage.setItem(`NERKLEY_stories_${sellerId}`, JSON.stringify(updatedStories));
   }
-  return [];
+
+  return updatedStories;
 }
 
 /**
@@ -480,10 +610,19 @@ export async function deleteSellerStory(sellerId: string, storyId: string): Prom
  */
 export async function updateSellerProfile(sellerId: string, updates: Partial<Seller>): Promise<{ success: boolean; error?: string; seller?: Seller }> {
   try {
+    let finalUpdates = { ...updates };
+    if (updates.bio !== undefined) {
+      try {
+        const { data: current } = await supabase.from("sellers").select("bio").eq("id", sellerId).maybeSingle();
+        const { stories } = parseSellerBio(current?.bio);
+        finalUpdates.bio = buildSellerBio(updates.bio || "", stories);
+      } catch {}
+    }
+
     // 1. Supabase
     const { data, error } = await supabase
       .from("sellers")
-      .update(updates)
+      .update(finalUpdates)
       .eq("id", sellerId)
       .select()
       .maybeSingle();
@@ -498,7 +637,7 @@ export async function updateSellerProfile(sellerId: string, updates: Partial<Sel
       if (raw) {
         const cached: Seller = JSON.parse(raw);
         if (cached.id === sellerId) {
-          const updated = { ...cached, ...updates };
+          const updated = { ...cached, ...finalUpdates };
           localStorage.setItem("NERKLEY_seller_session", JSON.stringify(updated));
         }
       }
@@ -506,12 +645,12 @@ export async function updateSellerProfile(sellerId: string, updates: Partial<Sel
       const localSellers: Seller[] = JSON.parse(localStorage.getItem("NERKLEY_local_sellers") || "[]");
       const idx = localSellers.findIndex((s) => s.id === sellerId);
       if (idx !== -1) {
-        localSellers[idx] = { ...localSellers[idx], ...updates };
+        localSellers[idx] = { ...localSellers[idx], ...finalUpdates };
         localStorage.setItem("NERKLEY_local_sellers", JSON.stringify(localSellers));
       }
     }
 
-    return { success: true, seller: (data || updates) as unknown as Seller };
+    return { success: true, seller: (data || finalUpdates) as unknown as Seller };
   } catch (err: any) {
     return { success: false, error: err.message };
   }

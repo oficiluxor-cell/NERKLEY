@@ -8,6 +8,7 @@ import {
   getSellerProducts,
   getSellerStories,
   saveSellerStory,
+  deleteSellerStory,
   getFreshSellerSession,
   calculateOrderCommission,
   compressImageFile,
@@ -307,34 +308,8 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           console.warn("Error cargando pedidos:", ordErr);
         }
 
-        // Historias por defecto si aún no tiene personalizadas
-        if (!str || str.length === 0) {
-          const sampleStories: SellerStory[] = [
-            {
-              id: "story_default_1",
-              seller_id: sellerData.id,
-              image_url: sellerData.banner_url || "https://images.unsplash.com/photo-1547887537-6158d64c35b3?q=80&w=1200",
-              caption: `✨ ¡Bienvenidos a la boutique oficial de ${sellerData.store_name} en NERKLEY! Envíos 100% asegurados a toda Colombia.`,
-              created_at: new Date().toISOString(),
-              product_name: prods[0]?.name,
-              product_price: prods[0]?.sale_price,
-              product_slug: prods[0]?.slug,
-            },
-            ...(prods.slice(0, 3).map((p, idx) => ({
-              id: `story_prod_${idx}`,
-              seller_id: sellerData.id,
-              image_url: p.images?.split(",")[0]?.trim() || "https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?q=80&w=1200",
-              caption: `🔥 ${p.name} - Disponible ahora para entrega inmediata con garantía directa.`,
-              created_at: new Date().toISOString(),
-              product_name: p.name,
-              product_price: p.sale_price,
-              product_slug: p.slug,
-            }))),
-          ];
-          setStories(sampleStories);
-        } else {
-          setStories(str);
-        }
+        // Asignar historias reales de la boutique (sincronizadas desde Supabase)
+        setStories(str || []);
 
         // Regla de Acceso del Vendedor: verificar si quien entra es el dueño autenticado
         try {
@@ -410,6 +385,19 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       } else {
         setStoryProgress(0);
       }
+    }
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (!seller) return;
+    if (!confirm("¿Seguro que deseas eliminar esta historia?")) return;
+    try {
+      const updated = await deleteSellerStory(seller.id, storyId);
+      setStories(updated);
+      closeStory();
+      showToast("Historia eliminada con éxito");
+    } catch {
+      showToast("Error al eliminar la historia");
     }
   };
 
@@ -749,25 +737,25 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const isVerified = seller.status === "verified" || seller.is_verified;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-white selection:bg-amber-400 selection:text-black">
+    <div className="min-h-screen bg-[#09090b] text-white selection:bg-white selection:text-black">
       {/* Toast Flotante */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[200] bg-white text-black px-5 py-3 border border-white shadow-2xl flex items-center gap-3 animate-bounce rounded-lg">
+        <div className="fixed bottom-6 right-6 z-[200] bg-white text-black px-5 py-3 border border-white shadow-2xl flex items-center gap-3 animate-in fade-in rounded-xl">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider">{toastMessage}</span>
         </div>
       )}
 
       {/* HEADER SUPERIOR NERKLEY */}
-      <header className="border-b border-white/10 bg-[#0d0d12]/95 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-white/10 bg-[#0c0c10]/95 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="font-serif tracking-[0.3em] font-bold text-base text-white hover:text-amber-300 transition-colors">
+            <Link href="/" className="font-serif tracking-[0.3em] font-bold text-base text-white hover:text-[#dfc89d] transition-colors">
               NERKLEY
             </Link>
             <span className="text-neutral-600">/</span>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300">
-              BOUTIQUE VERIFICADA
+            <span className="text-[10px] uppercase font-bold tracking-widest text-[#dfc89d]">
+              BOUTIQUE OFICIAL
             </span>
           </div>
 
@@ -777,7 +765,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             </Link>
             <button
               onClick={() => setIsCartOpen(true)}
-              className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+              className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
             >
               <span>🛒</span>
               <span>Carrito</span>
@@ -788,19 +776,19 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
       {/* ========================================================= */}
       {/* REGLA DE ACCESO DEL VENDEDOR (SELF-VIEW RULE): */}
-      {/* BARRA SUPERIOR DE CONTROL (SOLO LA VE EL DUEÑO) */}
+      {/* BARRA SUPERIOR DE CONTROL DISCRETA (SOLO LA VE EL DUEÑO) */}
       {/* ========================================================= */}
       {isOwner && (
-        <div className="sticky top-16 z-30 bg-gradient-to-r from-amber-500/25 via-[#1a1710] to-amber-500/25 border-b border-amber-400/40 backdrop-blur-md px-4 py-2.5 shadow-2xl animate-in fade-in">
+        <div className="sticky top-16 z-30 bg-[#121217] border-b border-white/10 backdrop-blur-md px-4 py-2.5 shadow-xl animate-in fade-in">
           <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-emerald-400" />
               <div>
-                <span className="text-xs font-serif font-bold text-amber-300 uppercase tracking-wider block">
-                  👑 Eres el Dueño de esta Boutique &bull; Panel de Gestión Activo
+                <span className="text-xs font-bold text-white uppercase tracking-wider block">
+                  Panel de Gestión &bull; {seller.store_name}
                 </span>
                 <span className="text-[10px] text-neutral-400 hidden sm:inline">
-                  Los compradores solo ven tu tienda pública. Solo tú tienes acceso a tus pedidos y billetera.
+                  Vista administrativa activa. Los compradores solo ven tu catálogo público y stories.
                 </span>
               </div>
             </div>
@@ -809,7 +797,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               <button
                 type="button"
                 onClick={() => setShowStoryModal(true)}
-                className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+                className="bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white border border-white/15 px-3 py-1.5 rounded-lg text-xs font-medium uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
               >
                 <span>📸</span>
                 <span>+ Subir Story</span>
@@ -818,10 +806,10 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               <button
                 type="button"
                 onClick={() => setShowPublishModal(true)}
-                className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(232,198,98,0.4)] active:scale-95 cursor-pointer ring-2 ring-amber-300"
+                className="bg-white text-black hover:bg-neutral-200 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
               >
-                <span>✨</span>
-                <span>+ Publicar Prenda</span>
+                <span>+</span>
+                <span>Publicar Prenda</span>
               </button>
             </div>
           </div>
@@ -831,45 +819,44 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       {/* ========================================================= */}
       {/* CABECERA DE PERFIL SOCIAL (PORTADA & PERFIL) */}
       {/* ========================================================= */}
-      <div className="relative bg-[#0d0d12] border-b border-white/10">
+      <div className="relative bg-[#09090b] border-b border-white/10">
         {/* FOTO DE PORTADA / COVER PHOTO */}
-        <div className="relative w-full h-44 sm:h-64 md:h-80 bg-gradient-to-r from-[#14141c] via-[#1c1811] to-[#0a0a0c] overflow-hidden">
+        <div className="relative w-full h-44 sm:h-56 md:h-64 bg-gradient-to-b from-[#14141a] to-[#09090b] overflow-hidden">
           {seller.banner_url ? (
             <img
               src={seller.banner_url}
               alt="Portada de Boutique"
-              className="w-full h-full object-cover opacity-85"
+              className="w-full h-full object-cover opacity-75"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center relative">
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-amber-500/15 via-black/40 to-[#0a0a0c]"></div>
-              <span className="text-4xl sm:text-6xl md:text-8xl font-serif font-black tracking-[0.3em] text-white/5 uppercase select-none">
+              <span className="text-3xl sm:text-5xl md:text-7xl font-serif font-black tracking-[0.25em] text-white/5 uppercase select-none">
                 {seller.store_name}
               </span>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0c] via-black/30 to-transparent pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-black/30 to-transparent pointer-events-none" />
 
           {/* Insignia de Protección de Compra Escrow */}
-          <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md border border-amber-400/40 px-3.5 py-1.5 rounded-full flex items-center gap-1.5 text-[10px] text-amber-300 font-bold uppercase tracking-wider shadow-lg">
+          <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-white/15 px-3 py-1 rounded-full flex items-center gap-1.5 text-[10px] text-neutral-300 font-semibold uppercase tracking-wider shadow-lg">
             <span>🛡️</span>
-            <span>Garantía Escrow NERKLEY &bull; Split Directo</span>
+            <span>Garantía Escrow NERKLEY</span>
           </div>
         </div>
 
         {/* CONTENEDOR DE PERFIL */}
         <div className="max-w-6xl mx-auto px-4 pb-8">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 -mt-16 sm:-mt-20 relative z-10">
+          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 -mt-14 sm:-mt-16 relative z-10">
             {/* AVATAR + DETALLES BÁSICOS */}
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
               {/* FOTO DE PERFIL / AVATAR */}
               <div className="relative group cursor-pointer" onClick={() => stories.length > 0 && openStory(0)}>
-                <div className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-amber-200 to-yellow-500 shadow-[0_0_25px_rgba(232,198,98,0.4)] ${stories.length > 0 ? "animate-pulse" : ""}`}>
-                  <div className="w-full h-full rounded-full bg-black overflow-hidden flex items-center justify-center border-2 border-black">
+                <div className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full p-1 bg-gradient-to-tr from-[#c5a880] via-white/40 to-neutral-700 shadow-xl transition-transform hover:scale-105`}>
+                  <div className="w-full h-full rounded-full bg-[#121217] overflow-hidden flex items-center justify-center border-2 border-black">
                     {seller.logo_url ? (
                       <img src={seller.logo_url} alt={seller.store_name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-3xl sm:text-4xl font-serif font-bold text-amber-300">
+                      <span className="text-2xl sm:text-3xl font-serif font-bold text-[#dfc89d]">
                         {seller.store_name.slice(0, 2).toUpperCase()}
                       </span>
                     )}
@@ -877,8 +864,8 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
 
                 {stories.length > 0 && (
-                  <div className="absolute bottom-1 right-1 bg-amber-400 text-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-md">
-                    Ver Stories
+                  <div className="absolute bottom-0 right-0 bg-white text-black px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shadow">
+                    Story
                   </div>
                 )}
               </div>
@@ -890,44 +877,44 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     {seller.store_name}
                   </h1>
                   {isVerified && (
-                    <span className="text-emerald-400 text-xl" title="Boutique Oficial Certificada">
-                      ⭐
+                    <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider">
+                      <span>✓</span> Verificada
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-neutral-300">
-                  <span className="text-amber-300 font-semibold">{seller.category || "Streetwear & Moda Selecta"}</span>
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-neutral-400">
+                  <span className="text-[#dfc89d] font-semibold">{seller.category || "Streetwear & Moda Selecta"}</span>
                   <span>&bull;</span>
                   <span>📍 {seller.city}, {seller.department}</span>
                   <span>&bull;</span>
-                  <span className="font-mono text-emerald-400 font-bold">5.0 ⭐⭐⭐⭐⭐</span>
+                  <span className="text-neutral-200 font-semibold">5.0 ★</span>
                 </div>
 
-                <p className="text-[11px] text-neutral-400">
-                  Por: <strong className="text-white">{seller.owner_name}</strong> &bull; Tienda Oficial Asociada a NERKLEY
+                <p className="text-[11px] text-neutral-500">
+                  Vendedor oficial: <strong className="text-neutral-300 font-medium">{seller.owner_name}</strong>
                 </p>
               </div>
             </div>
 
             {/* BOTONES SOCIALES */}
-            <div className="flex flex-wrap items-center justify-center gap-2.5 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
               <a
                 href={`https://wa.me/57${seller.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
                   `Hola ${seller.owner_name}, vi tu boutique oficial "${seller.store_name}" en NERKLEY y quiero consultar por tus prendas disponibles.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold px-5 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 flex items-center gap-2"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
               >
                 <span>💬</span>
-                <span>Contactar Vendedor</span>
+                <span>WhatsApp</span>
               </a>
 
               <button
                 type="button"
                 onClick={handleShareProfile}
-                className="bg-white/10 hover:bg-white/20 text-white font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider border border-white/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                className="bg-white/5 hover:bg-white/10 text-white font-semibold px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider border border-white/15 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
               >
                 <span>🔗</span>
                 <span>Compartir</span>
@@ -940,7 +927,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   const el = document.getElementById("seccion-contenido");
                   if (el) el.scrollIntoView({ behavior: "smooth" });
                 }}
-                className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+                className="bg-white text-black hover:bg-neutral-200 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
               >
                 <span>🛍️</span>
                 <span>Prendas ({products.length})</span>
@@ -950,9 +937,9 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
           {/* BIOGRAFÍA COMERCIAL */}
           {seller.bio && (
-            <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-white/5 border border-white/10 text-xs sm:text-sm text-neutral-200 leading-relaxed text-left">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-amber-300 block mb-1">
-                Sobre esta Boutique &bull; Biografía Comercial
+            <div className="mt-5 p-4 rounded-xl bg-white/[0.02] border border-white/10 text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-3xl">
+              <span className="text-[10px] uppercase font-bold tracking-widest text-[#dfc89d] block mb-1">
+                Biografía Comercial
               </span>
               <p className="italic font-light">&ldquo;{seller.bio}&rdquo;</p>
             </div>
@@ -963,121 +950,111 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       {/* ========================================================= */}
       {/* BANDEJA DE HISTORIAS / STORIES FEED */}
       {/* ========================================================= */}
-      <section className="border-b border-white/10 py-6 bg-[#0a0a0c]">
-        <div className="max-w-6xl mx-auto px-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs uppercase tracking-[0.25em] font-bold text-amber-300 flex items-center gap-2">
-              <span>📸</span>
-              <span>Bandeja de Historias & Drops en Directo</span>
-            </h2>
-            <span className="text-[10px] text-neutral-400">Contenido efímero y promociones exclusivas</span>
-          </div>
+      {(stories.length > 0 || isOwner) && (
+        <section className="border-b border-white/10 py-5 bg-[#09090b]">
+          <div className="max-w-6xl mx-auto px-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300 flex items-center gap-2">
+                <span>📸</span>
+                <span>Stories & Drops en Directo</span>
+              </h2>
+              <span className="text-[10px] text-neutral-500">Exclusivo de esta boutique</span>
+            </div>
 
-          <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none items-center">
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setShowStoryModal(true)}
-                className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
-              >
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full p-0.5 border-2 border-dashed border-amber-400/80 group-hover:border-amber-300 flex items-center justify-center bg-black/60 group-hover:bg-amber-400/10 transition-all shadow-md">
-                  <span className="text-2xl sm:text-3xl text-amber-300 font-bold group-hover:scale-110 transition-transform">+</span>
-                </div>
-                <span className="text-[10px] text-amber-300 font-bold truncate max-w-[70px]">
-                  Subir Story
-                </span>
-              </button>
-            )}
-
-            {stories.map((st, idx) => (
-              <button
-                key={st.id}
-                onClick={() => openStory(idx)}
-                className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
-              >
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full p-0.5 bg-gradient-to-tr from-amber-400 via-amber-200 to-yellow-500 group-hover:scale-105 transition-transform shadow-[0_0_15px_rgba(232,198,98,0.3)]">
-                  <div className="w-full h-full rounded-full bg-black overflow-hidden border border-black">
-                    <img src={st.image_url} alt="" className="w-full h-full object-cover" />
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none items-center">
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={() => setShowStoryModal(true)}
+                  className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
+                >
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full border border-dashed border-white/30 group-hover:border-white flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all">
+                    <span className="text-2xl text-neutral-300 group-hover:text-white transition-colors">+</span>
                   </div>
-                </div>
-                <span className="text-[10px] text-neutral-300 font-medium group-hover:text-amber-300 truncate max-w-[70px]">
-                  {st.product_name || `Story ${idx + 1}`}
-                </span>
-              </button>
-            ))}
+                  <span className="text-[10px] text-neutral-400 group-hover:text-white font-medium truncate max-w-[70px]">
+                    Subir Story
+                  </span>
+                </button>
+              )}
+
+              {stories.map((st, idx) => (
+                <button
+                  key={st.id}
+                  onClick={() => openStory(idx)}
+                  className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
+                >
+                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full p-[2px] bg-gradient-to-tr from-[#c5a880] via-neutral-300 to-neutral-700 group-hover:scale-105 transition-transform shadow-md">
+                    <div className="w-full h-full rounded-full bg-black overflow-hidden border border-black">
+                      <img src={st.image_url} alt="" className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-neutral-400 font-medium group-hover:text-white truncate max-w-[70px]">
+                    {st.product_name || `Drop ${idx + 1}`}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* ========================================================= */}
       {/* SECCIÓN PRINCIPAL: PESTAÑAS DE VENDEDOR O CATÁLOGO */}
       {/* ========================================================= */}
       <main id="seccion-contenido" className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* NAVEGACIÓN DE PESTAÑAS: SOLO LA VE EL CREADOR DE LA BOUTIQUE */}
+        {/* NAVEGACIÓN DE PESTAÑAS SEGMENTADAS (SOLO LA VE EL CREADOR) */}
         {isOwner && (
-          <div className="border-b border-white/15 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <div className="bg-[#121217] border border-white/10 rounded-2xl p-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             <button
               type="button"
               onClick={() => setOwnerTab("productos")}
-              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
                 ownerTab === "productos"
-                  ? "text-amber-300"
-                  : "text-neutral-400 hover:text-white"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
               }`}
             >
               <span>🛍️</span>
-              <span>Catálogo de Productos ({products.length})</span>
-              {ownerTab === "productos" && (
-                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
-              )}
+              <span>Catálogo ({products.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setOwnerTab("pedidos")}
-              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
                 ownerTab === "pedidos"
-                  ? "text-amber-300"
-                  : "text-neutral-400 hover:text-white"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
               }`}
             >
               <span>📦</span>
-              <span>Mis Pedidos & Despachos ({sellerOrders.length})</span>
-              {ownerTab === "pedidos" && (
-                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
-              )}
+              <span>Pedidos ({sellerOrders.length})</span>
             </button>
 
             <button
               type="button"
               onClick={() => setOwnerTab("billetera")}
-              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
                 ownerTab === "billetera"
-                  ? "text-amber-300"
-                  : "text-neutral-400 hover:text-white"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <span>💰</span>
+              <span>💳</span>
               <span>Billetera & Retiros</span>
-              {ownerTab === "billetera" && (
-                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
-              )}
             </button>
 
             <button
               type="button"
               onClick={() => setOwnerTab("perfil")}
-              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
                 ownerTab === "perfil"
-                  ? "text-amber-300"
-                  : "text-neutral-400 hover:text-white"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-neutral-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              <span>👤</span>
-              <span>Editar Portada & Perfil</span>
-              {ownerTab === "perfil" && (
-                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
-              )}
+              <span>⚙️</span>
+              <span>Ajustes de Perfil</span>
             </button>
           </div>
         )}
@@ -1103,7 +1080,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   <button
                     type="button"
                     onClick={() => setShowPublishModal(true)}
-                    className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                    className="bg-white text-black hover:bg-neutral-200 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
                   >
                     <span>+</span>
                     <span>Publicar Prenda</span>
@@ -1125,8 +1102,8 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     onClick={() => setCategoryFilter(cat)}
                     className={`px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer shrink-0 ${
                       categoryFilter === cat
-                        ? "bg-amber-400 text-black shadow-md"
-                        : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
+                        ? "bg-white text-black shadow-sm"
+                        : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
                     }`}
                   >
                     {cat}
@@ -1140,7 +1117,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   value={searchFilter}
                   onChange={(e) => setSearchFilter(e.target.value)}
                   placeholder="Buscar prendas en esta boutique..."
-                  className="w-full bg-[#111116] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 placeholder-neutral-500"
+                  className="w-full bg-[#111116] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white/40 placeholder-neutral-500"
                 />
                 {searchFilter && (
                   <button
@@ -1167,9 +1144,9 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   <button
                     type="button"
                     onClick={() => setShowPublishModal(true)}
-                    className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
+                    className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm inline-flex items-center gap-2"
                   >
-                    <span>✨</span>
+                    <span>+</span>
                     <span>Publicar Nueva Prenda</span>
                   </button>
                 )}
@@ -1180,9 +1157,9 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 {isOwner && (
                   <div
                     onClick={() => setShowPublishModal(true)}
-                    className="border-2 border-dashed border-amber-400/40 hover:border-amber-400 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group bg-amber-400/5 hover:bg-amber-400/10 transition-all min-h-[360px]"
+                    className="border border-dashed border-white/20 hover:border-white/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group bg-white/[0.02] hover:bg-white/[0.05] transition-all min-h-[360px]"
                   >
-                    <div className="w-14 h-14 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                    <div className="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
                       +
                     </div>
                     <div>
@@ -1201,7 +1178,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   return (
                     <div
                       key={prod.id}
-                      className="bg-[#111116] border border-white/10 hover:border-amber-400/40 rounded-2xl overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md hover:shadow-2xl"
+                      className="bg-[#111116] border border-white/10 hover:border-white/25 rounded-2xl overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md hover:shadow-xl"
                     >
                       <div>
                         {/* FOTO DE LA PRENDA */}
@@ -1225,12 +1202,12 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                           ) : null}
 
                           {prod.badge && (
-                            <div className="absolute top-3 right-3 bg-amber-400/90 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow">
+                            <div className="absolute top-3 right-3 bg-white text-black text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
                               {prod.badge}
                             </div>
                           )}
 
-                          <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md border border-white/10 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow">
+                          <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md border border-white/10 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow">
                             <span>⭐</span>
                             <span>{seller.store_name}</span>
                           </div>
@@ -1238,13 +1215,13 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
                         {/* DETALLES */}
                         <div className="p-4 space-y-2">
-                          <div className="flex items-center justify-between text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                          <div className="flex items-center justify-between text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
                             <span>{prod.category}</span>
-                            <span className="text-neutral-400 font-mono">Stock: {prod.stock} uds</span>
+                            <span className="font-mono">Stock: {prod.stock} uds</span>
                           </div>
 
                           <Link href={`/product/${prod.slug}`}>
-                            <h3 className="text-sm font-bold text-white hover:text-amber-300 transition-colors line-clamp-1" title={prod.name}>
+                            <h3 className="text-sm font-bold text-white hover:text-neutral-300 transition-colors line-clamp-1" title={prod.name}>
                               {prod.name}
                             </h3>
                           </Link>
@@ -1266,7 +1243,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                           )}
 
                           <div className="flex items-baseline gap-2 pt-1">
-                            <span className="text-lg font-mono font-bold text-white">
+                            <span className="text-base font-mono font-bold text-white">
                               $ {Number(prod.sale_price).toLocaleString("es-CO")} COP
                             </span>
                             {prod.original_price && prod.original_price > prod.sale_price && (
@@ -1284,7 +1261,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                           <button
                             type="button"
                             onClick={() => handleAddDirect(prod)}
-                            className="bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-white/15 flex items-center justify-center gap-1 active:scale-95"
+                            className="bg-white/5 hover:bg-white/10 text-white py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border border-white/15 flex items-center justify-center gap-1 active:scale-95"
                           >
                             <span>🛒</span>
                             <span>Al Carrito</span>
@@ -1293,7 +1270,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                           <button
                             type="button"
                             onClick={() => handleBuyNow(prod)}
-                            className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_12px_rgba(232,198,98,0.35)] active:scale-95 flex items-center justify-center gap-1"
+                            className="bg-white hover:bg-neutral-200 text-black py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1"
                           >
                             <span>⚡</span>
                             <span>Compra Directa</span>
@@ -1318,7 +1295,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                                 setNewProdBadge(prod.badge || "");
                                 setShowPublishModal(true);
                               }}
-                              className="text-amber-400 hover:underline cursor-pointer font-bold"
+                              className="text-neutral-300 hover:text-white cursor-pointer font-medium"
                             >
                               ✏️ Editar
                             </button>
@@ -2098,7 +2075,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <button
                   type="submit"
                   disabled={isPublishing}
-                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-2"
                 >
                   <span>🚀</span>
                   <span>{isPublishing ? "Publicando en Catálogo..." : "Publicar Prenda Ahora"}</span>
@@ -2118,7 +2095,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           onClick={() => setShowStoryModal(false)}
         >
           <div
-            className="bg-[#111116] border border-amber-400/40 rounded-2xl w-full max-w-lg p-5 sm:p-7 space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200"
+            className="bg-[#121217] border border-white/15 rounded-2xl w-full max-w-lg p-5 sm:p-7 space-y-5 shadow-2xl relative animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -2147,7 +2124,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </label>
 
                 {/* Botón de selección desde galería */}
-                <label className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400/20 via-amber-400/10 to-transparent border border-amber-400/50 hover:border-amber-400 text-amber-300 hover:text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-amber-400/25">
+                <label className="flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-white/40 text-neutral-200 hover:text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-white/10">
                   <span>📷</span>
                   <span>{uploadingStoryImage ? "Cargando foto..." : "Elegir Foto de la Galería o Cámara"}</span>
                   <input
@@ -2161,7 +2138,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
                 {/* Previsualización en vivo */}
                 {storyImageUrl ? (
-                  <div className="relative w-28 h-40 mx-auto rounded-xl overflow-hidden border-2 border-amber-400 shadow-lg bg-black group">
+                  <div className="relative w-28 h-40 mx-auto rounded-xl overflow-hidden border border-white/20 shadow-lg bg-black group">
                     <img src={storyImageUrl} alt="Preview historia" className="w-full h-full object-cover" />
                     <button
                       type="button"
@@ -2170,7 +2147,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     >
                       ✕
                     </button>
-                    <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-amber-300 font-bold uppercase">
+                    <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-white font-bold uppercase">
                       Vista previa
                     </span>
                   </div>
@@ -2190,7 +2167,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     value={storyImageUrl}
                     onChange={(e) => setStoryImageUrl(e.target.value)}
                     placeholder="https://ejemplo.com/foto-historia.jpg"
-                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white/40 font-mono"
                   />
                 </details>
               </div>
@@ -2204,7 +2181,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   value={storyCaption}
                   onChange={(e) => setStoryCaption(e.target.value)}
                   placeholder="Ej: 🔥 ¡Drop limitado en vivo! Pocas unidades con despacho asegurado hoy."
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white/40"
                 />
               </div>
 
@@ -2215,7 +2192,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <select
                   value={storyLinkedSlug}
                   onChange={(e) => setStoryLinkedSlug(e.target.value)}
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white/40 cursor-pointer"
                 >
                   <option value="">-- Ninguna prenda vinculada --</option>
                   {products.map((p) => (
@@ -2240,7 +2217,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <button
                   type="submit"
                   disabled={isPublishingStory}
-                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                  className="bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 disabled:opacity-50 flex items-center gap-2"
                 >
                   <span>📸</span>
                   <span>{isPublishingStory ? "Subiendo Historia..." : "Publicar Historia"}</span>
@@ -2287,7 +2264,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
             <div className="absolute top-6 left-4 right-4 z-30 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400 bg-black">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-white/30 bg-black">
                   <img src={seller.logo_url || stories[activeStoryIndex].image_url} alt="" className="w-full h-full object-cover" />
                 </div>
                 <div>
@@ -2300,13 +2277,25 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={closeStory}
-                className="w-8 h-8 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center text-lg cursor-pointer"
-              >
-                &times;
-              </button>
+              <div className="flex items-center gap-2">
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteStory(stories[activeStoryIndex].id)}
+                    className="w-8 h-8 rounded-full bg-red-600/80 hover:bg-red-500 text-white flex items-center justify-center text-xs cursor-pointer shadow"
+                    title="Eliminar esta historia"
+                  >
+                    🗑️
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={closeStory}
+                  className="w-8 h-8 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center text-lg cursor-pointer"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
 
             <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
@@ -2334,9 +2323,9 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               )}
 
               {stories[activeStoryIndex].product_name && (
-                <div className="p-3 bg-white/10 backdrop-blur-md border border-amber-400/50 rounded-xl flex items-center justify-between gap-3 shadow-lg">
+                <div className="p-3 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl flex items-center justify-between gap-3 shadow-lg">
                   <div className="min-w-0">
-                    <span className="text-[9px] uppercase tracking-wider text-amber-300 font-bold block">
+                    <span className="text-[9px] uppercase tracking-wider text-neutral-300 font-bold block">
                       🛍️ Prenda Etiquetada en la Historia
                     </span>
                     <span className="text-xs font-bold text-white block truncate">
@@ -2375,7 +2364,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                         closeStory();
                       }
                     }}
-                    className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md shrink-0 active:scale-95 flex items-center gap-1.5"
+                    className="bg-white hover:bg-neutral-200 text-black px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md shrink-0 active:scale-95 flex items-center gap-1.5"
                   >
                     <span>⚡</span>
                     <span>Compra Directa</span>
