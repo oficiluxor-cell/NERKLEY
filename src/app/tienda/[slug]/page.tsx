@@ -1,7 +1,5 @@
 "use client";
 
-export const dynamic = "force-dynamic";
-
 import { useEffect, useState, use, useMemo, Suspense, useRef } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
