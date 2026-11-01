@@ -106,6 +106,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [selectedProductModal, setSelectedProductModal] = useState<Product | null>(null);
 
   // Formulario del Publisher Dashboard (Carga de Productos / Streetwear)
   const [newProdName, setNewProdName] = useState("");
@@ -709,7 +710,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
     return (
       <div className="min-h-screen bg-[#0a0a0c] text-white flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-10 h-10 border-2 border-amber-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div className="w-10 h-10 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto"></div>
           <p className="text-xs uppercase tracking-widest text-neutral-400">Cargando Perfil de Boutique...</p>
         </div>
       </div>
@@ -737,578 +738,418 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const isVerified = seller.status === "verified" || seller.is_verified;
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-white selection:bg-white selection:text-black">
+    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black flex justify-center">
       {/* Toast Flotante */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-[200] bg-white text-black px-5 py-3 border border-white shadow-2xl flex items-center gap-3 animate-in fade-in rounded-xl">
+        <div className="fixed top-5 z-[300] bg-white text-black px-4 py-2 shadow-2xl flex items-center gap-2 rounded-full animate-in fade-in">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider">{toastMessage}</span>
         </div>
       )}
 
-      {/* HEADER SUPERIOR NERKLEY */}
-      <header className="border-b border-white/10 bg-[#0c0c10]/95 backdrop-blur-md sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="font-serif tracking-[0.3em] font-bold text-base text-white hover:text-[#dfc89d] transition-colors">
-              NERKLEY
+      {/* CONTENEDOR MÓVIL ESTILO TIKTOK EXACTO */}
+      <div className="w-full max-w-lg min-h-screen bg-black text-white relative flex flex-col pb-28 border-x border-neutral-900/60 shadow-2xl">
+        {/* BARRA SUPERIOR TIKTOK */}
+        <header className="h-12 px-4 flex items-center justify-between border-b border-white/5 sticky top-0 bg-black/90 backdrop-blur-md z-40">
+          <div className="flex items-center gap-2.5">
+            <Link href="/" className="text-white hover:text-neutral-300 text-lg cursor-pointer p-1 font-bold">
+              ←
             </Link>
-            <span className="text-neutral-600">/</span>
-            <span className="text-[10px] uppercase font-bold tracking-widest text-[#dfc89d]">
-              BOUTIQUE OFICIAL
+            <span className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1 truncate max-w-[200px]">
+              {seller.store_name}
+              <span className="text-xs text-neutral-400">▾</span>
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs">
-            <Link href="/" className="text-neutral-400 hover:text-white transition-colors hidden sm:inline">
-              Tienda Oficial
-            </Link>
+          <div className="flex items-center gap-3 text-neutral-300">
             <button
-              onClick={() => setIsCartOpen(true)}
-              className="bg-white text-black px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-neutral-200 transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
+              type="button"
+              onClick={handleShareProfile}
+              className="hover:text-white p-1 text-sm cursor-pointer"
+              title="Compartir"
             >
-              <span>🛒</span>
-              <span>Carrito</span>
+              ↗
             </button>
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="hover:text-white p-1 text-base relative cursor-pointer"
+              title="Carrito"
+            >
+              🛒
+            </button>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={() => setOwnerTab("perfil")}
+                className="hover:text-white p-1 text-base cursor-pointer"
+                title="Ajustes de Perfil"
+              >
+                ⚙️
+              </button>
+            )}
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* ========================================================= */}
-      {/* REGLA DE ACCESO DEL VENDEDOR (SELF-VIEW RULE): */}
-      {/* BARRA SUPERIOR DE CONTROL DISCRETA (SOLO LA VE EL DUEÑO) */}
-      {/* ========================================================= */}
-      {isOwner && (
-        <div className="sticky top-16 z-30 bg-[#121217] border-b border-white/10 backdrop-blur-md px-4 py-2.5 shadow-xl animate-in fade-in">
-          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        {/* CABECERA DE PERFIL ESTILO TIKTOK EXACTO */}
+        <div className="px-5 pt-3 pb-3 space-y-3.5">
+          {/* Fila Superior: Nombre y Contadores a la izquierda, Avatar con Thought Bubble a la derecha */}
+          <div className="flex items-start justify-between gap-4">
+            {/* Columna Izquierda: Nombre, username y contadores */}
+            <div className="flex-1 space-y-1.5 min-w-0">
               <div>
-                <span className="text-xs font-bold text-white uppercase tracking-wider block">
-                  Panel de Gestión &bull; {seller.store_name}
-                </span>
-                <span className="text-[10px] text-neutral-400 hidden sm:inline">
-                  Vista administrativa activa. Los compradores solo ven tu catálogo público y stories.
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowStoryModal(true)}
-                className="bg-white/5 hover:bg-white/10 text-neutral-200 hover:text-white border border-white/15 px-3 py-1.5 rounded-lg text-xs font-medium uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
-              >
-                <span>📸</span>
-                <span>+ Subir Story</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowPublishModal(true)}
-                className="bg-white text-black hover:bg-neutral-200 px-3.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-              >
-                <span>+</span>
-                <span>Publicar Prenda</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* CABECERA DE PERFIL SOCIAL (PORTADA & PERFIL) */}
-      {/* ========================================================= */}
-      <div className="relative bg-[#09090b] border-b border-white/10">
-        {/* FOTO DE PORTADA / COVER PHOTO */}
-        <div className="relative w-full h-44 sm:h-56 md:h-64 bg-gradient-to-b from-[#14141a] to-[#09090b] overflow-hidden">
-          {seller.banner_url ? (
-            <img
-              src={seller.banner_url}
-              alt="Portada de Boutique"
-              className="w-full h-full object-cover opacity-75"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center relative">
-              <span className="text-3xl sm:text-5xl md:text-7xl font-serif font-black tracking-[0.25em] text-white/5 uppercase select-none">
-                {seller.store_name}
-              </span>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#09090b] via-black/30 to-transparent pointer-events-none" />
-
-          {/* Insignia de Protección de Compra Escrow */}
-          <div className="absolute top-4 right-4 bg-black/80 backdrop-blur-md border border-white/15 px-3 py-1 rounded-full flex items-center gap-1.5 text-[10px] text-neutral-300 font-semibold uppercase tracking-wider shadow-lg">
-            <span>🛡️</span>
-            <span>Garantía Escrow NERKLEY</span>
-          </div>
-        </div>
-
-        {/* CONTENEDOR DE PERFIL */}
-        <div className="max-w-6xl mx-auto px-4 pb-8">
-          <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 -mt-14 sm:-mt-16 relative z-10">
-            {/* AVATAR + DETALLES BÁSICOS */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-              {/* FOTO DE PERFIL / AVATAR */}
-              <div className="relative group cursor-pointer" onClick={() => stories.length > 0 && openStory(0)}>
-                <div className={`w-28 h-28 sm:w-32 sm:h-32 rounded-full p-1 bg-gradient-to-tr from-[#c5a880] via-white/40 to-neutral-700 shadow-xl transition-transform hover:scale-105`}>
-                  <div className="w-full h-full rounded-full bg-[#121217] overflow-hidden flex items-center justify-center border-2 border-black">
-                    {seller.logo_url ? (
-                      <img src={seller.logo_url} alt={seller.store_name} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl sm:text-3xl font-serif font-bold text-[#dfc89d]">
-                        {seller.store_name.slice(0, 2).toUpperCase()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {stories.length > 0 && (
-                  <div className="absolute bottom-0 right-0 bg-white text-black px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider shadow">
-                    Story
-                  </div>
-                )}
-              </div>
-
-              {/* IDENTIDAD DEL VENDEDOR */}
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-serif font-bold text-white uppercase tracking-wider">
-                    {seller.store_name}
-                  </h1>
+                <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+                  <span>{seller.store_name}</span>
+                  <span className="text-sm font-normal text-neutral-400">▾</span>
                   {isVerified && (
-                    <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 uppercase tracking-wider">
-                      <span>✓</span> Verificada
+                    <span className="text-cyan-400 text-sm shrink-0" title="Verificado">
+                      ✓
                     </span>
+                  )}
+                </h1>
+                <p className="text-xs text-neutral-400 font-medium truncate">
+                  @{seller.slug || seller.store_name.toLowerCase().replace(/\s+/g, "_")}
+                </p>
+              </div>
+
+              {/* Contadores TikTok: Siguiendo, Seguidores, Me gusta */}
+              <div className="flex items-center gap-4 sm:gap-6 pt-1 text-left">
+                <div>
+                  <span className="font-extrabold text-sm sm:text-base text-white block">
+                    {products.length}
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-normal">Prendas</span>
+                </div>
+                <div>
+                  <span className="font-extrabold text-sm sm:text-base text-white block">
+                    10,7 mil
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-normal">Seguidores</span>
+                </div>
+                <div>
+                  <span className="font-extrabold text-sm sm:text-base text-white block">
+                    247,2 mil
+                  </span>
+                  <span className="text-[11px] text-neutral-400 font-normal">Me gusta</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Columna Derecha: Avatar circular con globo de pensamiento y botón azul + */}
+            <div className="flex flex-col items-center shrink-0 relative pt-1">
+              {/* Globo de pensamiento TikTok ("Lo que estás pensando...") */}
+              <div
+                onClick={() => (stories.length > 0 ? openStory(0) : isOwner && setShowStoryModal(true))}
+                className="relative mb-1 bg-[#1a1a24] border border-white/10 text-[10px] text-neutral-300 font-medium px-2.5 py-0.5 rounded-full shadow-md cursor-pointer hover:border-white/30 transition-all select-none whitespace-nowrap"
+              >
+                <span>{stories.length > 0 ? "🔥 Ver Story" : "Lo que estás pensando..."}</span>
+                <div className="absolute -bottom-1 right-5 w-1.5 h-1.5 bg-[#1a1a24] border-r border-b border-white/10 rotate-45"></div>
+              </div>
+
+              {/* Avatar con botón + */}
+              <div className="relative group">
+                <div
+                  onClick={() => (stories.length > 0 ? openStory(0) : isOwner && setShowStoryModal(true))}
+                  className={`w-20 h-20 rounded-full p-[2px] cursor-pointer overflow-hidden bg-black ${
+                    stories.length > 0
+                      ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-black"
+                      : "border-2 border-white/20"
+                  }`}
+                >
+                  {seller.logo_url ? (
+                    <img src={seller.logo_url} alt={seller.store_name} className="w-full h-full rounded-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full rounded-full bg-[#16161f] flex items-center justify-center font-bold text-lg text-white">
+                      {seller.store_name.slice(0, 2).toUpperCase()}
+                    </div>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 text-xs text-neutral-400">
-                  <span className="text-[#dfc89d] font-semibold">{seller.category || "Streetwear & Moda Selecta"}</span>
-                  <span>&bull;</span>
-                  <span>📍 {seller.city}, {seller.department}</span>
-                  <span>&bull;</span>
-                  <span className="text-neutral-200 font-semibold">5.0 ★</span>
-                </div>
-
-                <p className="text-[11px] text-neutral-500">
-                  Vendedor oficial: <strong className="text-neutral-300 font-medium">{seller.owner_name}</strong>
-                </p>
+                {/* Botón azul celeste (+) para subir story o foto */}
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setShowStoryModal(true)}
+                    title="Subir Story o Foto"
+                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#00f2fe] text-black font-black text-sm flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all cursor-pointer border-2 border-black"
+                  >
+                    +
+                  </button>
+                )}
               </div>
             </div>
+          </div>
 
-            {/* BOTONES SOCIALES */}
-            <div className="flex flex-wrap items-center justify-center gap-2 w-full sm:w-auto">
-              <a
-                href={`https://wa.me/57${seller.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                  `Hola ${seller.owner_name}, vi tu boutique oficial "${seller.store_name}" en NERKLEY y quiero consultar por tus prendas disponibles.`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 flex items-center gap-1.5"
-              >
-                <span>💬</span>
-                <span>WhatsApp</span>
-              </a>
+          {/* Biografía Comercial al estilo TikTok de la imagen */}
+          <div className="text-xs text-neutral-200 leading-snug space-y-0.5 pt-0.5 font-normal">
+            <p className="flex items-center gap-1.5">
+              <span>⚡</span> <span>{seller.store_name.toUpperCase()} STORE</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span>🛒</span> <span>Tienda oficial verificada</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span>🧥</span> <span>{seller.category || "Streetwear exclusivo & alta gama."}</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span>📦</span> <span>Envíos asegurados a toda Colombia.</span>
+            </p>
+            <p className="flex items-center gap-1.5">
+              <span>👇</span> <span>Explora la colección aquí:</span>
+            </p>
+            {seller.bio && (
+              <p className="pt-1 text-neutral-400 italic">
+                &ldquo;{seller.bio}&rdquo;
+              </p>
+            )}
 
-              <button
-                type="button"
-                onClick={handleShareProfile}
-                className="bg-white/5 hover:bg-white/10 text-white font-semibold px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider border border-white/15 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
-              >
-                <span>🔗</span>
-                <span>Compartir</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setOwnerTab("productos");
-                  const el = document.getElementById("seccion-contenido");
-                  if (el) el.scrollIntoView({ behavior: "smooth" });
-                }}
-                className="bg-white text-black hover:bg-neutral-200 font-bold px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
-              >
-                <span>🛍️</span>
-                <span>Prendas ({products.length})</span>
-              </button>
+            {/* Enlace oficial */}
+            <div className="pt-1 flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
+              <span className="text-sm">🔗</span>
+              <span className="hover:underline cursor-pointer truncate">
+                nerkley-m4t2.vercel.app/tienda/{seller.slug || seller.store_name.toLowerCase()}
+              </span>
             </div>
           </div>
 
-          {/* BIOGRAFÍA COMERCIAL */}
-          {seller.bio && (
-            <div className="mt-5 p-4 rounded-xl bg-white/[0.02] border border-white/10 text-xs sm:text-sm text-neutral-300 leading-relaxed max-w-3xl">
-              <span className="text-[10px] uppercase font-bold tracking-widest text-[#dfc89d] block mb-1">
-                Biografía Comercial
-              </span>
-              <p className="italic font-light">&ldquo;{seller.bio}&rdquo;</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ========================================================= */}
-      {/* BANDEJA DE HISTORIAS / STORIES FEED */}
-      {/* ========================================================= */}
-      {(stories.length > 0 || isOwner) && (
-        <section className="border-b border-white/10 py-5 bg-[#09090b]">
-          <div className="max-w-6xl mx-auto px-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs uppercase tracking-[0.2em] font-bold text-neutral-300 flex items-center gap-2">
-                <span>📸</span>
-                <span>Stories & Drops en Directo</span>
-              </h2>
-              <span className="text-[10px] text-neutral-500">Exclusivo de esta boutique</span>
-            </div>
-
-            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none items-center">
-              {isOwner && (
+          {/* Botones de Acción Estilo TikTok */}
+          <div className="flex items-center gap-2 pt-1">
+            {isOwner ? (
+              <>
                 <button
                   type="button"
-                  onClick={() => setShowStoryModal(true)}
-                  className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
+                  onClick={() => setOwnerTab("perfil")}
+                  className="flex-1 bg-[#1c1c24] hover:bg-[#252530] text-white text-xs font-semibold py-2 px-3 rounded-lg text-center transition-all cursor-pointer"
                 >
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full border border-dashed border-white/30 group-hover:border-white flex items-center justify-center bg-white/5 group-hover:bg-white/10 transition-all">
-                    <span className="text-2xl text-neutral-300 group-hover:text-white transition-colors">+</span>
-                  </div>
-                  <span className="text-[10px] text-neutral-400 group-hover:text-white font-medium truncate max-w-[70px]">
-                    Subir Story
-                  </span>
+                  Editar perfil
                 </button>
-              )}
-
-              {stories.map((st, idx) => (
                 <button
-                  key={st.id}
-                  onClick={() => openStory(idx)}
-                  className="flex flex-col items-center gap-1.5 shrink-0 group cursor-pointer focus:outline-none"
+                  type="button"
+                  onClick={() => setShowPublishModal(true)}
+                  className="flex-1 bg-white hover:bg-neutral-200 text-black text-xs font-bold py-2 px-3 rounded-lg text-center transition-all cursor-pointer shadow-sm"
                 >
-                  <div className="w-16 h-16 sm:w-18 sm:h-18 rounded-full p-[2px] bg-gradient-to-tr from-[#c5a880] via-neutral-300 to-neutral-700 group-hover:scale-105 transition-transform shadow-md">
-                    <div className="w-full h-full rounded-full bg-black overflow-hidden border border-black">
-                      <img src={st.image_url} alt="" className="w-full h-full object-cover" />
-                    </div>
-                  </div>
-                  <span className="text-[10px] text-neutral-400 font-medium group-hover:text-white truncate max-w-[70px]">
-                    {st.product_name || `Drop ${idx + 1}`}
-                  </span>
+                  + Publicar prenda
                 </button>
-              ))}
-            </div>
+                <button
+                  type="button"
+                  onClick={handleShareProfile}
+                  className="bg-[#1c1c24] hover:bg-[#252530] text-white text-xs px-3 py-2 rounded-lg transition-all cursor-pointer"
+                  title="Compartir"
+                >
+                  🔗
+                </button>
+              </>
+            ) : (
+              <>
+                <a
+                  href={`https://wa.me/57${seller.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
+                    `Hola ${seller.owner_name}, vi tu boutique oficial "${seller.store_name}" en NERKLEY y quiero comprar.`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 rounded-lg text-center flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                >
+                  <span>💬</span> WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={handleShareProfile}
+                  className="bg-[#1c1c24] hover:bg-[#252530] text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all cursor-pointer"
+                >
+                  Compartir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(true)}
+                  className="bg-white hover:bg-neutral-200 text-black text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer"
+                >
+                  Carrito
+                </button>
+              </>
+            )}
           </div>
-        </section>
-      )}
+        </div>
 
-      {/* ========================================================= */}
-      {/* SECCIÓN PRINCIPAL: PESTAÑAS DE VENDEDOR O CATÁLOGO */}
-      {/* ========================================================= */}
-      <main id="seccion-contenido" className="max-w-6xl mx-auto px-4 py-8 space-y-8">
-        {/* NAVEGACIÓN DE PESTAÑAS SEGMENTADAS (SOLO LA VE EL CREADOR) */}
-        {isOwner && (
-          <div className="bg-[#121217] border border-white/10 rounded-2xl p-1.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-            <button
-              type="button"
-              onClick={() => setOwnerTab("productos")}
-              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
-                ownerTab === "productos"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              <span>🛍️</span>
-              <span>Catálogo ({products.length})</span>
-            </button>
+        {/* BARRA DE ICONOS TIKTOK */}
+        <div className="border-b border-white/10 flex items-center justify-around text-neutral-400 bg-black sticky top-12 z-30">
+          <button
+            type="button"
+            onClick={() => setOwnerTab("productos")}
+            className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
+              ownerTab === "productos" ? "text-white font-bold" : "hover:text-white"
+            }`}
+            title="Catálogo de Productos"
+          >
+            <span className="text-base tracking-tighter">|||▾</span>
+            {ownerTab === "productos" && (
+              <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
+            )}
+          </button>
 
+          {isOwner && (
             <button
               type="button"
               onClick={() => setOwnerTab("pedidos")}
-              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
-                ownerTab === "pedidos"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
+                ownerTab === "pedidos" ? "text-white" : "hover:text-white"
               }`}
+              title="Mis Pedidos (Privado)"
             >
-              <span>📦</span>
-              <span>Pedidos ({sellerOrders.length})</span>
+              <span className="text-base">🔒</span>
+              {ownerTab === "pedidos" && (
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
+              )}
             </button>
+          )}
 
+          {isOwner && (
             <button
               type="button"
               onClick={() => setOwnerTab("billetera")}
-              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
-                ownerTab === "billetera"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
+                ownerTab === "billetera" ? "text-white" : "hover:text-white"
               }`}
+              title="Billetera & Retiros"
             >
-              <span>💳</span>
-              <span>Billetera & Retiros</span>
+              <span className="text-base">💳</span>
+              {ownerTab === "billetera" && (
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
+              )}
             </button>
+          )}
 
+          {isOwner && (
             <button
               type="button"
               onClick={() => setOwnerTab("perfil")}
-              className={`px-4 py-2 rounded-xl text-xs uppercase font-bold tracking-wider transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
-                ownerTab === "perfil"
-                  ? "bg-white text-black shadow-sm"
-                  : "text-neutral-400 hover:text-white hover:bg-white/5"
+              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
+                ownerTab === "perfil" ? "text-white" : "hover:text-white"
               }`}
+              title="Ajustes de Perfil"
             >
-              <span>⚙️</span>
-              <span>Ajustes de Perfil</span>
+              <span className="text-base">⚙️</span>
+              {ownerTab === "perfil" && (
+                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
+              )}
             </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => showToast("❤️ 247,2 mil 'Me gusta' acumulados")}
+            className="py-3 px-4 flex flex-col items-center relative hover:text-white transition-colors cursor-pointer"
+            title="Me gusta"
+          >
+            <span className="text-base">🤍</span>
+          </button>
+        </div>
+
+        {/* CATEGORÍAS / PLAYLISTS ESTILO TIKTOK */}
+        {ownerTab === "productos" && (
+          <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/5 bg-[#09090d] text-xs">
+            <span className="text-[11px] text-neutral-400 font-semibold flex items-center gap-1 shrink-0">
+              <span>⚙️</span> Categorías:
+            </span>
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCategoryFilter(cat)}
+                className={`px-3 py-0.5 rounded-full text-[11px] font-medium shrink-0 transition-all cursor-pointer ${
+                  categoryFilter === cat
+                    ? "bg-white text-black font-bold"
+                    : "bg-white/5 text-neutral-300 hover:bg-white/10"
+                }`}
+              >
+                📁 {cat}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* PESTAÑA 1: CATÁLOGO DE PRODUCTOS (VISTA DE TIENDA) */}
-        {/* ========================================================= */}
-        {(!isOwner || ownerTab === "productos") && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                  <span>💎</span>
-                  <span>Catálogo Comercial &bull; {seller.store_name}</span>
-                </h2>
-                <p className="text-xs text-neutral-400 mt-0.5">
-                  Prendas de streetwear, footwear y colecciones exclusivas disponibles con Compra Directa Wompi / PSE.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPublishModal(true)}
-                    className="bg-white text-black hover:bg-neutral-200 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span>+</span>
-                    <span>Publicar Prenda</span>
-                  </button>
-                )}
-                <span className="text-xs text-neutral-400 font-mono">
-                  {filteredProducts.length} de {products.length} artículos
-                </span>
-              </div>
-            </div>
-
-            {/* FILTROS Y BÚSQUEDA */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer shrink-0 ${
-                      categoryFilter === cat
-                        ? "bg-white text-black shadow-sm"
-                        : "bg-white/5 border border-white/10 text-neutral-400 hover:text-white hover:bg-white/10"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              <div className="relative sm:w-64">
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Buscar prendas en esta boutique..."
-                  className="w-full bg-[#111116] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white/40 placeholder-neutral-500"
-                />
-                {searchFilter && (
-                  <button
-                    onClick={() => setSearchFilter("")}
-                    className="absolute right-2.5 top-2 text-neutral-400 hover:text-white text-xs cursor-pointer"
-                  >
-                    &times;
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* GRID DE PRODUCTOS */}
+        {/* FEED DE PRODUCTOS EN CUADRÍCULA 3 COLUMNAS TIKTOK */}
+        {ownerTab === "productos" && (
+          <div>
             {filteredProducts.length === 0 ? (
-              <div className="p-16 text-center border border-white/10 bg-white/5 rounded-2xl space-y-3">
+              <div className="py-20 px-6 text-center space-y-3">
                 <span className="text-4xl">🛍️</span>
-                <p className="text-sm font-semibold text-white">No se encontraron prendas con este criterio</p>
-                <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                <p className="text-sm font-bold text-white">No hay prendas en esta categoría</p>
+                <p className="text-xs text-neutral-400 max-w-xs mx-auto">
                   {isOwner
-                    ? "Aún no tienes prendas en este filtro. ¡Haz clic en 'Publicar Prenda' para subir tu primer drop!"
-                    : "Prueba con otra palabra de búsqueda o categoría."}
+                    ? "Pulsa en '+ Publicar prenda' para cargar tu primer drop."
+                    : "Explora otra categoría o regresa más tarde."}
                 </p>
                 {isOwner && (
                   <button
                     type="button"
                     onClick={() => setShowPublishModal(true)}
-                    className="bg-white text-black hover:bg-neutral-200 px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm inline-flex items-center gap-2"
+                    className="bg-white text-black font-bold text-xs px-5 py-2 rounded-lg cursor-pointer"
                   >
-                    <span>+</span>
-                    <span>Publicar Nueva Prenda</span>
+                    + Publicar Prenda
                   </button>
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Si es el dueño, tarjeta para agregar producto directo */}
+              <div className="grid grid-cols-3 gap-0.5 sm:gap-1 bg-black">
+                {/* Primera celda para el dueño: subir prenda rápido */}
                 {isOwner && (
                   <div
                     onClick={() => setShowPublishModal(true)}
-                    className="border border-dashed border-white/20 hover:border-white/50 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group bg-white/[0.02] hover:bg-white/[0.05] transition-all min-h-[360px]"
+                    className="relative aspect-[3/4] bg-[#121217] hover:bg-[#1a1a24] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors group border border-dashed border-white/20 select-none"
                   >
-                    <div className="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center text-xl group-hover:scale-110 transition-transform">
+                    <div className="w-9 h-9 rounded-full bg-white/10 group-hover:bg-white text-white group-hover:text-black flex items-center justify-center font-bold text-lg transition-all">
                       +
                     </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                        Publicar Nueva Prenda
-                      </h4>
-                      <p className="text-xs text-neutral-400 mt-1 max-w-xs">
-                        Agrega buzos, jeans baggy, calzado o accesorios a tu catálogo oficial.
-                      </p>
-                    </div>
+                    <span className="text-[10px] font-bold text-neutral-400 group-hover:text-white uppercase tracking-wider text-center px-1">
+                      Subir
+                    </span>
                   </div>
                 )}
 
                 {filteredProducts.map((prod) => {
                   const img = prod.images ? prod.images.split(",")[0].trim() : null;
+                  const priceInK = Math.round(Number(prod.sale_price) / 1000);
                   return (
                     <div
                       key={prod.id}
-                      className="bg-[#111116] border border-white/10 hover:border-white/25 rounded-2xl overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md hover:shadow-xl"
+                      onClick={() => setSelectedProductModal(prod)}
+                      className="relative aspect-[3/4] bg-neutral-900 overflow-hidden cursor-pointer group select-none"
                     >
-                      <div>
-                        {/* FOTO DE LA PRENDA */}
-                        <Link href={`/product/${prod.slug}`} className="block relative aspect-square bg-black overflow-hidden cursor-pointer">
-                          {img ? (
-                            <img
-                              src={img}
-                              alt={prod.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs uppercase tracking-widest font-serif">
-                              NERKLEY STREETWEAR
-                            </div>
-                          )}
-
-                          {prod.discount_percent && prod.discount_percent > 0 ? (
-                            <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                              -{prod.discount_percent}% OFF
-                            </div>
-                          ) : null}
-
-                          {prod.badge && (
-                            <div className="absolute top-3 right-3 bg-white text-black text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                              {prod.badge}
-                            </div>
-                          )}
-
-                          <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md border border-white/10 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow">
-                            <span>⭐</span>
-                            <span>{seller.store_name}</span>
-                          </div>
-                        </Link>
-
-                        {/* DETALLES */}
-                        <div className="p-4 space-y-2">
-                          <div className="flex items-center justify-between text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
-                            <span>{prod.category}</span>
-                            <span className="font-mono">Stock: {prod.stock} uds</span>
-                          </div>
-
-                          <Link href={`/product/${prod.slug}`}>
-                            <h3 className="text-sm font-bold text-white hover:text-neutral-300 transition-colors line-clamp-1" title={prod.name}>
-                              {prod.name}
-                            </h3>
-                          </Link>
-
-                          {prod.description && (
-                            <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed font-light">
-                              {prod.description}
-                            </p>
-                          )}
-
-                          {prod.sizes && (
-                            <div className="flex flex-wrap gap-1 pt-1">
-                              {prod.sizes.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5).map((sz) => (
-                                <span key={sz} className="text-[9px] font-mono bg-white/5 border border-white/10 text-neutral-300 px-1.5 py-0.2 rounded">
-                                  {sz}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="flex items-baseline gap-2 pt-1">
-                            <span className="text-base font-mono font-bold text-white">
-                              $ {Number(prod.sale_price).toLocaleString("es-CO")} COP
-                            </span>
-                            {prod.original_price && prod.original_price > prod.sale_price && (
-                              <span className="text-xs font-mono text-neutral-500 line-through">
-                                ${Number(prod.original_price).toLocaleString("es-CO")}
-                              </span>
-                            )}
-                          </div>
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={prod.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-[#15151e] text-[10px] text-neutral-500 font-bold p-2 text-center uppercase">
+                          {prod.name}
                         </div>
-                      </div>
+                      )}
 
-                      {/* BOTONES DE COMPRA O GESTIÓN */}
-                      <div className="p-4 pt-0 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleAddDirect(prod)}
-                            className="bg-white/5 hover:bg-white/10 text-white py-2 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer border border-white/15 flex items-center justify-center gap-1 active:scale-95"
-                          >
-                            <span>🛒</span>
-                            <span>Al Carrito</span>
-                          </button>
+                      {/* Gradiente oscuro inferior */}
+                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 via-black/35 to-transparent pointer-events-none" />
 
-                          <button
-                            type="button"
-                            onClick={() => handleBuyNow(prod)}
-                            className="bg-white hover:bg-neutral-200 text-black py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1"
-                          >
-                            <span>⚡</span>
-                            <span>Compra Directa</span>
-                          </button>
-                        </div>
+                      {/* Insignia / Badge TikTok superior */}
+                      {prod.discount_percent && prod.discount_percent > 0 ? (
+                        <span className="absolute top-1 left-1 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.2 rounded shadow">
+                          -{prod.discount_percent}%
+                        </span>
+                      ) : prod.badge ? (
+                        <span className="absolute top-1 right-1 bg-white text-black text-[8px] font-bold px-1.5 py-0.2 rounded shadow">
+                          {prod.badge.split(" ")[0]}
+                        </span>
+                      ) : null}
 
-                        {/* Botones de Administrador (SOLO VISIBLES PARA EL DUEÑO) */}
-                        {isOwner && (
-                          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNewProdName(prod.name);
-                                setNewProdCategory(prod.category);
-                                setNewProdDescription(prod.description || "");
-                                setNewProdPrice(String(prod.sale_price));
-                                setNewProdOriginalPrice(prod.original_price ? String(prod.original_price) : "");
-                                setNewProdStock(String(prod.stock || 10));
-                                setNewProdImages(prod.images || "");
-                                setNewProdSizes(prod.sizes || "");
-                                setNewProdColors(prod.colors || "");
-                                setNewProdBadge(prod.badge || "");
-                                setShowPublishModal(true);
-                              }}
-                              className="text-neutral-300 hover:text-white cursor-pointer font-medium"
-                            >
-                              ✏️ Editar
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteProduct(prod.id)}
-                              className="text-red-400 hover:underline cursor-pointer"
-                            >
-                              🗑️ Eliminar
-                            </button>
-                          </div>
-                        )}
+                      {/* Indicador inferior izquierdo estilo TikTok: Play icon ▷ + Precio en $K */}
+                      <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-white drop-shadow-md">
+                        <span className="text-[11px] font-black tracking-tight flex items-center gap-1">
+                          <span className="text-[9px]">▷</span>
+                          <span>${priceInK}k</span>
+                        </span>
+                        <span className="text-[9px] text-neutral-300 truncate max-w-[50%]">
+                          {prod.name.split(" ")[0]}
+                        </span>
                       </div>
                     </div>
                   );
@@ -1318,18 +1159,16 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           </div>
         )}
 
-        {/* ========================================================= */}
-        {/* PESTAÑA 2: MIS PEDIDOS & DESPACHOS (SOLO PARA EL DUEÑO) */}
-        {/* ========================================================= */}
+        {/* PESTAÑA 2: MIS PEDIDOS (SOLO DUEÑO) */}
         {isOwner && ownerTab === "pedidos" && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="border-b border-white/10 pb-4">
-              <h3 className="text-xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <div className="p-4 space-y-4 animate-in fade-in">
+            <div className="border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>📦</span>
-                <span>Pedidos Recibidos para {seller.store_name} ({sellerOrders.length})</span>
+                <span>Pedidos Recibidos ({sellerOrders.length})</span>
               </h3>
-              <p className="text-xs text-neutral-400 mt-1">
-                Cuando un comprador adquiere un producto de tu boutique con Compra Directa Wompi/PSE, aparece listado aquí para que prepares el despacho y asignes tu número de guía.
+              <p className="text-xs text-neutral-400 mt-0.5">
+                Prepara tus paquetes y asigna guías de transporte para despachar.
               </p>
             </div>
 
@@ -1356,7 +1195,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest font-mono">
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-widest font-mono">
                             Ref: {o.reference || o.id}
                           </span>
                           <h4 className="text-sm font-bold text-white">{o.product_name}</h4>
@@ -1415,7 +1254,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                                 [o.id]: { ...guideInputs[o.id], company: e.target.value },
                               })
                             }
-                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white cursor-pointer"
                           >
                             <option value="Interrapidísimo">Interrapidísimo</option>
                             <option value="Servientrega">Servientrega</option>
@@ -1435,14 +1274,14 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                               })
                             }
                             placeholder="Número de Guía de Envío"
-                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400 flex-1 min-w-[180px]"
+                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white flex-1 min-w-[180px]"
                           />
                         </div>
 
                         <button
                           type="button"
                           onClick={() => handleSaveShippingGuide(o.id, currentCompany, currentGuide)}
-                          className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
+                          className="bg-white hover:bg-neutral-200 text-black px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
                         >
                           Guardar Guía
                         </button>
@@ -1459,62 +1298,62 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
         {/* PESTAÑA 3: BILLETERA & RETIROS (SOLO PARA EL DUEÑO) */}
         {/* ========================================================= */}
         {isOwner && ownerTab === "billetera" && (
-          <div className="space-y-6 animate-in fade-in">
-            <div className="border-b border-white/10 pb-4">
-              <h3 className="text-xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+          <div className="p-4 space-y-5 animate-in fade-in">
+            <div className="border-b border-white/10 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>💰</span>
-                <span>Billetera Financiera & Retiros Bancarios</span>
+                <span>Billetera Financiera & Retiros</span>
               </h3>
-              <p className="text-xs text-neutral-400 mt-1">
+              <p className="text-xs text-neutral-400 mt-0.5">
                 Administración de fondos recaudados con Wompi / PSE y división automática de comisiones.
               </p>
             </div>
 
             {/* TARJETAS DE SALDOS */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1c1811] to-[#111116] border border-amber-400/40 space-y-2">
-                <span className="text-[10px] uppercase font-bold text-amber-300 tracking-wider block">
-                  ⏳ En Custodia Escrow (Por Entregar)
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl bg-[#14141c] border border-white/10 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider block">
+                  ⏳ En Custodia Escrow
                 </span>
-                <span className="text-2xl font-mono font-black text-white block">
+                <span className="text-xl font-mono font-black text-white block">
                   $ {walletMetrics.pending.toLocaleString("es-CO")} COP
                 </span>
                 <p className="text-[10px] text-neutral-400">
-                  Fondos protegidos mientras la transportadora entrega los paquetes a los clientes.
+                  Fondos protegidos mientras se entrega el pedido.
                 </p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0e1f14] to-[#111116] border border-emerald-500/40 space-y-2">
+              <div className="p-4 rounded-xl bg-[#111c16] border border-emerald-500/30 space-y-1.5">
                 <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider block">
-                  💰 Saldo Disponible para Retiro
+                  💰 Disponible para Retiro
                 </span>
-                <span className="text-2xl font-mono font-black text-emerald-400 block">
+                <span className="text-xl font-mono font-black text-emerald-400 block">
                   $ {walletMetrics.available.toLocaleString("es-CO")} COP
                 </span>
                 <p className="text-[10px] text-neutral-400">
-                  Fondos liberados tras entrega satisfactoria confirmada.
+                  Fondos liberados tras entrega confirmada.
                 </p>
               </div>
 
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#14141c] to-[#111116] border border-white/15 space-y-2">
-                <span className="text-[10px] uppercase font-bold text-neutral-300 tracking-wider block">
+              <div className="p-4 rounded-xl bg-[#14141c] border border-white/10 space-y-1.5">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider block">
                   📈 Total Generado
                 </span>
-                <span className="text-2xl font-mono font-bold text-white block">
+                <span className="text-xl font-mono font-bold text-white block">
                   $ {walletMetrics.totalEarned.toLocaleString("es-CO")} COP
                 </span>
                 <p className="text-[10px] text-neutral-400">
-                  Histórico acumulado de ventas netas de tu boutique.
+                  Ventas netas acumuladas.
                 </p>
               </div>
             </div>
 
             {/* DATOS BANCARIOS REGISTRADOS & SOLICITUD DE RETIRO */}
-            <div className="bg-[#111116] border border-white/10 p-6 rounded-2xl space-y-5">
+            <div className="bg-[#111116] border border-white/10 p-5 rounded-xl space-y-4">
               <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div>
-                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">
-                    Cuenta Bancaria para Transferencias
+                  <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                    Cuenta Bancaria Registrada
                   </h4>
                   <p className="text-xs text-neutral-400">
                     {seller.bank_name} &bull; {seller.account_type} &bull; {seller.account_number}
@@ -1523,9 +1362,9 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <button
                   type="button"
                   onClick={() => setOwnerTab("perfil")}
-                  className="text-xs text-amber-400 hover:underline cursor-pointer font-bold"
+                  className="text-xs text-cyan-400 hover:underline cursor-pointer font-bold"
                 >
-                  Cambiar cuenta &rarr;
+                  Editar cuenta &rarr;
                 </button>
               </div>
 
@@ -1538,7 +1377,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   }
                   alert(`Tu solicitud de retiro por $${walletMetrics.available.toLocaleString("es-CO")} COP a tu cuenta ${seller.bank_name} (${seller.account_number}) ha sido enviada a la administración de NERKLEY.`);
                 }}
-                className="w-full bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95"
+                className="w-full bg-white hover:bg-neutral-200 text-black py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95"
               >
                 Solicitar Desembolso a {seller.bank_name}
               </button>
@@ -1572,7 +1411,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     required
                     value={profileForm.store_name}
                     onChange={(e) => setProfileForm({ ...profileForm, store_name: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1583,7 +1422,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   <select
                     value={profileForm.category}
                     onChange={(e) => setProfileForm({ ...profileForm, category: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white cursor-pointer"
                   >
                     {STREETWEAR_CATEGORIES.map((c) => (
                       <option key={c} value={c}>{c}</option>
@@ -1599,7 +1438,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     rows={2}
                     value={profileForm.bio}
                     onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1610,14 +1449,14 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     <span className="text-[10px] text-neutral-400">Circular</span>
                   </label>
                   <div className="flex items-center gap-3">
-                    <div className="w-14 h-14 rounded-full overflow-hidden bg-black border-2 border-amber-400 flex items-center justify-center shrink-0">
+                    <div className="w-14 h-14 rounded-full overflow-hidden bg-black border-2 border-white/30 flex items-center justify-center shrink-0">
                       {profileForm.logo_url ? (
                         <img src={profileForm.logo_url} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-xs text-neutral-500 font-bold">Sin foto</span>
                       )}
                     </div>
-                    <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-amber-400 text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
+                    <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-white text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
                       <span>📷</span>
                       <span>{uploadingAvatar ? "Cargando..." : "Subir desde Galería o Cámara"}</span>
                       <input
@@ -1636,7 +1475,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                       value={profileForm.logo_url}
                       onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
                       placeholder="https://ejemplo.com/logo.jpg"
-                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-white font-mono"
                     />
                   </details>
                 </div>
@@ -1653,7 +1492,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                         <img src={profileForm.banner_url} alt="" className="w-full h-full object-cover" />
                       </div>
                     )}
-                    <label className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-amber-400 text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
+                    <label className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-white text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
                       <span>📷</span>
                       <span>{uploadingBanner ? "Cargando..." : "Subir Portada desde Galería"}</span>
                       <input
@@ -1672,7 +1511,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                       value={profileForm.banner_url}
                       onChange={(e) => setProfileForm({ ...profileForm, banner_url: e.target.value })}
                       placeholder="https://ejemplo.com/portada.jpg"
-                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-white font-mono"
                     />
                   </details>
                 </div>
@@ -1686,7 +1525,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     required
                     value={profileForm.phone}
                     onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1699,7 +1538,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     required
                     value={profileForm.city}
                     onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1711,7 +1550,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     type="text"
                     value={profileForm.bank_name}
                     onChange={(e) => setProfileForm({ ...profileForm, bank_name: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1723,7 +1562,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     type="text"
                     value={profileForm.account_number}
                     onChange={(e) => setProfileForm({ ...profileForm, account_number: e.target.value })}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white"
                   />
                 </div>
               </div>
@@ -1732,7 +1571,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                  className="bg-white hover:bg-neutral-200 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 disabled:opacity-50"
                 >
                   {savingProfile ? "Guardando..." : "Guardar Cambios de Perfil"}
                 </button>
@@ -1741,43 +1580,94 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           </div>
         )}
 
-        {/* BANNER INFORMATIVO DE SEGURIDAD (ESCROW / SPLIT PAYMENT) */}
-        <section className="bg-gradient-to-r from-[#14141c] via-[#1c1811] to-[#14141c] border border-amber-400/30 p-6 sm:p-8 rounded-2xl text-center space-y-3 shadow-xl">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
-            <span>🛡️</span> Pasarela Wompi & PSE &bull; Split de Comisión Automático
+        {/* PIE DE SEGURIDAD & PASARELA */}
+        <div className="px-6 py-8 text-center space-y-2 border-t border-neutral-900 mt-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] text-neutral-300">
+            <span>🛡️</span> Compra Directa Wompi & PSE &bull; Envíos asegurados
           </div>
-          <h3 className="text-lg sm:text-xl font-serif font-bold text-white uppercase tracking-wider">
-            ¿Cómo funciona la Compra Directa con {seller.store_name}?
-          </h3>
-          <p className="text-xs sm:text-sm text-neutral-300 max-w-2xl mx-auto font-light leading-relaxed">
-            Cuando compras en esta boutique, tu pago se procesa de forma 100% blindada mediante Wompi (Bancolombia, Nequi, PSE y Tarjetas). NERKLEY retiene automáticamente la comisión de plataforma y mantiene en custodia el saldo del vendedor hasta que la transportadora certifique la entrega satisfactoria.
+          <p className="text-[11px] text-neutral-500 max-w-sm mx-auto leading-relaxed">
+            Pagos procesados de forma blindada por NERKLEY. Retención automática de comisiones y despacho con transportadora certificada.
           </p>
-          <div className="flex justify-center pt-2">
-            <Link
-              href="/"
-              className="text-xs uppercase tracking-wider text-amber-300 hover:text-white underline font-semibold"
-            >
-              &larr; Volver al Catálogo Principal de NERKLEY
-            </Link>
-          </div>
-        </section>
-      </main>
+          <Link
+            href="/"
+            className="inline-block text-[11px] text-neutral-400 hover:text-white underline pt-1 font-semibold"
+          >
+            &larr; Volver a la Tienda Principal
+          </Link>
+        </div>
 
-      {/* ========================================================= */}
-      {/* BOTÓN FLOTANTE RÁPIDO PARA EL VENDEDOR */}
-      {/* ========================================================= */}
-      {isOwner && (
-        <div className="fixed bottom-6 left-6 z-[180] flex flex-col gap-2">
+        {/* ========================================================= */}
+        {/* BARRA DE NAVEGACIÓN INFERIOR ESTILO TIKTOK EXACTO */}
+        {/* ========================================================= */}
+        <nav className="fixed bottom-0 inset-x-0 max-w-lg mx-auto bg-black/95 backdrop-blur-xl border-t border-white/10 z-50 h-14 flex items-center justify-around px-2 select-none">
+          <Link
+            href="/"
+            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors"
+          >
+            <span className="text-lg leading-none">⌂</span>
+            <span className="text-[10px] font-medium tracking-tight mt-0.5">Inicio</span>
+          </Link>
+
+          <Link
+            href="/"
+            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors"
+          >
+            <span className="text-lg leading-none">👥</span>
+            <span className="text-[10px] font-medium tracking-tight mt-0.5">Tiendas</span>
+          </Link>
+
+          {/* Botón Central TikTok icónico (+) con bordes cyan/blanco/magenta */}
+          <div className="flex items-center justify-center flex-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (isOwner) {
+                  setShowPublishModal(true);
+                } else {
+                  window.location.href = "/vender";
+                }
+              }}
+              title={isOwner ? "Publicar Prenda" : "Crear mi Boutique"}
+              className="relative p-[1.5px] rounded-lg bg-gradient-to-r from-[#00f2fe] via-white to-[#fe2c55] active:scale-90 transition-transform cursor-pointer shadow-md"
+            >
+              <div className="bg-black px-3.5 py-1 rounded-[6px] flex items-center justify-center">
+                <span className="text-white text-base font-black leading-none">+</span>
+              </div>
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => setShowPublishModal(true)}
-            className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-5 py-3 rounded-full font-black text-xs uppercase tracking-wider shadow-[0_10px_25px_rgba(232,198,98,0.5)] flex items-center gap-2 cursor-pointer active:scale-95 transition-all ring-2 ring-amber-300"
+            onClick={() => setIsCartOpen(true)}
+            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors cursor-pointer relative"
           >
-            <span className="text-base">✨</span>
-            <span>Publicar Prenda Ahora</span>
+            <span className="text-lg leading-none">💬</span>
+            <span className="text-[10px] font-medium tracking-tight mt-0.5">Carrito</span>
           </button>
-        </div>
-      )}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isOwner) {
+                setOwnerTab("perfil");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              } else {
+                window.location.href = "/vender";
+              }
+            }}
+            className="flex flex-col items-center justify-center flex-1 py-1 text-white font-bold transition-colors cursor-pointer"
+          >
+            <div className="w-5 h-5 rounded-full overflow-hidden border border-white/60 bg-neutral-800 flex items-center justify-center">
+              {seller.logo_url ? (
+                <img src={seller.logo_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[10px] text-white">👤</span>
+              )}
+            </div>
+            <span className="text-[10px] font-medium tracking-tight mt-0.5">Perfil</span>
+          </button>
+        </nav>
+      </div>
 
       {/* ========================================================= */}
       {/* MODAL DEL PUBLISHER DASHBOARD (CARGA DE PRENDAS) */}
@@ -1788,12 +1678,12 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           onClick={() => setShowPublishModal(false)}
         >
           <div
-            className="bg-[#111116] border border-amber-400/40 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-7 space-y-6 shadow-2xl relative my-auto animate-in zoom-in-95 duration-200"
+            className="bg-[#111116] border border-white/20 rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-5 sm:p-7 space-y-6 shadow-2xl relative my-auto animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div>
-                <h3 className="text-base sm:text-lg font-serif font-bold text-white flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                   <span>✨</span> Panel de Publicación de Prendas
                 </h3>
                 <p className="text-xs text-neutral-400">
@@ -1820,7 +1710,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   value={newProdName}
                   onChange={(e) => setNewProdName(e.target.value)}
                   placeholder="Ej: Buzo Hoodie Oversize Heavyweight Acid Wash o Jeans Baggy Y2K"
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                 />
               </div>
 
@@ -1831,7 +1721,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <select
                   value={newProdCategory}
                   onChange={(e) => setNewProdCategory(e.target.value)}
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white cursor-pointer"
                 >
                   {STREETWEAR_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -1844,7 +1734,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
                   <span>Descripción de Materiales, Diseño & Caída Urbana *</span>
-                  <span className="text-[10px] text-amber-400 font-normal">Streetwear Spec</span>
+                  <span className="text-[10px] text-cyan-400 font-normal">Streetwear Spec</span>
                 </label>
                 <textarea
                   rows={3}
@@ -1852,7 +1742,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   value={newProdDescription}
                   onChange={(e) => setNewProdDescription(e.target.value)}
                   placeholder="Detalla materiales (ej: algodón 450 GSM, denim rígido 14oz, cuero genuino), confección, caída oversize/baggy y recomendaciones de talla..."
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-white"
                 />
               </div>
 
@@ -1868,7 +1758,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     value={newProdPrice}
                     onChange={(e) => setNewProdPrice(e.target.value)}
                     placeholder="Ej: 160000"
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1881,7 +1771,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     value={newProdOriginalPrice}
                     onChange={(e) => setNewProdOriginalPrice(e.target.value)}
                     placeholder="Ej: 220000 (Opcional)"
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white"
                   />
                 </div>
 
@@ -1896,7 +1786,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     value={newProdStock}
                     onChange={(e) => setNewProdStock(e.target.value)}
                     placeholder="10"
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-white"
                   />
                 </div>
               </div>
@@ -1909,7 +1799,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
                 {/* Botón de subida de galería directo */}
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400/20 via-amber-400/10 to-transparent border border-amber-400/50 hover:border-amber-400 text-amber-300 hover:text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-amber-400/25">
+                  <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/20 hover:border-white text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-white/10">
                     <span>📷</span>
                     <span>{uploadingProdImages ? "Procesando fotos de galería..." : "Elegir Fotos de la Galería o Cámara"}</span>
                     <input
@@ -1946,7 +1836,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                               ✕
                             </button>
                             {idx === 0 && (
-                              <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[8px] text-amber-300 text-center font-bold uppercase py-0.5">
+                              <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[8px] text-white text-center font-bold uppercase py-0.5">
                                 Principal
                               </span>
                             )}
@@ -1956,7 +1846,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   </div>
                 ) : (
                   <p className="text-[11px] text-neutral-500 italic">
-                    Pulsa el botón dorado arriba para seleccionar fotos directamente desde tu celular o computadora.
+                    Pulsa el botón arriba para seleccionar fotos directamente desde tu celular o computadora.
                   </p>
                 )}
 
@@ -1970,7 +1860,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     value={newProdImages}
                     onChange={(e) => setNewProdImages(e.target.value)}
                     placeholder="https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg"
-                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white font-mono"
                   />
                 </details>
               </div>
@@ -1989,7 +1879,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                         onClick={() => setNewProdSizes(toggleToken(newProdSizes, sz))}
                         className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
                           active
-                            ? "bg-amber-400 text-black shadow-sm"
+                            ? "bg-white text-black shadow-sm"
                             : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10"
                         }`}
                       >
@@ -2014,7 +1904,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                         onClick={() => setNewProdColors(toggleToken(newProdColors, cl))}
                         className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all cursor-pointer ${
                           active
-                            ? "bg-amber-400 text-black shadow-sm"
+                            ? "bg-white text-black shadow-sm"
                             : "bg-white/5 border border-white/15 text-neutral-300 hover:bg-white/10"
                         }`}
                       >
@@ -2033,7 +1923,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   <select
                     value={newProdBadge}
                     onChange={(e) => setNewProdBadge(e.target.value)}
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-white cursor-pointer"
                   >
                     {BADGE_PRESETS.map((b) => (
                       <option key={b} value={b}>
@@ -2049,7 +1939,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                     id="freeShippingCheck"
                     checked={newProdFreeShipping}
                     onChange={(e) => setNewProdFreeShipping(e.target.checked)}
-                    className="w-4 h-4 rounded accent-amber-400 cursor-pointer"
+                    className="w-4 h-4 rounded accent-white cursor-pointer"
                   />
                   <label htmlFor="freeShippingCheck" className="text-xs text-neutral-200 font-semibold cursor-pointer">
                     🚚 Activar Envío Gratis en esta prenda
@@ -2057,7 +1947,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              <div className="p-3 bg-amber-400/10 border border-amber-400/25 rounded-xl text-[11px] text-amber-200 flex items-center gap-2">
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-[11px] text-neutral-300 flex items-center gap-2">
                 <span>🔒</span>
                 <span>
                   <strong>Sincronización Wompi / PSE:</strong> Esta prenda se vinculará de forma nativa a los links de pago y división automática de comisión de NERKLEY.
@@ -2371,6 +2261,124 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* MODAL DETALLE DE PRENDA ESTILO TIKTOK PRODUCT SHEET */}
+      {/* ========================================================= */}
+      {selectedProductModal && (
+        <div
+          className="fixed inset-0 z-[260] bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 select-none animate-in fade-in"
+          onClick={() => setSelectedProductModal(null)}
+        >
+          <div
+            className="bg-[#121217] border border-white/10 rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[88vh] overflow-y-auto p-5 space-y-4 shadow-2xl relative my-0 sm:my-auto animate-in slide-in-from-bottom duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-1 bg-white/20 rounded-full mx-auto sm:hidden mb-2" />
+
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">
+                  {selectedProductModal.category || "Streetwear Exclusivo"}
+                </span>
+                <h3 className="text-base font-black text-white leading-tight">
+                  {selectedProductModal.name}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProductModal(null)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-neutral-300 hover:text-white flex items-center justify-center text-sm cursor-pointer shrink-0"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Imagen Principal */}
+            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden bg-black border border-white/10">
+              <img
+                src={selectedProductModal.images?.split(",")[0]?.trim() || ""}
+                alt={selectedProductModal.name}
+                className="w-full h-full object-cover"
+              />
+              {selectedProductModal.discount_percent && selectedProductModal.discount_percent > 0 && (
+                <span className="absolute top-2 left-2 bg-red-600 text-white text-[10px] font-black px-2 py-0.5 rounded shadow">
+                  -{selectedProductModal.discount_percent}% OFF
+                </span>
+              )}
+            </div>
+
+            {/* Precio & Tallas */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] text-neutral-400 block uppercase font-bold">Precio Oficial</span>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xl font-mono font-black text-white">
+                    $ {Number(selectedProductModal.sale_price).toLocaleString("es-CO")} COP
+                  </span>
+                  {selectedProductModal.original_price && selectedProductModal.original_price > selectedProductModal.sale_price && (
+                    <span className="text-xs text-neutral-500 line-through">
+                      $ {Number(selectedProductModal.original_price).toLocaleString("es-CO")}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {selectedProductModal.sizes && (
+                <div className="text-right">
+                  <span className="text-[10px] text-neutral-400 block uppercase font-bold">Tallas</span>
+                  <div className="flex items-center gap-1 justify-end mt-0.5">
+                    {selectedProductModal.sizes.split(",").map((s) => (
+                      <span key={s} className="px-2 py-0.5 rounded bg-white/10 text-[10px] font-bold text-white">
+                        {s.trim()}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Descripción */}
+            {selectedProductModal.description && (
+              <div className="space-y-1">
+                <span className="text-[10px] uppercase font-bold text-neutral-400 block tracking-wider">
+                  Detalles & Confección
+                </span>
+                <p className="text-xs text-neutral-300 leading-relaxed max-h-24 overflow-y-auto">
+                  {selectedProductModal.description}
+                </p>
+              </div>
+            )}
+
+            {/* Botones de Compra Directa & Carrito */}
+            <div className="space-y-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleBuyNow(selectedProductModal);
+                  setSelectedProductModal(null);
+                }}
+                className="w-full bg-white hover:bg-neutral-200 text-black py-3 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 flex items-center justify-center gap-2"
+              >
+                <span>⚡</span>
+                <span>Compra Directa con Wompi / PSE</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  handleAddDirect(selectedProductModal);
+                  setSelectedProductModal(null);
+                }}
+                className="w-full bg-[#1c1c24] hover:bg-[#252530] text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>🛒</span>
+                <span>Añadir al Carrito</span>
+              </button>
             </div>
           </div>
         </div>
