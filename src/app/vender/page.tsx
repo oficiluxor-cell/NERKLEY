@@ -19,11 +19,15 @@ import {
 } from "@/lib/categories";
 import {
   Seller,
+  SellerStory,
   registerNewSeller,
   loginSeller,
   getFreshSellerSession,
   logoutSeller,
   calculateOrderCommission,
+  getSellerStories,
+  saveSellerStory,
+  deleteSellerStory,
 } from "@/lib/marketplace";
 import ImageGalleryUploader from "@/components/ImageGalleryUploader";
 
@@ -137,6 +141,14 @@ export default function VenderPage() {
   const [profileSuccessMsg, setProfileSuccessMsg] = useState("");
   const [copiedProfileLink, setCopiedProfileLink] = useState(false);
 
+  // Estados de Historias de la Boutique (Estilo Facebook / Instagram Stories)
+  const [sellerStories, setSellerStories] = useState<SellerStory[]>([]);
+  const [isAddingStory, setIsAddingStory] = useState(false);
+  const [newStoryImage, setNewStoryImage] = useState("");
+  const [newStoryCaption, setNewStoryCaption] = useState("");
+  const [newStoryProductId, setNewStoryProductId] = useState("");
+  const [publishingStory, setPublishingStory] = useState(false);
+
   // Formulario de Nuevo Producto de Vendedor con todas las herramientas de nivel Admin
   const [newProdName, setNewProdName] = useState("");
   const [newProdBasePrice, setNewProdBasePrice] = useState("");
@@ -236,6 +248,14 @@ export default function VenderPage() {
       }
     } catch (e) {
       console.warn("Error cargando pedidos de vendedor:", e);
+    }
+
+    // 3. Cargar historias de la boutique (Facebook / Instagram Stories)
+    try {
+      const stories = await getSellerStories(sellerId);
+      setSellerStories(stories);
+    } catch (e) {
+      console.warn("Error cargando historias de vendedor:", e);
     }
   };
 
@@ -499,6 +519,43 @@ export default function VenderPage() {
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handlePublishStory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStoryImage.trim() || !sellerSession) {
+      alert("Por favor ingresa o sube la imagen de la historia.");
+      return;
+    }
+    setPublishingStory(true);
+    try {
+      const prod = sellerProducts.find((p) => p.id === newStoryProductId);
+      const updated = await saveSellerStory(sellerSession.id, {
+        image_url: newStoryImage.trim(),
+        caption: newStoryCaption.trim(),
+        product_id: prod?.id,
+        product_name: prod?.name,
+        product_price: prod?.sale_price,
+        product_slug: prod?.slug,
+      });
+      setSellerStories(updated);
+      setNewStoryImage("");
+      setNewStoryCaption("");
+      setNewStoryProductId("");
+      setIsAddingStory(false);
+      alert("¡Historia publicada con éxito en tu perfil social!");
+    } catch (err: any) {
+      alert("Error publicando historia: " + (err.message || JSON.stringify(err)));
+    } finally {
+      setPublishingStory(false);
+    }
+  };
+
+  const handleDeleteStory = async (storyId: string) => {
+    if (!confirm("¿Deseas eliminar esta historia?")) return;
+    if (!sellerSession) return;
+    const updated = await deleteSellerStory(sellerSession.id, storyId);
+    setSellerStories(updated);
   };
 
   const handleCreateSellerProduct = async (e: React.FormEvent) => {
@@ -1945,6 +2002,222 @@ export default function VenderPage() {
                   <div className="px-6 pb-5 flex items-center gap-2 text-xs text-amber-300">
                     <span>🎥</span>
                     <span className="font-medium">Video de presentación configurado para los clientes</span>
+                  </div>
+                )}
+              </div>
+
+              {/* SECCIÓN DE HISTORIAS DE LA BOUTIQUE (ESTILO FACEBOOK / INSTAGRAM) */}
+              <div className="bg-[#111116] border border-amber-400/30 p-6 md:p-8 rounded-2xl space-y-6 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-amber-400 text-lg">📸</span>
+                      <h4 className="text-sm uppercase font-bold tracking-widest text-amber-300">
+                        Historias de tu Boutique (Estilo Facebook / Instagram)
+                      </h4>
+                      <span className="text-[10px] bg-amber-400/20 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full font-bold">
+                        {sellerStories.length} {sellerStories.length === 1 ? "Historia" : "Historias"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-neutral-300 font-light">
+                      Publica fotos, novedades y ofertas temporales. Los visitantes de tu perfil podrán ver tus historias y <strong>comprar el producto etiquetado con 1 solo clic</strong> directamente.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingStory(!isAddingStory)}
+                    className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <span>{isAddingStory ? "✕ Cancelar" : "+ Subir Historia"}</span>
+                  </button>
+                </div>
+
+                {/* FORMULARIO PARA SUBIR NUEVA HISTORIA */}
+                {isAddingStory && (
+                  <form
+                    onSubmit={handlePublishStory}
+                    className="p-5 bg-black/60 border border-amber-400/50 rounded-xl space-y-4 animate-in fade-in"
+                  >
+                    <div className="flex items-center justify-between">
+                      <h5 className="text-xs uppercase font-extrabold tracking-wider text-amber-300 flex items-center gap-2">
+                        <span>✨</span> Nueva Publicación de Historia
+                      </h5>
+                      <span className="text-[10px] text-neutral-400">Visible en tu perfil público</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* URL DE LA IMAGEN O FOTO */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-neutral-200">
+                          Imagen de la Historia (URL de Foto o Flyer) *
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          value={newStoryImage}
+                          onChange={(e) => setNewStoryImage(e.target.value)}
+                          placeholder="https://ejemplo.com/foto-historia.jpg"
+                          className="w-full bg-[#0a0a0c] border border-white/20 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                        />
+                        <p className="text-[10px] text-neutral-400">
+                          Tip: Puedes pegar el enlace directo de una foto vertical o usar una imagen de tus productos.
+                        </p>
+                      </div>
+
+                      {/* ETIQUETAR PRODUCTO PARA COMPRA DIRECTA */}
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-semibold text-amber-300">
+                          🛍️ Etiquetar Producto para Compra Directa (Opcional)
+                        </label>
+                        <select
+                          value={newStoryProductId}
+                          onChange={(e) => {
+                            setNewStoryProductId(e.target.value);
+                            const found = sellerProducts.find((p) => p.id === e.target.value);
+                            if (found && !newStoryImage) {
+                              const firstImg = found.images?.split(",")[0]?.trim();
+                              if (firstImg) setNewStoryImage(firstImg);
+                            }
+                          }}
+                          className="w-full bg-[#0a0a0c] border border-amber-400/40 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                        >
+                          <option value="">-- Sin producto etiquetado (Solo anuncio/foto) --</option>
+                          {sellerProducts.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} - ${Number(p.sale_price).toLocaleString()} COP
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-neutral-400">
+                          Al etiquetar un producto, tus seguidores verán un botón de <strong>"⚡ Comprar Directo"</strong> dentro de la historia.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* TEXTO / CAPTION DE LA HISTORIA */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-neutral-200">
+                        Texto o Mensaje de la Historia (Caption)
+                      </label>
+                      <input
+                        type="text"
+                        value={newStoryCaption}
+                        onChange={(e) => setNewStoryCaption(e.target.value)}
+                        placeholder="Ej: 🔥 ¡Disponible para entrega hoy mismo! Pocas unidades en bodega."
+                        maxLength={160}
+                        className="w-full bg-[#0a0a0c] border border-white/20 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
+
+                    {/* PREVISUALIZACIÓN DE LA HISTORIA */}
+                    {newStoryImage && (
+                      <div className="pt-2">
+                        <span className="text-[10px] uppercase tracking-wider text-neutral-400 block mb-2 font-bold">
+                          Vista Previa de la Historia:
+                        </span>
+                        <div className="relative w-36 h-56 rounded-xl overflow-hidden border-2 border-amber-400 shadow-xl bg-black">
+                          <img src={newStoryImage} alt="Preview" className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/40 p-2.5 flex flex-col justify-between">
+                            <span className="text-[9px] font-bold text-amber-300">
+                              {sellerSession?.store_name}
+                            </span>
+                            <div>
+                              {newStoryCaption && (
+                                <p className="text-[9px] text-white font-medium line-clamp-2 mb-1 drop-shadow">
+                                  {newStoryCaption}
+                                </p>
+                              )}
+                              {newStoryProductId && (
+                                <span className="text-[8px] bg-amber-400 text-black px-1.5 py-0.5 rounded font-black block text-center uppercase">
+                                  ⚡ Comprar Directo
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-3 pt-2 border-t border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setIsAddingStory(false)}
+                        className="px-4 py-2 text-xs text-neutral-400 hover:text-white cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={publishingStory || !newStoryImage.trim()}
+                        className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        <span>🚀</span>
+                        <span>{publishingStory ? "Publicando..." : "Publicar Historia"}</span>
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                {/* LISTADO DE HISTORIAS ACTIVAS */}
+                {sellerStories.length === 0 ? (
+                  <div className="p-8 text-center border border-dashed border-white/10 bg-white/[0.02] rounded-xl space-y-2">
+                    <span className="text-3xl block">✨</span>
+                    <p className="text-xs font-bold text-white">Aún no has publicado historias personalizadas</p>
+                    <p className="text-[11px] text-neutral-400 max-w-md mx-auto">
+                      Tu perfil público muestra automáticamente historias destacadas con tus productos principales. Puedes publicar tus propias fotos y flyers haciendo clic en <strong>"+ Subir Historia"</strong>.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {sellerStories.map((story) => (
+                      <div
+                        key={story.id}
+                        className="relative rounded-xl overflow-hidden border border-white/15 bg-black/60 group shadow-lg"
+                      >
+                        <div className="h-44 w-full relative">
+                          <img
+                            src={story.image_url}
+                            alt={story.caption || "Historia"}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent p-2.5 flex flex-col justify-between">
+                            <span className="text-[8px] bg-black/70 text-amber-300 px-1.5 py-0.5 rounded self-start font-mono">
+                              {new Date(story.created_at).toLocaleDateString()}
+                            </span>
+
+                            <div className="space-y-1">
+                              {story.caption && (
+                                <p className="text-[10px] text-white line-clamp-2 leading-tight drop-shadow font-medium">
+                                  {story.caption}
+                                </p>
+                              )}
+                              {story.product_name && (
+                                <div className="text-[8.5px] bg-amber-400/90 text-black px-1.5 py-0.5 rounded font-black truncate">
+                                  🛍️ {story.product_name}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-2 bg-[#0d0d12] border-t border-white/10 flex items-center justify-between">
+                          <span className="text-[9px] text-emerald-400 font-bold flex items-center gap-1">
+                            <span>●</span> Activa
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteStory(story.id)}
+                            className="text-red-400 hover:text-red-300 text-[10px] font-bold cursor-pointer transition-colors"
+                            title="Eliminar historia"
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
