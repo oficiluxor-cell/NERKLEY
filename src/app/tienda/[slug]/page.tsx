@@ -738,205 +738,213 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const isVerified = seller.status === "verified" || seller.is_verified;
 
   return (
-    <div className="min-h-screen bg-black text-white selection:bg-white selection:text-black flex justify-center">
+    <div className="min-h-screen bg-[#0a0a0c] text-white selection:bg-white selection:text-black pb-20 md:pb-12">
       {/* Toast Flotante */}
       {toastMessage && (
-        <div className="fixed top-5 z-[300] bg-white text-black px-4 py-2 shadow-2xl flex items-center gap-2 rounded-full animate-in fade-in">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[300] bg-white text-black px-5 py-2.5 shadow-2xl flex items-center gap-2.5 rounded-full animate-in fade-in">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
           <span className="text-xs font-bold uppercase tracking-wider">{toastMessage}</span>
         </div>
       )}
 
-      {/* CONTENEDOR MÓVIL ESTILO TIKTOK EXACTO */}
-      <div className="w-full max-w-lg min-h-screen bg-black text-white relative flex flex-col pb-28 border-x border-neutral-900/60 shadow-2xl">
-        {/* BARRA SUPERIOR TIKTOK */}
-        <header className="h-12 px-4 flex items-center justify-between border-b border-white/5 sticky top-0 bg-black/90 backdrop-blur-md z-40">
-          <div className="flex items-center gap-2.5">
-            <Link href="/" className="text-white hover:text-neutral-300 text-lg cursor-pointer p-1 font-bold">
-              ←
+      {/* HEADER SUPERIOR (NAVBAR RESPONSIVE) */}
+      <header className="sticky top-0 z-40 bg-[#0c0c10]/95 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-6xl mx-auto px-4 h-14 sm:h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-neutral-400 hover:text-white p-1.5 rounded-lg hover:bg-white/5 transition-all text-sm font-bold flex items-center gap-1"
+            >
+              <span>&larr;</span>
+              <span className="hidden sm:inline text-xs uppercase tracking-wider">Inicio</span>
             </Link>
-            <span className="font-extrabold text-sm tracking-tight text-white flex items-center gap-1 truncate max-w-[200px]">
-              {seller.store_name}
-              <span className="text-xs text-neutral-400">▾</span>
-            </span>
+            <div className="h-4 w-[1px] bg-white/20 hidden sm:block" />
+            <Link
+              href="/"
+              className="font-serif tracking-[0.25em] font-black text-sm sm:text-base text-white hover:text-neutral-300 transition-colors"
+            >
+              NERKLEY
+            </Link>
           </div>
 
-          <div className="flex items-center gap-3 text-neutral-300">
+          {/* Buscador Rápido en PC */}
+          <div className="hidden md:flex items-center flex-1 max-w-xs mx-4">
+            <div className="w-full relative">
+              <input
+                type="text"
+                placeholder="Buscar prenda en la boutique..."
+                value={searchFilter}
+                onChange={(e) => setSearchFilter(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30"
+              />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">🔍</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-3">
+            {isOwner && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>Dueño de la Boutique</span>
+              </span>
+            )}
+
             <button
               type="button"
               onClick={handleShareProfile}
-              className="hover:text-white p-1 text-sm cursor-pointer"
-              title="Compartir"
+              className="text-neutral-300 hover:text-white p-2 rounded-lg hover:bg-white/5 text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+              title="Compartir enlace de la boutique"
             >
-              ↗
+              <span>↗</span>
+              <span className="hidden sm:inline">Compartir</span>
             </button>
+
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="hover:text-white p-1 text-base relative cursor-pointer"
-              title="Carrito"
+              className="bg-white/10 hover:bg-white/20 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer relative"
             >
-              🛒
+              <span>🛒</span>
+              <span className="hidden sm:inline">Carrito</span>
             </button>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setOwnerTab("perfil")}
-                className="hover:text-white p-1 text-base cursor-pointer"
-                title="Ajustes de Perfil"
-              >
-                ⚙️
-              </button>
-            )}
           </div>
-        </header>
+        </div>
+      </header>
 
-        {/* CABECERA DE PERFIL ESTILO TIKTOK EXACTO */}
-        <div className="px-5 pt-3 pb-3 space-y-3.5">
-          {/* Fila Superior: Nombre y Contadores a la izquierda, Avatar con Thought Bubble a la derecha */}
-          <div className="flex items-start justify-between gap-4">
-            {/* Columna Izquierda: Nombre, username y contadores */}
-            <div className="flex-1 space-y-1.5 min-w-0">
-              <div>
-                <h1 className="text-2xl font-black text-white tracking-tight flex items-center gap-1.5 truncate">
+      {/* PORTADA Y CABECERA ESTILO FACEBOOK / PÁGINA COMERCIAL */}
+      <div className="max-w-6xl mx-auto px-0 sm:px-4 pt-0 sm:pt-4">
+        {/* BANNER DE PORTADA (COVER PHOTO) */}
+        <div className="relative w-full h-40 sm:h-56 md:h-72 bg-gradient-to-r from-neutral-900 via-[#181822] to-neutral-900 overflow-hidden sm:rounded-2xl border-b sm:border border-white/10">
+          {seller.banner_url ? (
+            <img
+              src={seller.banner_url}
+              alt={`Portada de ${seller.store_name}`}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
+              <span className="text-3xl sm:text-5xl opacity-30">✨</span>
+              <span className="text-xs uppercase tracking-[0.3em] text-neutral-500 mt-2 font-mono">
+                Boutique Oficial NERKLEY
+              </span>
+            </div>
+          )}
+
+          {/* Botón para cambiar portada si es el dueño */}
+          {isOwner && (
+            <label className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 bg-black/75 hover:bg-black text-white border border-white/20 hover:border-white px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 backdrop-blur-md cursor-pointer transition-all shadow-lg">
+              <span>📷</span>
+              <span className="hidden sm:inline">{uploadingBanner ? "Subiendo..." : "Editar Portada"}</span>
+              <input
+                type="file"
+                accept="image/*"
+                disabled={uploadingBanner}
+                onChange={handleBannerGalleryUpload}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+
+        {/* FILA DE INFORMACIÓN DEL PERFIL (OVERLAPPING BANNER COMO FACEBOOK) */}
+        <div className="px-4 sm:px-6 relative z-10 flex flex-col md:flex-row items-center md:items-end justify-between gap-4 -mt-14 sm:-mt-16 md:-mt-20 pb-4 border-b border-white/10">
+          {/* LADO IZQUIERDO: FOTO DE PERFIL (AVATAR) + DATOS PRINCIPALES */}
+          <div className="flex flex-col sm:flex-row items-center sm:items-end gap-3 sm:gap-5 text-center sm:text-left w-full md:w-auto">
+            {/* AVATAR CIRCULAR CON ANILLO DE HISTORIAS */}
+            <div className="relative group shrink-0">
+              <div
+                onClick={() => (stories.length > 0 ? openStory(0) : isOwner && setShowStoryModal(true))}
+                className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full p-[3px] bg-[#0a0a0c] cursor-pointer overflow-hidden shadow-2xl transition-transform hover:scale-105 ${
+                  stories.length > 0
+                    ? "ring-4 ring-cyan-400 ring-offset-4 ring-offset-[#0a0a0c]"
+                    : "border-4 border-[#0a0a0c]"
+                }`}
+              >
+                {seller.logo_url ? (
+                  <img
+                    src={seller.logo_url}
+                    alt={seller.store_name}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-neutral-900 border border-white/15 flex items-center justify-center font-bold text-2xl text-white">
+                    {seller.store_name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              {/* Botón de editar avatar si es dueño */}
+              {isOwner && (
+                <label
+                  title="Cambiar foto de perfil desde galería"
+                  className="absolute bottom-1 right-1 w-8 h-8 rounded-full bg-[#1c1c24] hover:bg-white text-white hover:text-black border border-white/20 flex items-center justify-center text-xs font-bold cursor-pointer shadow-lg transition-all"
+                >
+                  <span>📷</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingAvatar}
+                    onChange={handleAvatarGalleryUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
+            </div>
+
+            {/* NOMBRE DE LA TIENDA Y DATOS */}
+            <div className="space-y-1 sm:pb-2">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-1.5">
                   <span>{seller.store_name}</span>
-                  <span className="text-sm font-normal text-neutral-400">▾</span>
                   {isVerified && (
-                    <span className="text-cyan-400 text-sm shrink-0" title="Verificado">
+                    <span className="text-cyan-400 text-base sm:text-lg" title="Boutique Oficial Verificada">
                       ✓
                     </span>
                   )}
                 </h1>
-                <p className="text-xs text-neutral-400 font-medium truncate">
-                  @{seller.slug || seller.store_name.toLowerCase().replace(/\s+/g, "_")}
-                </p>
+                <span className="text-[10px] uppercase font-bold tracking-wider bg-white/10 text-neutral-300 px-2 py-0.5 rounded-full">
+                  {seller.category || "Streetwear"}
+                </span>
               </div>
 
-              {/* Contadores TikTok: Siguiendo, Seguidores, Me gusta */}
-              <div className="flex items-center gap-4 sm:gap-6 pt-1 text-left">
-                <div>
-                  <span className="font-extrabold text-sm sm:text-base text-white block">
-                    {products.length}
-                  </span>
-                  <span className="text-[11px] text-neutral-400 font-normal">Prendas</span>
-                </div>
-                <div>
-                  <span className="font-extrabold text-sm sm:text-base text-white block">
-                    10,7 mil
-                  </span>
-                  <span className="text-[11px] text-neutral-400 font-normal">Seguidores</span>
-                </div>
-                <div>
-                  <span className="font-extrabold text-sm sm:text-base text-white block">
-                    247,2 mil
-                  </span>
-                  <span className="text-[11px] text-neutral-400 font-normal">Me gusta</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Columna Derecha: Avatar circular con globo de pensamiento y botón azul + */}
-            <div className="flex flex-col items-center shrink-0 relative pt-1">
-              {/* Globo de pensamiento TikTok ("Lo que estás pensando...") */}
-              <div
-                onClick={() => (stories.length > 0 ? openStory(0) : isOwner && setShowStoryModal(true))}
-                className="relative mb-1 bg-[#1a1a24] border border-white/10 text-[10px] text-neutral-300 font-medium px-2.5 py-0.5 rounded-full shadow-md cursor-pointer hover:border-white/30 transition-all select-none whitespace-nowrap"
-              >
-                <span>{stories.length > 0 ? "🔥 Ver Story" : "Lo que estás pensando..."}</span>
-                <div className="absolute -bottom-1 right-5 w-1.5 h-1.5 bg-[#1a1a24] border-r border-b border-white/10 rotate-45"></div>
-              </div>
-
-              {/* Avatar con botón + */}
-              <div className="relative group">
-                <div
-                  onClick={() => (stories.length > 0 ? openStory(0) : isOwner && setShowStoryModal(true))}
-                  className={`w-20 h-20 rounded-full p-[2px] cursor-pointer overflow-hidden bg-black ${
-                    stories.length > 0
-                      ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-black"
-                      : "border-2 border-white/20"
-                  }`}
-                >
-                  {seller.logo_url ? (
-                    <img src={seller.logo_url} alt={seller.store_name} className="w-full h-full rounded-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full rounded-full bg-[#16161f] flex items-center justify-center font-bold text-lg text-white">
-                      {seller.store_name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                </div>
-
-                {/* Botón azul celeste (+) para subir story o foto */}
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => setShowStoryModal(true)}
-                    title="Subir Story o Foto"
-                    className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-[#00f2fe] text-black font-black text-sm flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all cursor-pointer border-2 border-black"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Biografía Comercial al estilo TikTok de la imagen */}
-          <div className="text-xs text-neutral-200 leading-snug space-y-0.5 pt-0.5 font-normal">
-            <p className="flex items-center gap-1.5">
-              <span>⚡</span> <span>{seller.store_name.toUpperCase()} STORE</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <span>🛒</span> <span>Tienda oficial verificada</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <span>🧥</span> <span>{seller.category || "Streetwear exclusivo & alta gama."}</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <span>📦</span> <span>Envíos asegurados a toda Colombia.</span>
-            </p>
-            <p className="flex items-center gap-1.5">
-              <span>👇</span> <span>Explora la colección aquí:</span>
-            </p>
-            {seller.bio && (
-              <p className="pt-1 text-neutral-400 italic">
-                &ldquo;{seller.bio}&rdquo;
+              <p className="text-xs text-neutral-400 font-mono">
+                @{seller.slug || seller.store_name.toLowerCase().replace(/\s+/g, "_")}
+                <span className="mx-2 text-neutral-600">&bull;</span>
+                <span className="text-neutral-300">📍 {seller.city || "Colombia"}</span>
+                <span className="mx-2 text-neutral-600">&bull;</span>
+                <span className="text-white font-semibold">{products.length} prendas</span>
               </p>
-            )}
-
-            {/* Enlace oficial */}
-            <div className="pt-1 flex items-center gap-1.5 text-xs text-neutral-300 font-semibold">
-              <span className="text-sm">🔗</span>
-              <span className="hover:underline cursor-pointer truncate">
-                nerkley-m4t2.vercel.app/tienda/{seller.slug || seller.store_name.toLowerCase()}
-              </span>
             </div>
           </div>
 
-          {/* Botones de Acción Estilo TikTok */}
-          <div className="flex items-center gap-2 pt-1">
+          {/* LADO DERECHO: BOTONES DE ACCIÓN PRINCIPALES */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 w-full sm:w-auto md:pb-2">
             {isOwner ? (
               <>
                 <button
                   type="button"
-                  onClick={() => setOwnerTab("perfil")}
-                  className="flex-1 bg-[#1c1c24] hover:bg-[#252530] text-white text-xs font-semibold py-2 px-3 rounded-lg text-center transition-all cursor-pointer"
-                >
-                  Editar perfil
-                </button>
-                <button
-                  type="button"
                   onClick={() => setShowPublishModal(true)}
-                  className="flex-1 bg-white hover:bg-neutral-200 text-black text-xs font-bold py-2 px-3 rounded-lg text-center transition-all cursor-pointer shadow-sm"
+                  className="bg-white hover:bg-neutral-200 text-black px-4 py-2 sm:py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 flex items-center gap-1.5"
                 >
-                  + Publicar prenda
+                  <span>+</span>
+                  <span>Publicar Prenda</span>
                 </button>
                 <button
                   type="button"
-                  onClick={handleShareProfile}
-                  className="bg-[#1c1c24] hover:bg-[#252530] text-white text-xs px-3 py-2 rounded-lg transition-all cursor-pointer"
-                  title="Compartir"
+                  onClick={() => setShowStoryModal(true)}
+                  className="bg-[#1c1c24] hover:bg-[#282834] text-white border border-white/10 px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
                 >
-                  🔗
+                  <span>🔥</span>
+                  <span>Subir Story</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOwnerTab("perfil")}
+                  className="bg-[#1c1c24] hover:bg-[#282834] text-white border border-white/10 px-3.5 py-2 sm:py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Configuración de Perfil"
+                >
+                  <span>⚙️</span>
+                  <span className="hidden sm:inline">Ajustes</span>
                 </button>
               </>
             ) : (
@@ -947,58 +955,50 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold py-2 px-3 rounded-lg text-center flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition-all"
                 >
-                  <span>💬</span> WhatsApp
+                  <span>💬</span>
+                  <span>WhatsApp Vendedor</span>
                 </a>
                 <button
                   type="button"
                   onClick={handleShareProfile}
-                  className="bg-[#1c1c24] hover:bg-[#252530] text-white text-xs font-semibold px-4 py-2 rounded-lg transition-all cursor-pointer"
+                  className="bg-[#1c1c24] hover:bg-[#282834] text-white border border-white/10 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer"
                 >
-                  Compartir
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(true)}
-                  className="bg-white hover:bg-neutral-200 text-black text-xs font-bold px-4 py-2 rounded-lg transition-all cursor-pointer"
-                >
-                  Carrito
+                  <span>🔗</span> Compartir
                 </button>
               </>
             )}
           </div>
         </div>
 
-        {/* BARRA DE ICONOS TIKTOK */}
-        <div className="border-b border-white/10 flex items-center justify-around text-neutral-400 bg-black sticky top-12 z-30">
+        {/* BARRA DE NAVEGACIÓN DE PESTAÑAS ESTILO FACEBOOK */}
+        <div className="flex items-center gap-1 sm:gap-2 px-4 border-b border-white/10 bg-[#0a0a0c] sticky top-14 sm:top-16 z-30 overflow-x-auto scrollbar-none">
           <button
             type="button"
             onClick={() => setOwnerTab("productos")}
-            className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
-              ownerTab === "productos" ? "text-white font-bold" : "hover:text-white"
+            className={`py-3.5 px-3 sm:px-4 text-xs font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+              ownerTab === "productos"
+                ? "border-white text-white"
+                : "border-transparent text-neutral-400 hover:text-white"
             }`}
-            title="Catálogo de Productos"
           >
-            <span className="text-base tracking-tighter">|||▾</span>
-            {ownerTab === "productos" && (
-              <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
-            )}
+            <span>🛍️</span>
+            <span>Catálogo ({products.length})</span>
           </button>
 
           {isOwner && (
             <button
               type="button"
               onClick={() => setOwnerTab("pedidos")}
-              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
-                ownerTab === "pedidos" ? "text-white" : "hover:text-white"
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+                ownerTab === "pedidos"
+                  ? "border-white text-white"
+                  : "border-transparent text-neutral-400 hover:text-white"
               }`}
-              title="Mis Pedidos (Privado)"
             >
-              <span className="text-base">🔒</span>
-              {ownerTab === "pedidos" && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
-              )}
+              <span>📦</span>
+              <span>Mis Pedidos & Despachos ({sellerOrders.length})</span>
             </button>
           )}
 
@@ -1006,15 +1006,14 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             <button
               type="button"
               onClick={() => setOwnerTab("billetera")}
-              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
-                ownerTab === "billetera" ? "text-white" : "hover:text-white"
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+                ownerTab === "billetera"
+                  ? "border-white text-white"
+                  : "border-transparent text-neutral-400 hover:text-white"
               }`}
-              title="Billetera & Retiros"
             >
-              <span className="text-base">💳</span>
-              {ownerTab === "billetera" && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
-              )}
+              <span>💳</span>
+              <span>Billetera & Retiros</span>
             </button>
           )}
 
@@ -1022,140 +1021,302 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             <button
               type="button"
               onClick={() => setOwnerTab("perfil")}
-              className={`py-3 px-4 flex flex-col items-center relative transition-colors cursor-pointer ${
-                ownerTab === "perfil" ? "text-white" : "hover:text-white"
+              className={`py-3.5 px-3 sm:px-4 text-xs font-bold transition-colors cursor-pointer border-b-2 flex items-center gap-1.5 whitespace-nowrap ${
+                ownerTab === "perfil"
+                  ? "border-white text-white"
+                  : "border-transparent text-neutral-400 hover:text-white"
               }`}
-              title="Ajustes de Perfil"
             >
-              <span className="text-base">⚙️</span>
-              {ownerTab === "perfil" && (
-                <span className="absolute bottom-0 left-2 right-2 h-[2px] bg-white rounded-full" />
-              )}
+              <span>⚙️</span>
+              <span>Editar Boutique</span>
             </button>
           )}
-
-          <button
-            type="button"
-            onClick={() => showToast("❤️ 247,2 mil 'Me gusta' acumulados")}
-            className="py-3 px-4 flex flex-col items-center relative hover:text-white transition-colors cursor-pointer"
-            title="Me gusta"
-          >
-            <span className="text-base">🤍</span>
-          </button>
         </div>
+      </div>
 
-        {/* CATEGORÍAS / PLAYLISTS ESTILO TIKTOK */}
+      {/* CUERPO PRINCIPAL RESPONSIVE (DOS COLUMNAS EN PC COMO FACEBOOK, UNA COLUMNA EN MÓVIL) */}
+      <main className="max-w-6xl mx-auto px-4 py-6">
         {ownerTab === "productos" && (
-          <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto scrollbar-none border-b border-white/5 bg-[#09090d] text-xs">
-            <span className="text-[11px] text-neutral-400 font-semibold flex items-center gap-1 shrink-0">
-              <span>⚙️</span> Categorías:
-            </span>
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-0.5 rounded-full text-[11px] font-medium shrink-0 transition-all cursor-pointer ${
-                  categoryFilter === cat
-                    ? "bg-white text-black font-bold"
-                    : "bg-white/5 text-neutral-300 hover:bg-white/10"
-                }`}
-              >
-                📁 {cat}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* FEED DE PRODUCTOS EN CUADRÍCULA 3 COLUMNAS TIKTOK */}
-        {ownerTab === "productos" && (
-          <div>
-            {filteredProducts.length === 0 ? (
-              <div className="py-20 px-6 text-center space-y-3">
-                <span className="text-4xl">🛍️</span>
-                <p className="text-sm font-bold text-white">No hay prendas en esta categoría</p>
-                <p className="text-xs text-neutral-400 max-w-xs mx-auto">
-                  {isOwner
-                    ? "Pulsa en '+ Publicar prenda' para cargar tu primer drop."
-                    : "Explora otra categoría o regresa más tarde."}
-                </p>
-                {isOwner && (
-                  <button
-                    type="button"
-                    onClick={() => setShowPublishModal(true)}
-                    className="bg-white text-black font-bold text-xs px-5 py-2 rounded-lg cursor-pointer"
-                  >
-                    + Publicar Prenda
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-0.5 sm:gap-1 bg-black">
-                {/* Primera celda para el dueño: subir prenda rápido */}
-                {isOwner && (
-                  <div
-                    onClick={() => setShowPublishModal(true)}
-                    className="relative aspect-[3/4] bg-[#121217] hover:bg-[#1a1a24] flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors group border border-dashed border-white/20 select-none"
-                  >
-                    <div className="w-9 h-9 rounded-full bg-white/10 group-hover:bg-white text-white group-hover:text-black flex items-center justify-center font-bold text-lg transition-all">
-                      +
-                    </div>
-                    <span className="text-[10px] font-bold text-neutral-400 group-hover:text-white uppercase tracking-wider text-center px-1">
-                      Subir
-                    </span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+            {/* ========================================================= */}
+            {/* COLUMNA IZQUIERDA EN PC: DETALLES, HISTORIAS & INFORMACIÓN */}
+            {/* ========================================================= */}
+            <aside className="lg:col-span-4 space-y-5">
+              {/* HISTORIAS EFÍMERAS (STORIES TRAY ESTILO FACEBOOK / INSTAGRAM) */}
+              {(stories.length > 0 || isOwner) && (
+                <div className="bg-[#111116] border border-white/10 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-300 flex items-center gap-1.5">
+                      <span>🔥</span> Historias & Drops Activos
+                    </h3>
+                    <span className="text-[10px] text-neutral-500 font-mono">24h</span>
                   </div>
+
+                  <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-1">
+                    {/* Botón para subir historia si es dueño */}
+                    {isOwner && (
+                      <button
+                        type="button"
+                        onClick={() => setShowStoryModal(true)}
+                        className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
+                      >
+                        <div className="w-14 h-14 rounded-full border-2 border-dashed border-white/30 group-hover:border-white bg-white/5 flex items-center justify-center transition-all">
+                          <span className="text-xl text-neutral-300 group-hover:text-white font-bold">+</span>
+                        </div>
+                        <span className="text-[10px] text-neutral-400 group-hover:text-white">Subir</span>
+                      </button>
+                    )}
+
+                    {stories.map((st, idx) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => openStory(idx)}
+                        className="flex flex-col items-center gap-1 shrink-0 cursor-pointer group"
+                      >
+                        <div className="w-14 h-14 rounded-full p-[2px] ring-2 ring-cyan-400 ring-offset-2 ring-offset-[#111116] overflow-hidden bg-black group-hover:scale-105 transition-all">
+                          <img
+                            src={st.image_url}
+                            alt=""
+                            className="w-full h-full object-cover rounded-full"
+                          />
+                        </div>
+                        <span className="text-[10px] text-neutral-300 truncate max-w-[60px]">
+                          {st.product_name || `Drop ${idx + 1}`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* TARJETA DETALLES DE LA BOUTIQUE */}
+              <div className="bg-[#111116] border border-white/10 rounded-2xl p-5 space-y-4">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-neutral-200 flex items-center gap-2">
+                  <span>ℹ️</span> Información Comercial
+                </h3>
+
+                {seller.bio && (
+                  <p className="text-xs text-neutral-300 leading-relaxed italic border-l-2 border-cyan-400/80 pl-3">
+                    &ldquo;{seller.bio}&rdquo;
+                  </p>
                 )}
 
-                {filteredProducts.map((prod) => {
-                  const img = prod.images ? prod.images.split(",")[0].trim() : null;
-                  const priceInK = Math.round(Number(prod.sale_price) / 1000);
-                  return (
-                    <div
-                      key={prod.id}
-                      onClick={() => setSelectedProductModal(prod)}
-                      className="relative aspect-[3/4] bg-neutral-900 overflow-hidden cursor-pointer group select-none"
+                <div className="space-y-2.5 text-xs text-neutral-300 pt-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">⚡</span>
+                    <span>Tienda oficial verificada en NERKLEY</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">📍</span>
+                    <span>Despacha desde: <strong>{seller.city || "Medellín"}, Colombia</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">📦</span>
+                    <span>Envíos asegurados con número de guía</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-neutral-400">🛡️</span>
+                    <span>Pagos blindados con Wompi, PSE, Nequi y Tarjetas</span>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-white/10">
+                  <span className="text-[10px] uppercase font-bold text-neutral-400 block mb-1">
+                    Enlace Oficial de la Tienda
+                  </span>
+                  <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded-lg p-2 text-xs">
+                    <span className="truncate text-neutral-300 font-mono flex-1">
+                      nerkley-m4t2.vercel.app/tienda/{seller.slug || seller.store_name.toLowerCase()}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleShareProfile}
+                      className="text-xs text-white hover:underline font-bold shrink-0 cursor-pointer"
                     >
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={prod.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-[#15151e] text-[10px] text-neutral-500 font-bold p-2 text-center uppercase">
-                          {prod.name}
-                        </div>
-                      )}
-
-                      {/* Gradiente oscuro inferior */}
-                      <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/90 via-black/35 to-transparent pointer-events-none" />
-
-                      {/* Insignia / Badge TikTok superior */}
-                      {prod.discount_percent && prod.discount_percent > 0 ? (
-                        <span className="absolute top-1 left-1 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.2 rounded shadow">
-                          -{prod.discount_percent}%
-                        </span>
-                      ) : prod.badge ? (
-                        <span className="absolute top-1 right-1 bg-white text-black text-[8px] font-bold px-1.5 py-0.2 rounded shadow">
-                          {prod.badge.split(" ")[0]}
-                        </span>
-                      ) : null}
-
-                      {/* Indicador inferior izquierdo estilo TikTok: Play icon ▷ + Precio en $K */}
-                      <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none text-white drop-shadow-md">
-                        <span className="text-[11px] font-black tracking-tight flex items-center gap-1">
-                          <span className="text-[9px]">▷</span>
-                          <span>${priceInK}k</span>
-                        </span>
-                        <span className="text-[9px] text-neutral-300 truncate max-w-[50%]">
-                          {prod.name.split(" ")[0]}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+                      Copiar
+                    </button>
+                  </div>
+                </div>
               </div>
-            )}
+
+              {/* TARJETA DE SEGURIDAD NERKLEY */}
+              <div className="bg-[#111116] border border-white/10 rounded-2xl p-4 text-xs space-y-2 text-neutral-400">
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <span>🔒</span> Compra Protegida
+                </span>
+                <p className="text-[11px] leading-relaxed">
+                  NERKLEY retiene los fondos del vendedor en custodia hasta que la transportadora certifique la entrega satisfactoria de tus prendas.
+                </p>
+              </div>
+            </aside>
+
+            {/* ========================================================= */}
+            {/* COLUMNA DERECHA EN PC: CATÁLOGO DE PRODUCTOS (GRID RESPONSIVE) */}
+            {/* ========================================================= */}
+            <section className="lg:col-span-8 space-y-5">
+              {/* FILTROS Y BÚSQUEDA */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                {/* Carrusel horizontal de categorías */}
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-semibold shrink-0 transition-all cursor-pointer ${
+                        categoryFilter === cat
+                          ? "bg-white text-black font-bold shadow"
+                          : "bg-[#16161f] text-neutral-400 hover:text-white hover:bg-[#20202c]"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Input de búsqueda en móvil */}
+                <div className="md:hidden relative">
+                  <input
+                    type="text"
+                    placeholder="Buscar en el catálogo..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-white/30"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">🔍</span>
+                </div>
+              </div>
+
+              {/* GRID DE PRODUCTOS: 2 COLUMNAS EN ANDROID / MÓVIL, 3 EN PC */}
+              {filteredProducts.length === 0 ? (
+                <div className="py-20 px-6 text-center space-y-3 bg-[#111116] border border-white/10 rounded-2xl">
+                  <span className="text-4xl">🛍️</span>
+                  <p className="text-sm font-bold text-white">No se encontraron prendas</p>
+                  <p className="text-xs text-neutral-400 max-w-xs mx-auto">
+                    {isOwner
+                      ? "Aún no tienes prendas en esta categoría. ¡Sube tu primer drop!"
+                      : "Esta boutique aún no tiene prendas en esta categoría."}
+                  </p>
+                  {isOwner && (
+                    <button
+                      type="button"
+                      onClick={() => setShowPublishModal(true)}
+                      className="bg-white text-black font-bold text-xs px-5 py-2.5 rounded-xl cursor-pointer hover:bg-neutral-200 transition-all"
+                    >
+                      + Publicar Prenda
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                  {/* Tarjeta rápida de subir prenda para el dueño */}
+                  {isOwner && (
+                    <div
+                      onClick={() => setShowPublishModal(true)}
+                      className="aspect-[4/5] rounded-2xl border-2 border-dashed border-white/20 hover:border-white bg-[#111116] hover:bg-[#161622] flex flex-col items-center justify-center gap-2 cursor-pointer transition-all p-4 text-center group"
+                    >
+                      <div className="w-12 h-12 rounded-full bg-white/10 group-hover:bg-white text-white group-hover:text-black flex items-center justify-center font-bold text-2xl transition-all shadow-md">
+                        +
+                      </div>
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Publicar Prenda
+                      </span>
+                      <span className="text-[10px] text-neutral-400">
+                        Cargar fotos desde galería
+                      </span>
+                    </div>
+                  )}
+
+                  {filteredProducts.map((prod) => {
+                    const img = prod.images ? prod.images.split(",")[0].trim() : null;
+                    return (
+                      <div
+                        key={prod.id}
+                        className="bg-[#111116] border border-white/10 hover:border-white/30 rounded-2xl overflow-hidden flex flex-col justify-between transition-all group shadow-lg"
+                      >
+                        {/* Imagen con Aspect Ratio 4:5 */}
+                        <div
+                          onClick={() => setSelectedProductModal(prod)}
+                          className="relative aspect-[4/5] bg-black overflow-hidden cursor-pointer"
+                        >
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={prod.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-neutral-500 font-bold p-3 text-center uppercase">
+                              {prod.name}
+                            </div>
+                          )}
+
+                          {/* Insignias / Badges */}
+                          <div className="absolute top-2 left-2 flex flex-col gap-1">
+                            {prod.discount_percent && prod.discount_percent > 0 ? (
+                              <span className="bg-red-600 text-white text-[9px] font-black px-2 py-0.5 rounded shadow">
+                                -{prod.discount_percent}% OFF
+                              </span>
+                            ) : null}
+                            {prod.badge ? (
+                              <span className="bg-black/80 backdrop-blur-sm border border-white/20 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow">
+                                {prod.badge}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Detalles de la Prenda */}
+                        <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2.5">
+                          <div
+                            onClick={() => setSelectedProductModal(prod)}
+                            className="cursor-pointer space-y-1"
+                          >
+                            <span className="text-[10px] text-neutral-400 uppercase tracking-wider block font-semibold truncate">
+                              {prod.category || "Streetwear"}
+                            </span>
+                            <h4 className="text-xs sm:text-sm font-bold text-white line-clamp-2 leading-snug group-hover:text-neutral-200">
+                              {prod.name}
+                            </h4>
+                            <div className="flex items-baseline gap-1.5 pt-0.5">
+                              <span className="text-sm sm:text-base font-mono font-black text-white">
+                                $ {Number(prod.sale_price).toLocaleString("es-CO")}
+                              </span>
+                              {prod.original_price && prod.original_price > prod.sale_price && (
+                                <span className="text-[10px] sm:text-xs text-neutral-500 line-through">
+                                  ${Number(prod.original_price).toLocaleString("es-CO")}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Botones de Compra Directa & Carrito */}
+                          <div className="flex items-center gap-1.5 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => handleBuyNow(prod)}
+                              className="flex-1 bg-white hover:bg-neutral-200 text-black py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider transition-all cursor-pointer shadow-sm active:scale-95 flex items-center justify-center gap-1"
+                            >
+                              <span>⚡</span>
+                              <span>Comprar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleAddDirect(prod)}
+                              className="w-9 h-8 bg-[#1c1c24] hover:bg-[#282834] text-white rounded-xl text-xs flex items-center justify-center transition-all cursor-pointer"
+                              title="Añadir al Carrito"
+                            >
+                              🛒
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </div>
         )}
 
@@ -1581,93 +1742,97 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
         )}
 
         {/* PIE DE SEGURIDAD & PASARELA */}
-        <div className="px-6 py-8 text-center space-y-2 border-t border-neutral-900 mt-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] text-neutral-300">
-            <span>🛡️</span> Compra Directa Wompi & PSE &bull; Envíos asegurados
+        <div className="py-12 text-center space-y-2 border-t border-white/10 mt-10">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#111116] border border-white/10 text-xs text-neutral-300">
+            <span>🛡️</span> Compra Directa Wompi & PSE &bull; Envíos asegurados a toda Colombia
           </div>
-          <p className="text-[11px] text-neutral-500 max-w-sm mx-auto leading-relaxed">
+          <p className="text-xs text-neutral-500 max-w-md mx-auto leading-relaxed">
             Pagos procesados de forma blindada por NERKLEY. Retención automática de comisiones y despacho con transportadora certificada.
           </p>
           <Link
             href="/"
-            className="inline-block text-[11px] text-neutral-400 hover:text-white underline pt-1 font-semibold"
+            className="inline-block text-xs text-neutral-400 hover:text-white underline pt-1 font-semibold"
           >
-            &larr; Volver a la Tienda Principal
+            &larr; Volver al Catálogo Principal de NERKLEY
           </Link>
         </div>
+      </main>
 
-        {/* ========================================================= */}
-        {/* BARRA DE NAVEGACIÓN INFERIOR ESTILO TIKTOK EXACTO */}
-        {/* ========================================================= */}
-        <nav className="fixed bottom-0 inset-x-0 max-w-lg mx-auto bg-black/95 backdrop-blur-xl border-t border-white/10 z-50 h-14 flex items-center justify-around px-2 select-none">
-          <Link
-            href="/"
-            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors"
-          >
-            <span className="text-lg leading-none">⌂</span>
-            <span className="text-[10px] font-medium tracking-tight mt-0.5">Inicio</span>
-          </Link>
+      {/* ========================================================= */}
+      {/* BARRA DE NAVEGACIÓN INFERIOR (SOLO MÓVIL / ANDROID) */}
+      {/* ========================================================= */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 bg-[#0c0c10]/95 backdrop-blur-xl border-t border-white/10 z-50 h-14 flex items-center justify-around px-2 select-none">
+        <Link
+          href="/"
+          className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors"
+        >
+          <span className="text-lg leading-none">⌂</span>
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">Inicio</span>
+        </Link>
 
-          <Link
-            href="/"
-            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors"
-          >
-            <span className="text-lg leading-none">👥</span>
-            <span className="text-[10px] font-medium tracking-tight mt-0.5">Tiendas</span>
-          </Link>
+        <button
+          type="button"
+          onClick={() => {
+            setOwnerTab("productos");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          className={`flex flex-col items-center justify-center flex-1 py-1 transition-colors ${
+            ownerTab === "productos" ? "text-white font-bold" : "text-neutral-400"
+          }`}
+        >
+          <span className="text-lg leading-none">🛍️</span>
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">Prendas</span>
+        </button>
 
-          {/* Botón Central TikTok icónico (+) con bordes cyan/blanco/magenta */}
-          <div className="flex items-center justify-center flex-1">
-            <button
-              type="button"
-              onClick={() => {
-                if (isOwner) {
-                  setShowPublishModal(true);
-                } else {
-                  window.location.href = "/vender";
-                }
-              }}
-              title={isOwner ? "Publicar Prenda" : "Crear mi Boutique"}
-              className="relative p-[1.5px] rounded-lg bg-gradient-to-r from-[#00f2fe] via-white to-[#fe2c55] active:scale-90 transition-transform cursor-pointer shadow-md"
-            >
-              <div className="bg-black px-3.5 py-1 rounded-[6px] flex items-center justify-center">
-                <span className="text-white text-base font-black leading-none">+</span>
-              </div>
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsCartOpen(true)}
-            className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors cursor-pointer relative"
-          >
-            <span className="text-lg leading-none">💬</span>
-            <span className="text-[10px] font-medium tracking-tight mt-0.5">Carrito</span>
-          </button>
-
+        {/* Botón Central de Publicar si es dueño, o vender */}
+        <div className="flex items-center justify-center flex-1">
           <button
             type="button"
             onClick={() => {
               if (isOwner) {
-                setOwnerTab("perfil");
-                window.scrollTo({ top: 0, behavior: "smooth" });
+                setShowPublishModal(true);
               } else {
                 window.location.href = "/vender";
               }
             }}
-            className="flex flex-col items-center justify-center flex-1 py-1 text-white font-bold transition-colors cursor-pointer"
+            title={isOwner ? "Publicar Prenda" : "Crear mi Boutique"}
+            className="w-10 h-10 rounded-full bg-white text-black font-black text-lg flex items-center justify-center shadow-lg active:scale-95 transition-transform cursor-pointer"
           >
-            <div className="w-5 h-5 rounded-full overflow-hidden border border-white/60 bg-neutral-800 flex items-center justify-center">
-              {seller.logo_url ? (
-                <img src={seller.logo_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-[10px] text-white">👤</span>
-              )}
-            </div>
-            <span className="text-[10px] font-medium tracking-tight mt-0.5">Perfil</span>
+            +
           </button>
-        </nav>
-      </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className="flex flex-col items-center justify-center flex-1 py-1 text-neutral-400 hover:text-white transition-colors cursor-pointer relative"
+        >
+          <span className="text-lg leading-none">🛒</span>
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">Carrito</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (isOwner) {
+              setOwnerTab("perfil");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            } else {
+              window.location.href = "/vender";
+            }
+          }}
+          className="flex flex-col items-center justify-center flex-1 py-1 text-white font-bold transition-colors cursor-pointer"
+        >
+          <div className="w-5 h-5 rounded-full overflow-hidden border border-white/60 bg-neutral-800 flex items-center justify-center">
+            {seller.logo_url ? (
+              <img src={seller.logo_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-[10px] text-white">👤</span>
+            )}
+          </div>
+          <span className="text-[10px] font-medium tracking-tight mt-0.5">Perfil</span>
+        </button>
+      </nav>
 
       {/* ========================================================= */}
       {/* MODAL DEL PUBLISHER DASHBOARD (CARGA DE PRENDAS) */}
