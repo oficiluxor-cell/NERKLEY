@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState, use, useMemo, Suspense } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState, use, useMemo, Suspense, useRef } from "react";
 import Link from "next/link";
 import { useCart } from "@/context/CartContext";
 import {
@@ -10,6 +12,7 @@ import {
   saveSellerStory,
   getFreshSellerSession,
   calculateOrderCommission,
+  compressImageFile,
   Seller,
   SellerStory,
 } from "@/lib/marketplace";
@@ -148,11 +151,117 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   // Toast de notificación
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Estados de subida directa desde la galería / cámara
+  const [uploadingProdImages, setUploadingProdImages] = useState(false);
+  const [uploadingStoryImage, setUploadingStoryImage] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingBanner, setUploadingBanner] = useState(false);
+
   const { addToCart, setIsCartOpen } = useCart();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  // Subida de múltiples fotos de producto desde la galería o cámara del celular/PC
+  const handleProductGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingProdImages(true);
+    try {
+      const compressedList: string[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith("image/")) {
+          const compressed = await compressImageFile(file, 1200, 0.82);
+          compressedList.push(compressed);
+        }
+      }
+      if (compressedList.length > 0) {
+        const existing = newProdImages
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const combined = [...existing, ...compressedList];
+        setNewProdImages(combined.join(", "));
+        showToast(`✅ Se cargaron ${compressedList.length} foto(s) desde tu galería`);
+      }
+    } catch {
+      showToast("❌ Error al procesar fotos de la galería");
+    } finally {
+      setUploadingProdImages(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveProductImage = (indexToRemove: number) => {
+    const images = newProdImages
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const updated = images.filter((_, idx) => idx !== indexToRemove);
+    setNewProdImages(updated.join(", "));
+  };
+
+  // Subida de foto para historias desde la galería o cámara
+  const handleStoryGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingStoryImage(true);
+    try {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        const compressed = await compressImageFile(file, 1200, 0.85);
+        setStoryImageUrl(compressed);
+        showToast("✅ Foto de historia cargada desde tu galería");
+      }
+    } catch {
+      showToast("❌ Error al cargar foto de la galería");
+    } finally {
+      setUploadingStoryImage(false);
+      e.target.value = "";
+    }
+  };
+
+  // Subida de foto de perfil (Avatar)
+  const handleAvatarGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingAvatar(true);
+    try {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        const compressed = await compressImageFile(file, 800, 0.85);
+        setProfileForm((prev) => ({ ...prev, logo_url: compressed }));
+        showToast("✅ Foto de perfil cargada desde tu galería");
+      }
+    } catch {
+      showToast("❌ Error al procesar foto de perfil");
+    } finally {
+      setUploadingAvatar(false);
+      e.target.value = "";
+    }
+  };
+
+  // Subida de foto de portada (Banner)
+  const handleBannerGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploadingBanner(true);
+    try {
+      const file = files[0];
+      if (file.type.startsWith("image/")) {
+        const compressed = await compressImageFile(file, 1400, 0.82);
+        setProfileForm((prev) => ({ ...prev, banner_url: compressed }));
+        showToast("✅ Foto de portada cargada desde tu galería");
+      }
+    } catch {
+      showToast("❌ Error al procesar foto de portada");
+    } finally {
+      setUploadingBanner(false);
+      e.target.value = "";
+    }
   };
 
   useEffect(() => {
@@ -1519,30 +1628,78 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-neutral-300">
-                    Foto de Perfil / Logo (URL)
+                {/* Foto de Perfil / Avatar con selector de galería */}
+                <div className="space-y-2 p-3 bg-white/[0.02] border border-white/10 rounded-xl">
+                  <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
+                    <span>Foto de Perfil / Logo</span>
+                    <span className="text-[10px] text-neutral-400">Circular</span>
                   </label>
-                  <input
-                    type="url"
-                    value={profileForm.logo_url}
-                    onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
-                    placeholder="https://ejemplo.com/logo.jpg"
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                  />
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-full overflow-hidden bg-black border-2 border-amber-400 flex items-center justify-center shrink-0">
+                      {profileForm.logo_url ? (
+                        <img src={profileForm.logo_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs text-neutral-500 font-bold">Sin foto</span>
+                      )}
+                    </div>
+                    <label className="flex-1 flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-amber-400 text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
+                      <span>📷</span>
+                      <span>{uploadingAvatar ? "Cargando..." : "Subir desde Galería o Cámara"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingAvatar}
+                        onChange={handleAvatarGalleryUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <details className="text-[10px] text-neutral-400 pt-1">
+                    <summary className="cursor-pointer hover:text-neutral-200">O pegar link URL</summary>
+                    <input
+                      type="url"
+                      value={profileForm.logo_url}
+                      onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
+                      placeholder="https://ejemplo.com/logo.jpg"
+                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </details>
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-neutral-300">
-                    Foto de Portada / Banner (URL)
+                {/* Foto de Portada / Banner con selector de galería */}
+                <div className="space-y-2 p-3 bg-white/[0.02] border border-white/10 rounded-xl">
+                  <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
+                    <span>Foto de Portada / Banner</span>
+                    <span className="text-[10px] text-neutral-400">Panorámica</span>
                   </label>
-                  <input
-                    type="url"
-                    value={profileForm.banner_url}
-                    onChange={(e) => setProfileForm({ ...profileForm, banner_url: e.target.value })}
-                    placeholder="https://ejemplo.com/portada.jpg"
-                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                  />
+                  <div className="space-y-2">
+                    {profileForm.banner_url && (
+                      <div className="w-full h-24 rounded-lg overflow-hidden border border-white/20 bg-black">
+                        <img src={profileForm.banner_url} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <label className="w-full flex items-center justify-center gap-2 bg-white/5 border border-white/15 hover:border-amber-400 text-neutral-200 hover:text-white px-3 py-2 rounded-lg text-xs font-semibold cursor-pointer transition-all">
+                      <span>📷</span>
+                      <span>{uploadingBanner ? "Cargando..." : "Subir Portada desde Galería"}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={uploadingBanner}
+                        onChange={handleBannerGalleryUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                  <details className="text-[10px] text-neutral-400 pt-1">
+                    <summary className="cursor-pointer hover:text-neutral-200">O pegar link URL</summary>
+                    <input
+                      type="url"
+                      value={profileForm.banner_url}
+                      onChange={(e) => setProfileForm({ ...profileForm, banner_url: e.target.value })}
+                      placeholder="https://ejemplo.com/portada.jpg"
+                      className="w-full mt-1 bg-[#0a0a0c] border border-white/15 px-3 py-1.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                    />
+                  </details>
                 </div>
 
                 <div className="space-y-1">
@@ -1769,19 +1926,78 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
-                  <span>Imágenes de la Prenda (URLs separadas por coma) *</span>
-                  <span className="text-[10px] text-neutral-400">Recomendado formato vertical</span>
+                  <span>Fotos de la Prenda *</span>
+                  <span className="text-[10px] text-neutral-400">Desde tu galería o cámara</span>
                 </label>
-                <input
-                  type="text"
-                  required
-                  value={newProdImages}
-                  onChange={(e) => setNewProdImages(e.target.value)}
-                  placeholder="https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg"
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                />
+
+                {/* Botón de subida de galería directo */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400/20 via-amber-400/10 to-transparent border border-amber-400/50 hover:border-amber-400 text-amber-300 hover:text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-amber-400/25">
+                    <span>📷</span>
+                    <span>{uploadingProdImages ? "Procesando fotos de galería..." : "Elegir Fotos de la Galería o Cámara"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      disabled={uploadingProdImages}
+                      onChange={handleProductGalleryUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Previsualización en miniatura de fotos seleccionadas */}
+                {newProdImages.trim() ? (
+                  <div className="space-y-1.5 pt-1">
+                    <p className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">
+                      Fotos listas para publicar ({newProdImages.split(",").filter((s) => s.trim()).length}):
+                    </p>
+                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                      {newProdImages
+                        .split(",")
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                        .map((img, idx) => (
+                          <div key={idx} className="relative aspect-square rounded-lg overflow-hidden border border-white/20 bg-black group">
+                            <img src={img} alt="" className="w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveProductImage(idx)}
+                              title="Eliminar foto"
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-red-600/90 hover:bg-red-500 text-white flex items-center justify-center text-[10px] font-bold cursor-pointer shadow-md"
+                            >
+                              ✕
+                            </button>
+                            {idx === 0 && (
+                              <span className="absolute bottom-0 left-0 right-0 bg-black/80 text-[8px] text-amber-300 text-center font-bold uppercase py-0.5">
+                                Principal
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-neutral-500 italic">
+                    Pulsa el botón dorado arriba para seleccionar fotos directamente desde tu celular o computadora.
+                  </p>
+                )}
+
+                {/* Opción alternativa manual de URL (oculta en desplegable compacto) */}
+                <details className="text-[11px] text-neutral-400 pt-1">
+                  <summary className="cursor-pointer hover:text-neutral-200 select-none">
+                    O si prefieres escribir un link URL de imagen (Opcional)
+                  </summary>
+                  <input
+                    type="text"
+                    value={newProdImages}
+                    onChange={(e) => setNewProdImages(e.target.value)}
+                    placeholder="https://ejemplo.com/foto1.jpg, https://ejemplo.com/foto2.jpg"
+                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </details>
               </div>
 
               <div className="space-y-1.5">
@@ -1926,18 +2142,59 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             </div>
 
             <form onSubmit={handlePublishStorySubmit} className="space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-neutral-200">
-                  URL de la Foto o Reel *
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
+                  <span>Foto o Portada de la Historia *</span>
+                  <span className="text-[10px] text-neutral-400">Desde tu galería o cámara</span>
                 </label>
-                <input
-                  type="url"
-                  required
-                  value={storyImageUrl}
-                  onChange={(e) => setStoryImageUrl(e.target.value)}
-                  placeholder="https://ejemplo.com/foto-historia.jpg"
-                  className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
-                />
+
+                {/* Botón de selección desde galería */}
+                <label className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400/20 via-amber-400/10 to-transparent border border-amber-400/50 hover:border-amber-400 text-amber-300 hover:text-white px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider cursor-pointer transition-all hover:bg-amber-400/25">
+                  <span>📷</span>
+                  <span>{uploadingStoryImage ? "Cargando foto..." : "Elegir Foto de la Galería o Cámara"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    disabled={uploadingStoryImage}
+                    onChange={handleStoryGalleryUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Previsualización en vivo */}
+                {storyImageUrl ? (
+                  <div className="relative w-28 h-40 mx-auto rounded-xl overflow-hidden border-2 border-amber-400 shadow-lg bg-black group">
+                    <img src={storyImageUrl} alt="Preview historia" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setStoryImageUrl("")}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-red-600 hover:bg-red-500 text-white flex items-center justify-center text-xs font-bold cursor-pointer shadow"
+                    >
+                      ✕
+                    </button>
+                    <span className="absolute bottom-1 left-1 bg-black/80 px-1.5 py-0.5 rounded text-[8px] text-amber-300 font-bold uppercase">
+                      Vista previa
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-neutral-500 italic text-center">
+                    Selecciona una foto de tu prenda o lookbook para que aparezca en el círculo de historias.
+                  </p>
+                )}
+
+                {/* Opción manual URL */}
+                <details className="text-[11px] text-neutral-400 pt-1">
+                  <summary className="cursor-pointer hover:text-neutral-200 select-none">
+                    O pegar enlace URL de imagen (Opcional)
+                  </summary>
+                  <input
+                    type="url"
+                    value={storyImageUrl}
+                    onChange={(e) => setStoryImageUrl(e.target.value)}
+                    placeholder="https://ejemplo.com/foto-historia.jpg"
+                    className="w-full mt-1.5 bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 font-mono"
+                  />
+                </details>
               </div>
 
               <div className="space-y-1">

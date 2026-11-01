@@ -22,6 +22,7 @@ import {
   getCategoryIcon,
   getSubcategoryIcon,
 } from "@/lib/categories";
+import { getFreshSellerSession } from "@/lib/marketplace";
 
 interface Product extends SmartSearchableProduct {
   seller_id?: string;
@@ -45,6 +46,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState<string>("featured");
   const [loading, setLoading] = useState(true);
   const [sellers, setSellers] = useState<any[]>([]);
+  const [currentSeller, setCurrentSeller] = useState<any | null>(null);
   
   const { cartCount, setIsCartOpen, setIsOrdersOpen, addToCart, openWarrantyModal, isCartBouncing } = useCart();
 
@@ -59,6 +61,16 @@ export default function Home() {
 
   const [purchaseNotification, setPurchaseNotification] = useState<{ name: string, productName: string, image: string | null } | null>(null);
   const [showNotification, setShowNotification] = useState(false);
+
+  useEffect(() => {
+    async function loadCurrentSeller() {
+      try {
+        const session = await getFreshSellerSession();
+        if (session) setCurrentSeller(session);
+      } catch {}
+    }
+    loadCurrentSeller();
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -257,7 +269,7 @@ export default function Home() {
           </Link>
 
           {/* Menú de Navegación Desktop */}
-          <nav className="space-x-8 text-xs font-semibold uppercase tracking-[0.2em] hidden md:flex text-neutral-400">
+          <nav className="space-x-8 text-xs font-semibold uppercase tracking-[0.2em] hidden md:flex text-neutral-400 items-center">
             <a href="#catalogo" className="hover:text-white transition-colors py-1 relative group">
               Catálogo
               <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
@@ -270,17 +282,47 @@ export default function Home() {
               Garantía & Envíos
               <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-white transition-all duration-300 group-hover:w-full" />
             </button>
-            <Link
-              href="/vender"
-              className="hover:text-amber-300 transition-colors py-1 relative group text-xs font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5"
-            >
-              <span>⭐</span> Vender
-              <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-amber-400 transition-all duration-300 group-hover:w-full" />
-            </Link>
+            {!currentSeller && (
+              <Link
+                href="/vender"
+                className="hover:text-amber-300 transition-colors py-1 relative group text-xs font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5"
+              >
+                <span>⭐</span> Vender
+                <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-amber-400 transition-all duration-300 group-hover:w-full" />
+              </Link>
+            )}
           </nav>
 
-          {/* Botones de Acción: Mis Pedidos y Carrito (100% contenidos dentro de la pantalla) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Botones de Acción: Perfil de Vendedor, Mis Pedidos y Carrito */}
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* Si el usuario tiene boutique creada, muestra su avatar circular con aro dorado en vez del botón vender */}
+            {currentSeller ? (
+              <Link
+                href={`/tienda/${currentSeller.slug || encodeURIComponent(currentSeller.store_name.toLowerCase().trim())}`}
+                className="flex items-center gap-1.5 p-0.5 rounded-full ring-2 ring-amber-400 hover:ring-amber-300 bg-[#16161f] transition-all hover:scale-105 shrink-0 shadow-md group"
+                title={`Mi Boutique Oficial: ${currentSeller.store_name}`}
+              >
+                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-black flex items-center justify-center border border-amber-400/50 shrink-0">
+                  {currentSeller.logo_url ? (
+                    <img src={currentSeller.logo_url} alt={currentSeller.store_name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-[10px] sm:text-xs font-bold text-amber-300">
+                      {currentSeller.store_name.slice(0, 2).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden lg:inline text-[11px] font-serif font-bold text-amber-300 group-hover:text-white pr-2 truncate max-w-[100px]">
+                  {currentSeller.store_name}
+                </span>
+              </Link>
+            ) : (
+              <Link
+                href="/vender"
+                className="hover:text-amber-300 transition-colors py-1 relative group text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1 md:hidden"
+              >
+                <span>⭐</span> Vender
+              </Link>
+            )}
             <button 
               onClick={() => setIsOrdersOpen(true)}
               className="bg-white/5 border border-white/15 text-neutral-300 hover:text-white px-2 sm:px-3 py-1.5 text-[10px] sm:text-xs uppercase tracking-wider hover:bg-white/10 hover:border-white/30 transition-all font-semibold cursor-pointer rounded-lg flex items-center gap-1 shrink-0"

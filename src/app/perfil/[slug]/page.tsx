@@ -1,18 +1,23 @@
 "use client";
 
-import { Suspense } from "react";
-import TiendaPage from "@/app/tienda/[slug]/page";
+import { use, useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default function PerfilPage({ params }: { params: Promise<{ slug: string }> }) {
+  const resolvedParams = use(params);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (resolvedParams?.slug) {
+      router.replace(`/tienda/${encodeURIComponent(resolvedParams.slug)}`);
+    }
+  }, [resolvedParams?.slug, router]);
+
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
-          Cargando Perfil Oficial NERKLEY...
-        </div>
-      }
-    >
-      <TiendaPage params={params} />
-    </Suspense>
+    <div className="min-h-screen bg-[#0a0a0c] flex items-center justify-center text-xs uppercase tracking-[0.3em] text-neutral-400 animate-pulse">
+      Cargando Perfil Oficial NERKLEY...
+    </div>
   );
 }

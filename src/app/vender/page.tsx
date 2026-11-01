@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { COLOMBIA_REGIONS, hasFreeShipping, extractDisplayBadge, buildProductBadge } from "@/lib/shipping";
 import {
@@ -79,6 +80,7 @@ function extractSellerVideo(bio?: string | null): { cleanBio: string; videoUrl: 
 }
 
 export default function VenderPage() {
+  const router = useRouter();
   const [sellerSession, setSellerSession] = useState<Seller | null>(null);
   const [viewMode, setViewMode] = useState<"dashboard" | "register" | "login">("register");
   const [initialLoading, setInitialLoading] = useState(true);
@@ -208,7 +210,7 @@ export default function VenderPage() {
       if (session) {
         setSellerSession(session);
         const targetSlug = session.slug || encodeURIComponent(session.store_name.toLowerCase().trim());
-        window.location.href = `/tienda/${targetSlug}`;
+        router.push(`/tienda/${targetSlug}`);
         return;
       } else {
         setViewMode("register");
@@ -368,7 +370,7 @@ export default function VenderPage() {
     if (res.success && res.seller) {
       setSellerSession(res.seller);
       const targetSlug = res.seller.slug || encodeURIComponent(res.seller.store_name.toLowerCase().trim());
-      window.location.href = `/tienda/${targetSlug}`;
+      router.push(`/tienda/${targetSlug}`);
       return;
     } else {
       setErrorMessage(res.error || "Ocurrió un error al enviar tu solicitud. Intenta nuevamente.");
@@ -386,7 +388,7 @@ export default function VenderPage() {
     if (res.success && res.seller) {
       setSellerSession(res.seller);
       const targetSlug = res.seller.slug || encodeURIComponent(res.seller.store_name.toLowerCase().trim());
-      window.location.href = `/tienda/${targetSlug}`;
+      router.push(`/tienda/${targetSlug}`);
       return;
     } else {
       setErrorMessage(res.error || "Credenciales incorrectas.");
