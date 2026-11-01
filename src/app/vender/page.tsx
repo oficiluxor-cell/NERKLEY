@@ -207,8 +207,9 @@ export default function VenderPage() {
       const session = await getFreshSellerSession();
       if (session) {
         setSellerSession(session);
-        setViewMode("dashboard");
-        loadSellerData(session.id, session.store_name);
+        const targetSlug = session.slug || encodeURIComponent(session.store_name.toLowerCase().trim());
+        window.location.href = `/tienda/${targetSlug}`;
+        return;
       } else {
         setViewMode("register");
       }
@@ -366,8 +367,9 @@ export default function VenderPage() {
     setRegLoading(false);
     if (res.success && res.seller) {
       setSellerSession(res.seller);
-      setViewMode("dashboard");
-      setSuccessMessage("¡Tu boutique ha sido registrada con éxito!");
+      const targetSlug = res.seller.slug || encodeURIComponent(res.seller.store_name.toLowerCase().trim());
+      window.location.href = `/tienda/${targetSlug}`;
+      return;
     } else {
       setErrorMessage(res.error || "Ocurrió un error al enviar tu solicitud. Intenta nuevamente.");
     }
@@ -383,8 +385,9 @@ export default function VenderPage() {
 
     if (res.success && res.seller) {
       setSellerSession(res.seller);
-      setViewMode("dashboard");
-      loadSellerData(res.seller.id, res.seller.store_name);
+      const targetSlug = res.seller.slug || encodeURIComponent(res.seller.store_name.toLowerCase().trim());
+      window.location.href = `/tienda/${targetSlug}`;
+      return;
     } else {
       setErrorMessage(res.error || "Credenciales incorrectas.");
     }

@@ -14,7 +14,6 @@ import {
   SellerStory,
 } from "@/lib/marketplace";
 import { supabase } from "@/lib/supabase";
-import { buildFullCategory } from "@/lib/categories";
 import AIChatSupport from "@/components/AIChatSupport";
 
 interface Product {
@@ -85,10 +84,12 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const [seller, setSeller] = useState<Seller | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [stories, setStories] = useState<SellerStory[]>([]);
+  const [sellerOrders, setSellerOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Regla de Acceso del Vendedor (Self-View Rule)
   const [isOwner, setIsOwner] = useState(false);
+  const [ownerTab, setOwnerTab] = useState<"productos" | "pedidos" | "billetera" | "perfil">("productos");
 
   // Filtros internos del catálogo
   const [searchFilter, setSearchFilter] = useState("");
@@ -102,6 +103,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   // Modales de Gestión de la Boutique
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [showStoryModal, setShowStoryModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   // Formulario del Publisher Dashboard (Carga de Productos / Streetwear)
   const [newProdName, setNewProdName] = useState("");
@@ -122,6 +124,26 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
   const [storyCaption, setStoryCaption] = useState("");
   const [storyLinkedSlug, setStoryLinkedSlug] = useState("");
   const [isPublishingStory, setIsPublishingStory] = useState(false);
+
+  // Formulario de edición rápida de perfil
+  const [profileForm, setProfileForm] = useState({
+    store_name: "",
+    owner_name: "",
+    phone: "",
+    city: "Medellín",
+    department: "Antioquia",
+    category: "Streetwear & Hoodies",
+    bio: "",
+    logo_url: "",
+    banner_url: "",
+    bank_name: "Bancolombia",
+    account_number: "",
+    account_type: "Ahorros",
+  });
+  const [savingProfile, setSavingProfile] = useState(false);
+
+  // Mapeo de guías para pedidos
+  const [guideInputs, setGuideInputs] = useState<Record<string, { company?: string; guide?: string }>>({});
 
   // Toast de notificación
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -144,6 +166,39 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           getSellerStories(sellerData.id),
         ]);
         setProducts(prods);
+
+        setProfileForm({
+          store_name: sellerData.store_name || "",
+          owner_name: sellerData.owner_name || "",
+          phone: sellerData.phone || "",
+          city: sellerData.city || "Medellín",
+          department: sellerData.department || "Antioquia",
+          category: sellerData.category || "Streetwear & Hoodies",
+          bio: sellerData.bio || "",
+          logo_url: sellerData.logo_url || "",
+          banner_url: sellerData.banner_url || "",
+          bank_name: sellerData.bank_name || "Bancolombia",
+          account_number: sellerData.account_number || "",
+          account_type: sellerData.account_type || "Ahorros",
+        });
+
+        // Cargar pedidos para esta boutique
+        try {
+          const { data: ords } = await supabase
+            .from("orders")
+            .select("*")
+            .order("created_at", { ascending: false });
+
+          if (ords) {
+            const matched = ords.filter((o) =>
+              (o.product_name && o.product_name.toLowerCase().includes(sellerData.store_name.toLowerCase())) ||
+              (o.notes && o.notes.toLowerCase().includes(sellerData.store_name.toLowerCase()))
+            );
+            setSellerOrders(matched);
+          }
+        } catch (ordErr) {
+          console.warn("Error cargando pedidos:", ordErr);
+        }
 
         // Historias por defecto si aún no tiene personalizadas
         if (!str || str.length === 0) {
@@ -274,7 +329,32 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
     });
   }, [products, categoryFilter, searchFilter]);
 
-  // Compra directa vinculada a la pasarela Wompi / PSE y división automática
+  // Cálculos de billetera para el dueño
+  const walletMetrics = useMemo(() => {
+    let pending = 0;
+    let available = 0;
+    const commission = seller?.commission_rate ?? 12;
+
+    sellerOrders.forEach((o) => {
+      const isPaid =
+        o.status === "Pagado / En Preparación" ||
+        o.status === "En Despacho / Enviado" ||
+        o.status === "Entregado" ||
+        o.status === "Pagado";
+      if (!isPaid) return;
+      const total = Number(o.total_price) || 0;
+      const { sellerNet } = calculateOrderCommission(total, commission);
+      if (o.notes?.includes("FONDOS_LIBERADOS")) {
+        available += sellerNet;
+      } else {
+        pending += sellerNet;
+      }
+    });
+
+    return { pending, available, totalEarned: pending + available };
+  }, [sellerOrders, seller]);
+
+  // Compra directa vinculada a la pasarela Wompi / PSE
   const handleBuyNow = (product: Product) => {
     addToCart({
       id: `${product.id}-direct`,
@@ -312,6 +392,54 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
     }
   };
 
+  // Guardar guía de despacho para un pedido
+  const handleSaveShippingGuide = async (orderId: string, company: string, guide: string) => {
+    if (!guide.trim()) {
+      alert("Por favor ingresa el número de guía asignado por la transportadora.");
+      return;
+    }
+
+    try {
+      const order = sellerOrders.find((o) => o.id === orderId);
+      const noteTag = `[Guía asignada: ${company} - ${guide.trim()} por ${seller?.store_name || "Vendedor"}]`;
+      const updatedNotes = order?.notes ? `${order.notes} ${noteTag}` : noteTag;
+
+      await supabase
+        .from("orders")
+        .update({
+          transport_company: company,
+          shipping_guide: guide.trim(),
+          status: "En Despacho / Enviado",
+          notes: updatedNotes,
+        })
+        .eq("id", orderId);
+
+      setSellerOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? { ...o, transport_company: company, shipping_guide: guide.trim(), status: "En Despacho / Enviado", notes: updatedNotes }
+            : o
+        )
+      );
+
+      showToast("¡Guía guardada! Se notificará al comprador.");
+    } catch (err: any) {
+      alert("Error al guardar guía: " + err.message);
+    }
+  };
+
+  // Eliminar producto
+  const handleDeleteProduct = async (prodId: string) => {
+    if (!confirm("¿Deseas eliminar este producto de tu catálogo?")) return;
+    try {
+      await supabase.from("products").delete().eq("id", prodId);
+      setProducts((prev) => prev.filter((p) => p.id !== prodId));
+      showToast("Prenda eliminada con éxito.");
+    } catch (err: any) {
+      alert("Error al eliminar: " + err.message);
+    }
+  };
+
   // Carga de producto desde el Publisher Dashboard (Modal)
   const handlePublishProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -335,7 +463,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           ? Math.round(((origPriceNum - salePriceNum) / origPriceNum) * 100)
           : 0;
 
-      // Generar slug limpio
       const baseSlug = newProdName
         .toLowerCase()
         .normalize("NFD")
@@ -367,7 +494,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
         is_official: false,
       };
 
-      // 1. Guardar en Supabase
       const { data, error } = await supabase
         .from("products")
         .insert([newProductPayload])
@@ -383,17 +509,14 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
         id: `local_prod_${Date.now()}`,
       }) as Product;
 
-      // 2. Guardar en almacenamiento local como fallback
       if (typeof window !== "undefined") {
         const localProds = JSON.parse(localStorage.getItem("NERKLEY_local_products") || "[]");
         localStorage.setItem("NERKLEY_local_products", JSON.stringify([finalizedProduct, ...localProds]));
       }
 
-      // 3. Actualizar la vista pública del catálogo de inmediato
       setProducts((prev) => [finalizedProduct, ...prev]);
       setShowPublishModal(false);
 
-      // Limpiar formulario
       setNewProdName("");
       setNewProdDescription("");
       setNewProdPrice("");
@@ -446,6 +569,44 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       alert("Error al publicar la historia: " + (err.message || JSON.stringify(err)));
     } finally {
       setIsPublishingStory(false);
+    }
+  };
+
+  // Guardar perfil desde la pestaña de configuración
+  const handleSaveProfileSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!seller) return;
+
+    setSavingProfile(true);
+    try {
+      await supabase
+        .from("sellers")
+        .update({
+          store_name: profileForm.store_name.trim(),
+          owner_name: profileForm.owner_name.trim(),
+          phone: profileForm.phone.trim(),
+          city: profileForm.city.trim(),
+          department: profileForm.department.trim(),
+          category: profileForm.category.trim(),
+          bio: profileForm.bio.trim(),
+          logo_url: profileForm.logo_url.trim() || null,
+          banner_url: profileForm.banner_url.trim() || null,
+          bank_name: profileForm.bank_name.trim(),
+          account_number: profileForm.account_number.trim(),
+          account_type: profileForm.account_type.trim(),
+        })
+        .eq("id", seller.id);
+
+      setSeller({
+        ...seller,
+        ...profileForm,
+      });
+
+      showToast("¡Perfil y portada actualizados correctamente!");
+    } catch (err: any) {
+      alert("Error al actualizar perfil: " + err.message);
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -520,7 +681,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
       {/* ========================================================= */}
       {/* REGLA DE ACCESO DEL VENDEDOR (SELF-VIEW RULE): */}
-      {/* BARRA SUPERIOR FIJA DE GESTIÓN PARA EL DUEÑO DE LA BOUTIQUE */}
+      {/* BARRA SUPERIOR DE CONTROL (SOLO LA VE EL DUEÑO) */}
       {/* ========================================================= */}
       {isOwner && (
         <div className="sticky top-16 z-30 bg-gradient-to-r from-amber-500/25 via-[#1a1710] to-amber-500/25 border-b border-amber-400/40 backdrop-blur-md px-4 py-2.5 shadow-2xl animate-in fade-in">
@@ -529,10 +690,10 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
               <div>
                 <span className="text-xs font-serif font-bold text-amber-300 uppercase tracking-wider block">
-                  👑 Modo Administrador &bull; Vista Pública en Tiempo Real
+                  👑 Eres el Dueño de esta Boutique &bull; Panel de Gestión Activo
                 </span>
                 <span className="text-[10px] text-neutral-400 hidden sm:inline">
-                  Tus clientes ven exactamente esta misma estética y catálogo.
+                  Los compradores solo ven tu tienda pública. Solo tú tienes acceso a tus pedidos y billetera.
                 </span>
               </div>
             </div>
@@ -544,7 +705,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 className="bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
               >
                 <span>📸</span>
-                <span>+ Subir Historia</span>
+                <span>+ Subir Story</span>
               </button>
 
               <button
@@ -553,23 +714,15 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black px-4 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-[0_0_15px_rgba(232,198,98,0.4)] active:scale-95 cursor-pointer ring-2 ring-amber-300"
               >
                 <span>✨</span>
-                <span>Publicar Ahora</span>
+                <span>+ Publicar Prenda</span>
               </button>
-
-              <Link
-                href="/vender"
-                className="bg-black/60 hover:bg-black text-neutral-300 hover:text-white border border-white/15 px-3 py-1.5 rounded-xl text-xs font-medium uppercase tracking-wider transition-all hidden md:flex items-center gap-1"
-              >
-                <span>⚙️</span>
-                <span>Dashboard</span>
-              </Link>
             </div>
           </div>
         </div>
       )}
 
       {/* ========================================================= */}
-      {/* SECCIÓN ESTILO FACEBOOK / INSTAGRAM: PORTADA & PERFIL SOCIAL */}
+      {/* CABECERA DE PERFIL SOCIAL (PORTADA & PERFIL) */}
       {/* ========================================================= */}
       <div className="relative bg-[#0d0d12] border-b border-white/10">
         {/* FOTO DE PORTADA / COVER PHOTO */}
@@ -597,12 +750,12 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
           </div>
         </div>
 
-        {/* CONTENEDOR DE PERFIL (SUPERPUESTO ESTILO FACEBOOK / INSTAGRAM) */}
+        {/* CONTENEDOR DE PERFIL */}
         <div className="max-w-6xl mx-auto px-4 pb-8">
           <div className="flex flex-col sm:flex-row items-center sm:items-end justify-between gap-6 -mt-16 sm:-mt-20 relative z-10">
             {/* AVATAR + DETALLES BÁSICOS */}
             <div className="flex flex-col sm:flex-row items-center sm:items-end gap-5 text-center sm:text-left">
-              {/* FOTO DE PERFIL / AVATAR CON ARO SOCIAL DORADO */}
+              {/* FOTO DE PERFIL / AVATAR */}
               <div className="relative group cursor-pointer" onClick={() => stories.length > 0 && openStory(0)}>
                 <div className={`w-28 h-28 sm:w-36 sm:h-36 rounded-full p-1 bg-gradient-to-tr from-amber-400 via-amber-200 to-yellow-500 shadow-[0_0_25px_rgba(232,198,98,0.4)] ${stories.length > 0 ? "animate-pulse" : ""}`}>
                   <div className="w-full h-full rounded-full bg-black overflow-hidden flex items-center justify-center border-2 border-black">
@@ -618,7 +771,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
 
                 {stories.length > 0 && (
                   <div className="absolute bottom-1 right-1 bg-amber-400 text-black px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-md">
-                    Ver Historias
+                    Ver Stories
                   </div>
                 )}
               </div>
@@ -650,7 +803,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
               </div>
             </div>
 
-            {/* BOTONES DE ACCIÓN SOCIAL (MENSAJE, COMPARTIR, COMPRAR) */}
+            {/* BOTONES SOCIALES */}
             <div className="flex flex-wrap items-center justify-center gap-2.5 w-full sm:w-auto">
               <a
                 href={`https://wa.me/57${seller.phone.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
@@ -673,13 +826,18 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 <span>Compartir</span>
               </button>
 
-              <a
-                href="#catalogo"
+              <button
+                type="button"
+                onClick={() => {
+                  setOwnerTab("productos");
+                  const el = document.getElementById("seccion-contenido");
+                  if (el) el.scrollIntoView({ behavior: "smooth" });
+                }}
                 className="bg-amber-400 hover:bg-amber-300 text-black font-bold px-4 py-2.5 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
               >
                 <span>🛍️</span>
                 <span>Prendas ({products.length})</span>
-              </a>
+              </button>
             </div>
           </div>
 
@@ -696,7 +854,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       </div>
 
       {/* ========================================================= */}
-      {/* BANDEJA DE HISTORIAS / STORIES FEED (ESTILO INSTAGRAM/FACEBOOK) */}
+      {/* BANDEJA DE HISTORIAS / STORIES FEED */}
       {/* ========================================================= */}
       <section className="border-b border-white/10 py-6 bg-[#0a0a0c]">
         <div className="max-w-6xl mx-auto px-4 space-y-3">
@@ -708,9 +866,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             <span className="text-[10px] text-neutral-400">Contenido efímero y promociones exclusivas</span>
           </div>
 
-          {/* CARRUSEL DE BURBUJAS DE HISTORIAS */}
           <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none items-center">
-            {/* Si es el dueño, botón para subir una nueva historia */}
             {isOwner && (
               <button
                 type="button"
@@ -738,7 +894,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                   </div>
                 </div>
                 <span className="text-[10px] text-neutral-300 font-medium group-hover:text-amber-300 truncate max-w-[70px]">
-                  {st.product_name || `Historia ${idx + 1}`}
+                  {st.product_name || `Story ${idx + 1}`}
                 </span>
               </button>
             ))}
@@ -747,355 +903,713 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       </section>
 
       {/* ========================================================= */}
-      {/* VISOR MODAL DE HISTORIAS EN PANTALLA COMPLETA */}
+      {/* SECCIÓN PRINCIPAL: PESTAÑAS DE VENDEDOR O CATÁLOGO */}
       {/* ========================================================= */}
-      {activeStoryIndex !== null && stories[activeStoryIndex] && (
-        <div
-          className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-xl flex items-center justify-center p-0 sm:p-4 select-none"
-          onClick={closeStory}
-        >
-          <div
-            className="relative w-full sm:max-w-md h-full sm:h-[90vh] bg-neutral-950 sm:rounded-3xl overflow-hidden flex flex-col justify-between shadow-2xl border border-white/20"
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={() => setIsStoryPaused(true)}
-            onMouseUp={() => setIsStoryPaused(false)}
-            onTouchStart={() => setIsStoryPaused(true)}
-            onTouchEnd={() => setIsStoryPaused(false)}
-          >
-            {/* BARRAS DE PROGRESO SUPERIORES (ESTILO INSTAGRAM/FACEBOOK) */}
-            <div className="absolute top-3 left-3 right-3 z-30 flex gap-1.5">
-              {stories.map((_, i) => (
-                <div key={i} className="flex-1 h-1 rounded-full bg-white/25 overflow-hidden">
-                  <div
-                    className="h-full bg-white transition-all duration-100 ease-linear"
-                    style={{
-                      width:
-                        i < activeStoryIndex
-                          ? "100%"
-                          : i === activeStoryIndex
-                          ? `${storyProgress}%`
-                          : "0%",
-                    }}
-                  />
-                </div>
-              ))}
+      <main id="seccion-contenido" className="max-w-6xl mx-auto px-4 py-8 space-y-8">
+        {/* NAVEGACIÓN DE PESTAÑAS: SOLO LA VE EL CREADOR DE LA BOUTIQUE */}
+        {isOwner && (
+          <div className="border-b border-white/15 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+            <button
+              type="button"
+              onClick={() => setOwnerTab("productos")}
+              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+                ownerTab === "productos"
+                  ? "text-amber-300"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span>🛍️</span>
+              <span>Catálogo de Productos ({products.length})</span>
+              {ownerTab === "productos" && (
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOwnerTab("pedidos")}
+              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+                ownerTab === "pedidos"
+                  ? "text-amber-300"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span>📦</span>
+              <span>Mis Pedidos & Despachos ({sellerOrders.length})</span>
+              {ownerTab === "pedidos" && (
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOwnerTab("billetera")}
+              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+                ownerTab === "billetera"
+                  ? "text-amber-300"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span>💰</span>
+              <span>Billetera & Retiros</span>
+              {ownerTab === "billetera" && (
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setOwnerTab("perfil")}
+              className={`pb-3 px-3 text-xs uppercase font-extrabold tracking-wider transition-all cursor-pointer relative shrink-0 flex items-center gap-2 ${
+                ownerTab === "perfil"
+                  ? "text-amber-300"
+                  : "text-neutral-400 hover:text-white"
+              }`}
+            >
+              <span>👤</span>
+              <span>Editar Portada & Perfil</span>
+              {ownerTab === "perfil" && (
+                <span className="absolute bottom-0 left-0 w-full h-[2px] bg-amber-400 shadow-[0_0_8px_rgba(232,198,98,0.8)]" />
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* PESTAÑA 1: CATÁLOGO DE PRODUCTOS (VISTA DE TIENDA) */}
+        {/* ========================================================= */}
+        {(!isOwner || ownerTab === "productos") && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                  <span>💎</span>
+                  <span>Catálogo Comercial &bull; {seller.store_name}</span>
+                </h2>
+                <p className="text-xs text-neutral-400 mt-0.5">
+                  Prendas de streetwear, footwear y colecciones exclusivas disponibles con Compra Directa Wompi / PSE.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPublishModal(true)}
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
+                  >
+                    <span>+</span>
+                    <span>Publicar Prenda</span>
+                  </button>
+                )}
+                <span className="text-xs text-neutral-400 font-mono">
+                  {filteredProducts.length} de {products.length} artículos
+                </span>
+              </div>
             </div>
 
-            {/* CABECERA DE LA HISTORIA */}
-            <div className="absolute top-6 left-4 right-4 z-30 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400 bg-black">
-                  <img src={seller.logo_url || stories[activeStoryIndex].image_url} alt="" className="w-full h-full object-cover" />
-                </div>
+            {/* FILTROS Y BÚSQUEDA */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer shrink-0 ${
+                      categoryFilter === cat
+                        ? "bg-amber-400 text-black shadow-md"
+                        : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative sm:w-64">
+                <input
+                  type="text"
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  placeholder="Buscar prendas en esta boutique..."
+                  className="w-full bg-[#111116] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 placeholder-neutral-500"
+                />
+                {searchFilter && (
+                  <button
+                    onClick={() => setSearchFilter("")}
+                    className="absolute right-2.5 top-2 text-neutral-400 hover:text-white text-xs cursor-pointer"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* GRID DE PRODUCTOS */}
+            {filteredProducts.length === 0 ? (
+              <div className="p-16 text-center border border-white/10 bg-white/5 rounded-2xl space-y-3">
+                <span className="text-4xl">🛍️</span>
+                <p className="text-sm font-semibold text-white">No se encontraron prendas con este criterio</p>
+                <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                  {isOwner
+                    ? "Aún no tienes prendas en este filtro. ¡Haz clic en 'Publicar Prenda' para subir tu primer drop!"
+                    : "Prueba con otra palabra de búsqueda o categoría."}
+                </p>
+                {isOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPublishModal(true)}
+                    className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
+                  >
+                    <span>✨</span>
+                    <span>Publicar Nueva Prenda</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Si es el dueño, tarjeta para agregar producto directo */}
+                {isOwner && (
+                  <div
+                    onClick={() => setShowPublishModal(true)}
+                    className="border-2 border-dashed border-amber-400/40 hover:border-amber-400 rounded-2xl p-6 flex flex-col items-center justify-center text-center gap-3 cursor-pointer group bg-amber-400/5 hover:bg-amber-400/10 transition-all min-h-[360px]"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-amber-400/20 text-amber-300 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                      +
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                        Publicar Nueva Prenda
+                      </h4>
+                      <p className="text-xs text-neutral-400 mt-1 max-w-xs">
+                        Agrega buzos, jeans baggy, calzado o accesorios a tu catálogo oficial.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {filteredProducts.map((prod) => {
+                  const img = prod.images ? prod.images.split(",")[0].trim() : null;
+                  return (
+                    <div
+                      key={prod.id}
+                      className="bg-[#111116] border border-white/10 hover:border-amber-400/40 rounded-2xl overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md hover:shadow-2xl"
+                    >
+                      <div>
+                        {/* FOTO DE LA PRENDA */}
+                        <Link href={`/product/${prod.slug}`} className="block relative aspect-square bg-black overflow-hidden cursor-pointer">
+                          {img ? (
+                            <img
+                              src={img}
+                              alt={prod.name}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs uppercase tracking-widest font-serif">
+                              NERKLEY STREETWEAR
+                            </div>
+                          )}
+
+                          {prod.discount_percent && prod.discount_percent > 0 ? (
+                            <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
+                              -{prod.discount_percent}% OFF
+                            </div>
+                          ) : null}
+
+                          {prod.badge && (
+                            <div className="absolute top-3 right-3 bg-amber-400/90 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow">
+                              {prod.badge}
+                            </div>
+                          )}
+
+                          <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md border border-white/10 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow">
+                            <span>⭐</span>
+                            <span>{seller.store_name}</span>
+                          </div>
+                        </Link>
+
+                        {/* DETALLES */}
+                        <div className="p-4 space-y-2">
+                          <div className="flex items-center justify-between text-[10px] text-amber-400 font-bold uppercase tracking-wider">
+                            <span>{prod.category}</span>
+                            <span className="text-neutral-400 font-mono">Stock: {prod.stock} uds</span>
+                          </div>
+
+                          <Link href={`/product/${prod.slug}`}>
+                            <h3 className="text-sm font-bold text-white hover:text-amber-300 transition-colors line-clamp-1" title={prod.name}>
+                              {prod.name}
+                            </h3>
+                          </Link>
+
+                          {prod.description && (
+                            <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed font-light">
+                              {prod.description}
+                            </p>
+                          )}
+
+                          {prod.sizes && (
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {prod.sizes.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5).map((sz) => (
+                                <span key={sz} className="text-[9px] font-mono bg-white/5 border border-white/10 text-neutral-300 px-1.5 py-0.2 rounded">
+                                  {sz}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="flex items-baseline gap-2 pt-1">
+                            <span className="text-lg font-mono font-bold text-white">
+                              $ {Number(prod.sale_price).toLocaleString("es-CO")} COP
+                            </span>
+                            {prod.original_price && prod.original_price > prod.sale_price && (
+                              <span className="text-xs font-mono text-neutral-500 line-through">
+                                ${Number(prod.original_price).toLocaleString("es-CO")}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* BOTONES DE COMPRA O GESTIÓN */}
+                      <div className="p-4 pt-0 space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAddDirect(prod)}
+                            className="bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-white/15 flex items-center justify-center gap-1 active:scale-95"
+                          >
+                            <span>🛒</span>
+                            <span>Al Carrito</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleBuyNow(prod)}
+                            className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_12px_rgba(232,198,98,0.35)] active:scale-95 flex items-center justify-center gap-1"
+                          >
+                            <span>⚡</span>
+                            <span>Compra Directa</span>
+                          </button>
+                        </div>
+
+                        {/* Botones de Administrador (SOLO VISIBLES PARA EL DUEÑO) */}
+                        {isOwner && (
+                          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewProdName(prod.name);
+                                setNewProdCategory(prod.category);
+                                setNewProdDescription(prod.description || "");
+                                setNewProdPrice(String(prod.sale_price));
+                                setNewProdOriginalPrice(prod.original_price ? String(prod.original_price) : "");
+                                setNewProdStock(String(prod.stock || 10));
+                                setNewProdImages(prod.images || "");
+                                setNewProdSizes(prod.sizes || "");
+                                setNewProdColors(prod.colors || "");
+                                setNewProdBadge(prod.badge || "");
+                                setShowPublishModal(true);
+                              }}
+                              className="text-amber-400 hover:underline cursor-pointer font-bold"
+                            >
+                              ✏️ Editar
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteProduct(prod.id)}
+                              className="text-red-400 hover:underline cursor-pointer"
+                            >
+                              🗑️ Eliminar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* PESTAÑA 2: MIS PEDIDOS & DESPACHOS (SOLO PARA EL DUEÑO) */}
+        {/* ========================================================= */}
+        {isOwner && ownerTab === "pedidos" && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="text-xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span>📦</span>
+                <span>Pedidos Recibidos para {seller.store_name} ({sellerOrders.length})</span>
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Cuando un comprador adquiere un producto de tu boutique con Compra Directa Wompi/PSE, aparece listado aquí para que prepares el despacho y asignes tu número de guía.
+              </p>
+            </div>
+
+            {sellerOrders.length === 0 ? (
+              <div className="p-16 text-center border border-white/10 bg-white/5 rounded-2xl space-y-3">
+                <span className="text-4xl">📦</span>
+                <p className="text-base font-bold text-white">Aún no tienes pedidos registrados</p>
+                <p className="text-xs text-neutral-400 max-w-md mx-auto">
+                  Tus ventas realizadas a través de Wompi / PSE aparecerán en este panel en tiempo real con los datos de entrega del cliente.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sellerOrders.map((o) => {
+                  const total = Number(o.total_price) || 0;
+                  const { platformFee, sellerNet } = calculateOrderCommission(total, seller.commission_rate ?? 12);
+                  const currentCompany = guideInputs[o.id]?.company || o.transport_company || "Interrapidísimo";
+                  const currentGuide = guideInputs[o.id]?.guide !== undefined ? guideInputs[o.id].guide : (o.shipping_guide || "");
+
+                  return (
+                    <div
+                      key={o.id}
+                      className="bg-[#111116] border border-white/10 p-5 sm:p-6 rounded-2xl space-y-4 shadow-xl"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-amber-400 block tracking-widest font-mono">
+                            Ref: {o.reference || o.id}
+                          </span>
+                          <h4 className="text-sm font-bold text-white">{o.product_name}</h4>
+                          <span className="text-[11px] text-neutral-400">
+                            Fecha: {new Date(o.created_at).toLocaleString("es-CO")}
+                          </span>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase tracking-wider text-neutral-400 block font-medium">
+                            Tu Pago Neto (Post-Comisión)
+                          </span>
+                          <span className="text-base font-mono font-black text-emerald-400">
+                            $ {sellerNet.toLocaleString("es-CO")} COP
+                          </span>
+                          <span className="text-[10px] text-neutral-500 block">
+                            (Total pagado: ${total.toLocaleString()} - Comisión NERKLEY: ${platformFee.toLocaleString()})
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* DATOS DEL CLIENTE */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs bg-white/5 p-4 rounded-xl">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 block">Cliente</span>
+                          <span className="text-white font-semibold">{o.customer_name}</span>
+                          <span className="text-neutral-400 block">{o.customer_email}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 block">Destino</span>
+                          <span className="text-white font-semibold">{o.city}</span>
+                          <span className="text-neutral-300 block">{o.address}</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-neutral-400 block">Contacto</span>
+                          <a
+                            href={`https://wa.me/57${(o.customer_phone || "").replace(/[^0-9]/g, "")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-emerald-400 font-bold hover:underline inline-flex items-center gap-1"
+                          >
+                            <span>📲</span>
+                            <span>{o.customer_phone || "Sin teléfono"}</span>
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* FORMULARIO DE GUÍA DE TRANSPORTE */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+                        <div className="flex flex-wrap items-center gap-2 flex-1">
+                          <select
+                            value={currentCompany}
+                            onChange={(e) =>
+                              setGuideInputs({
+                                ...guideInputs,
+                                [o.id]: { ...guideInputs[o.id], company: e.target.value },
+                              })
+                            }
+                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                          >
+                            <option value="Interrapidísimo">Interrapidísimo</option>
+                            <option value="Servientrega">Servientrega</option>
+                            <option value="Coordinadora">Coordinadora</option>
+                            <option value="Envía">Envía</option>
+                            <option value="TCC">TCC</option>
+                            <option value="Deprisa">Deprisa</option>
+                          </select>
+
+                          <input
+                            type="text"
+                            value={currentGuide}
+                            onChange={(e) =>
+                              setGuideInputs({
+                                ...guideInputs,
+                                [o.id]: { ...guideInputs[o.id], guide: e.target.value },
+                              })
+                            }
+                            placeholder="Número de Guía de Envío"
+                            className="bg-[#0a0a0c] border border-white/15 px-3 py-2 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400 flex-1 min-w-[180px]"
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSaveShippingGuide(o.id, currentCompany, currentGuide)}
+                          className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md active:scale-95 shrink-0"
+                        >
+                          Guardar Guía
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================= */}
+        {/* PESTAÑA 3: BILLETERA & RETIROS (SOLO PARA EL DUEÑO) */}
+        {/* ========================================================= */}
+        {isOwner && ownerTab === "billetera" && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="text-xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span>💰</span>
+                <span>Billetera Financiera & Retiros Bancarios</span>
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Administración de fondos recaudados con Wompi / PSE y división automática de comisiones.
+              </p>
+            </div>
+
+            {/* TARJETAS DE SALDOS */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1c1811] to-[#111116] border border-amber-400/40 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-amber-300 tracking-wider block">
+                  ⏳ En Custodia Escrow (Por Entregar)
+                </span>
+                <span className="text-2xl font-mono font-black text-white block">
+                  $ {walletMetrics.pending.toLocaleString("es-CO")} COP
+                </span>
+                <p className="text-[10px] text-neutral-400">
+                  Fondos protegidos mientras la transportadora entrega los paquetes a los clientes.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0e1f14] to-[#111116] border border-emerald-500/40 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-emerald-300 tracking-wider block">
+                  💰 Saldo Disponible para Retiro
+                </span>
+                <span className="text-2xl font-mono font-black text-emerald-400 block">
+                  $ {walletMetrics.available.toLocaleString("es-CO")} COP
+                </span>
+                <p className="text-[10px] text-neutral-400">
+                  Fondos liberados tras entrega satisfactoria confirmada.
+                </p>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#14141c] to-[#111116] border border-white/15 space-y-2">
+                <span className="text-[10px] uppercase font-bold text-neutral-300 tracking-wider block">
+                  📈 Total Generado
+                </span>
+                <span className="text-2xl font-mono font-bold text-white block">
+                  $ {walletMetrics.totalEarned.toLocaleString("es-CO")} COP
+                </span>
+                <p className="text-[10px] text-neutral-400">
+                  Histórico acumulado de ventas netas de tu boutique.
+                </p>
+              </div>
+            </div>
+
+            {/* DATOS BANCARIOS REGISTRADOS & SOLICITUD DE RETIRO */}
+            <div className="bg-[#111116] border border-white/10 p-6 rounded-2xl space-y-5">
+              <div className="flex items-center justify-between border-b border-white/10 pb-3">
                 <div>
-                  <span className="font-bold text-white text-xs block drop-shadow-md">
-                    {seller.store_name}
-                  </span>
-                  <span className="text-[9px] text-neutral-300 drop-shadow-md">
-                    Historia de Boutique &bull; Activa
-                  </span>
+                  <h4 className="text-sm font-bold text-white uppercase tracking-wider">
+                    Cuenta Bancaria para Transferencias
+                  </h4>
+                  <p className="text-xs text-neutral-400">
+                    {seller.bank_name} &bull; {seller.account_type} &bull; {seller.account_number}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setOwnerTab("perfil")}
+                  className="text-xs text-amber-400 hover:underline cursor-pointer font-bold"
+                >
+                  Cambiar cuenta &rarr;
+                </button>
               </div>
 
               <button
                 type="button"
-                onClick={closeStory}
-                className="w-8 h-8 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center text-lg cursor-pointer"
+                onClick={() => {
+                  if (walletMetrics.available <= 0) {
+                    alert("Aún no tienes saldo disponible para retirar. Los fondos se liberan una vez tus pedidos sean entregados al comprador.");
+                    return;
+                  }
+                  alert(`Tu solicitud de retiro por $${walletMetrics.available.toLocaleString("es-CO")} COP a tu cuenta ${seller.bank_name} (${seller.account_number}) ha sido enviada a la administración de NERKLEY.`);
+                }}
+                className="w-full bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black py-3.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95"
               >
-                &times;
+                Solicitar Desembolso a {seller.bank_name}
               </button>
             </div>
-
-            {/* IMAGEN DE LA HISTORIA */}
-            <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
-              <img
-                src={stories[activeStoryIndex].image_url}
-                alt=""
-                className="w-full h-full object-contain"
-              />
-
-              {/* BOTONES LATERALES PARA RETROCEDER / AVANZAR */}
-              <div
-                className="absolute left-0 top-0 bottom-0 w-1/3 cursor-pointer z-20"
-                onClick={handlePrevStory}
-              />
-              <div
-                className="absolute right-0 top-0 bottom-0 w-1/3 cursor-pointer z-20"
-                onClick={handleNextStory}
-              />
-            </div>
-
-            {/* PIE DE HISTORIA: PIE DE FOTO & ACCIÓN DE COMPRA DIRECTA */}
-            <div className="relative z-30 p-4 bg-gradient-to-t from-black via-black/85 to-transparent space-y-3">
-              {stories[activeStoryIndex].caption && (
-                <p className="text-white text-xs sm:text-sm font-medium drop-shadow-md leading-relaxed">
-                  {stories[activeStoryIndex].caption}
-                </p>
-              )}
-
-              {/* SI LA HISTORIA TIENE UN PRODUCTO ETIQUETADO CON COMPRA DIRECTA */}
-              {stories[activeStoryIndex].product_name && (
-                <div className="p-3 bg-white/10 backdrop-blur-md border border-amber-400/50 rounded-xl flex items-center justify-between gap-3 shadow-lg">
-                  <div className="min-w-0">
-                    <span className="text-[9px] uppercase tracking-wider text-amber-300 font-bold block">
-                      🛍️ Prenda Etiquetada en la Historia
-                    </span>
-                    <span className="text-xs font-bold text-white block truncate">
-                      {stories[activeStoryIndex].product_name}
-                    </span>
-                    {stories[activeStoryIndex].product_price && (
-                      <span className="text-xs font-mono font-black text-emerald-400">
-                        $ {Number(stories[activeStoryIndex].product_price).toLocaleString("es-CO")} COP
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const matched = products.find(
-                        (p) => p.name === stories[activeStoryIndex].product_name || p.slug === stories[activeStoryIndex].product_slug
-                      );
-                      if (matched) {
-                        handleBuyNow(matched);
-                        closeStory();
-                      } else {
-                        const prodId = stories[activeStoryIndex].product_id || `story_prod_${Date.now()}`;
-                        addToCart({
-                          id: `${prodId}-story`,
-                          product_id: prodId,
-                          name: stories[activeStoryIndex].product_name!,
-                          price: stories[activeStoryIndex].product_price || 150000,
-                          image: stories[activeStoryIndex].image_url,
-                          quantity: 1,
-                          maxStock: 10,
-                          seller_id: seller.id,
-                          seller_name: seller.store_name,
-                        });
-                        setIsCartOpen(true);
-                        closeStory();
-                      }
-                    }}
-                    className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md shrink-0 active:scale-95 flex items-center gap-1.5"
-                  >
-                    <span>⚡</span>
-                    <span>Compra Directa</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* SECCIÓN PRINCIPAL: FEED DE PRODUCTOS (CATÁLOGO COMERCIAL) */}
-      {/* ========================================================= */}
-      <main id="catalogo" className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
-          <div>
-            <h2 className="text-xl sm:text-2xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span>💎</span>
-              <span>Catálogo Comercial &bull; {seller.store_name}</span>
-            </h2>
-            <p className="text-xs text-neutral-400 mt-0.5">
-              Prendas de streetwear, footwear y colecciones exclusivas disponibles con Compra Directa Wompi / PSE.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setShowPublishModal(true)}
-                className="bg-amber-400 hover:bg-amber-300 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md active:scale-95 cursor-pointer flex items-center gap-1.5"
-              >
-                <span>+</span>
-                <span>Publicar Prenda</span>
-              </button>
-            )}
-            <span className="text-xs text-neutral-400 font-mono">
-              {filteredProducts.length} de {products.length} artículos
-            </span>
-          </div>
-        </div>
-
-        {/* FILTROS Y BÚSQUEDA DENTRO DE LA BOUTIQUE */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Categorías de la boutique */}
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none text-xs">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => setCategoryFilter(cat)}
-                className={`px-3 py-1.5 rounded-lg font-bold uppercase tracking-wider text-[10px] transition-all cursor-pointer shrink-0 ${
-                  categoryFilter === cat
-                    ? "bg-amber-400 text-black shadow-md"
-                    : "bg-white/5 border border-white/10 text-neutral-300 hover:text-white hover:bg-white/10"
-                }`}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {/* Buscador dentro de la boutique */}
-          <div className="relative sm:w-64">
-            <input
-              type="text"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              placeholder="Buscar prendas en esta boutique..."
-              className="w-full bg-[#111116] border border-white/15 px-3 py-2 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 placeholder-neutral-500"
-            />
-            {searchFilter && (
-              <button
-                onClick={() => setSearchFilter("")}
-                className="absolute right-2.5 top-2 text-neutral-400 hover:text-white text-xs cursor-pointer"
-              >
-                &times;
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* LISTADO DE PRODUCTOS EN CUADRÍCULA (GRID COMERCIAL STREETWEAR) */}
-        {filteredProducts.length === 0 ? (
-          <div className="p-16 text-center border border-white/10 bg-white/5 rounded-2xl space-y-3">
-            <span className="text-4xl">🛍️</span>
-            <p className="text-sm font-semibold text-white">No se encontraron prendas con este criterio</p>
-            <p className="text-xs text-neutral-400 max-w-md mx-auto">
-              {isOwner
-                ? "Aún no tienes prendas en este filtro. ¡Haz clic en 'Publicar Ahora' para subir tu primer drop!"
-                : "Prueba con otra palabra de búsqueda o categoría."}
-            </p>
-            {isOwner && (
-              <button
-                type="button"
-                onClick={() => setShowPublishModal(true)}
-                className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer shadow-md inline-flex items-center gap-2"
-              >
-                <span>✨</span>
-                <span>Publicar Nueva Prenda</span>
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredProducts.map((prod) => {
-              const img = prod.images ? prod.images.split(",")[0].trim() : null;
-              return (
-                <div
-                  key={prod.id}
-                  className="bg-[#111116] border border-white/10 hover:border-amber-400/40 rounded-2xl overflow-hidden flex flex-col justify-between group transition-all duration-300 shadow-md hover:shadow-2xl"
-                >
-                  <div>
-                    {/* FOTO DE LA PRENDA / PRODUCTO */}
-                    <Link href={`/product/${prod.slug}`} className="block relative aspect-square bg-black overflow-hidden cursor-pointer">
-                      {img ? (
-                        <img
-                          src={img}
-                          alt={prod.name}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-neutral-600 text-xs uppercase tracking-widest font-serif">
-                          NERKLEY STREETWEAR
-                        </div>
-                      )}
-
-                      {/* Insignia de descuento */}
-                      {prod.discount_percent && prod.discount_percent > 0 ? (
-                        <div className="absolute top-3 left-3 bg-red-600 text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                          -{prod.discount_percent}% OFF
-                        </div>
-                      ) : null}
-
-                      {/* Insignia personalizada o badge de drop */}
-                      {prod.badge && (
-                        <div className="absolute top-3 right-3 bg-amber-400/90 text-black text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                          {prod.badge}
-                        </div>
-                      )}
-
-                      {/* Insignia de boutique */}
-                      <div className="absolute bottom-3 left-3 bg-black/75 backdrop-blur-md border border-white/10 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded flex items-center gap-1.5 shadow">
-                        <span>⭐</span>
-                        <span>{seller.store_name}</span>
-                      </div>
-                    </Link>
-
-                    {/* DETALLES DEL PRODUCTO */}
-                    <div className="p-4 space-y-2">
-                      <div className="flex items-center justify-between text-[10px] text-amber-400 font-bold uppercase tracking-wider">
-                        <span>{prod.category}</span>
-                        <span className="text-neutral-400 font-mono">Stock: {prod.stock} uds</span>
-                      </div>
-
-                      <Link href={`/product/${prod.slug}`}>
-                        <h3 className="text-sm font-bold text-white hover:text-amber-300 transition-colors line-clamp-1" title={prod.name}>
-                          {prod.name}
-                        </h3>
-                      </Link>
-
-                      {prod.description && (
-                        <p className="text-xs text-neutral-400 line-clamp-2 leading-relaxed font-light">
-                          {prod.description}
-                        </p>
-                      )}
-
-                      {/* Tallas si existen */}
-                      {prod.sizes && (
-                        <div className="flex flex-wrap gap-1 pt-1">
-                          {prod.sizes.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5).map((sz) => (
-                            <span key={sz} className="text-[9px] font-mono bg-white/5 border border-white/10 text-neutral-300 px-1.5 py-0.2 rounded">
-                              {sz}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="flex items-baseline gap-2 pt-1">
-                        <span className="text-lg font-mono font-bold text-white">
-                          $ {Number(prod.sale_price).toLocaleString("es-CO")} COP
-                        </span>
-                        {prod.original_price && prod.original_price > prod.sale_price && (
-                          <span className="text-xs font-mono text-neutral-500 line-through">
-                            ${Number(prod.original_price).toLocaleString("es-CO")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* BOTONES DE COMPRA DIRECTA CON WOMPI / PSE */}
-                  <div className="p-4 pt-0 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleAddDirect(prod)}
-                      className="bg-white/10 hover:bg-white/20 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer border border-white/15 flex items-center justify-center gap-1 active:scale-95"
-                    >
-                      <span>🛒</span>
-                      <span>Al Carrito</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleBuyNow(prod)}
-                      className="bg-gradient-to-r from-amber-400 via-amber-300 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-[0_0_12px_rgba(232,198,98,0.35)] active:scale-95 flex items-center justify-center gap-1"
-                    >
-                      <span>⚡</span>
-                      <span>Compra Directa</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         )}
 
-        {/* BANNER INFORMATIVO DE SEGURIDAD Y COMPRA PROTEGIDA (ESCROW / SPLIT PAYMENT) */}
+        {/* ========================================================= */}
+        {/* PESTAÑA 4: EDITAR PERFIL & PORTADA (SOLO PARA EL DUEÑO) */}
+        {/* ========================================================= */}
+        {isOwner && ownerTab === "perfil" && (
+          <div className="space-y-6 animate-in fade-in">
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="text-xl font-serif font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span>👤</span>
+                <span>Configuración de tu Boutique & Identidad</span>
+              </h3>
+              <p className="text-xs text-neutral-400 mt-1">
+                Personaliza la foto de portada, tu logotipo, biografía y datos bancarios para transferencias.
+              </p>
+            </div>
+
+            <form onSubmit={handleSaveProfileSubmit} className="bg-[#111116] border border-white/10 p-6 rounded-2xl space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Nombre de la Boutique *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={profileForm.store_name}
+                    onChange={(e) => setProfileForm({ ...profileForm, store_name: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Categoría Principal
+                  </label>
+                  <select
+                    value={profileForm.category}
+                    onChange={(e) => setProfileForm({ ...profileForm, category: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    {STREETWEAR_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Biografía Comercial / Lema de la Boutique
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={profileForm.bio}
+                    onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Foto de Perfil / Logo (URL)
+                  </label>
+                  <input
+                    type="url"
+                    value={profileForm.logo_url}
+                    onChange={(e) => setProfileForm({ ...profileForm, logo_url: e.target.value })}
+                    placeholder="https://ejemplo.com/logo.jpg"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Foto de Portada / Banner (URL)
+                  </label>
+                  <input
+                    type="url"
+                    value={profileForm.banner_url}
+                    onChange={(e) => setProfileForm({ ...profileForm, banner_url: e.target.value })}
+                    placeholder="https://ejemplo.com/portada.jpg"
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    WhatsApp de Contacto *
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Ciudad de Despacho *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={profileForm.city}
+                    onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Banco para Transferencias
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.bank_name}
+                    onChange={(e) => setProfileForm({ ...profileForm, bank_name: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-neutral-300">
+                    Número de Cuenta Bancaria
+                  </label>
+                  <input
+                    type="text"
+                    value={profileForm.account_number}
+                    onChange={(e) => setProfileForm({ ...profileForm, account_number: e.target.value })}
+                    className="w-full bg-[#0a0a0c] border border-white/15 px-3.5 py-2.5 text-xs text-white rounded-lg font-mono focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-white/10 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="bg-amber-400 hover:bg-amber-300 text-black px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-lg active:scale-95 disabled:opacity-50"
+                >
+                  {savingProfile ? "Guardando..." : "Guardar Cambios de Perfil"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* BANNER INFORMATIVO DE SEGURIDAD (ESCROW / SPLIT PAYMENT) */}
         <section className="bg-gradient-to-r from-[#14141c] via-[#1c1811] to-[#14141c] border border-amber-400/30 p-6 sm:p-8 rounded-2xl text-center space-y-3 shadow-xl">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
             <span>🛡️</span> Pasarela Wompi & PSE &bull; Split de Comisión Automático
@@ -1118,7 +1632,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       </main>
 
       {/* ========================================================= */}
-      {/* BOTÓN FLOTANTE RÁPIDO DE GESTIÓN PARA EL VENDEDOR */}
+      {/* BOTÓN FLOTANTE RÁPIDO PARA EL VENDEDOR */}
       {/* ========================================================= */}
       {isOwner && (
         <div className="fixed bottom-6 left-6 z-[180] flex flex-col gap-2">
@@ -1134,7 +1648,7 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
       )}
 
       {/* ========================================================= */}
-      {/* MODAL DEL PUBLISHER DASHBOARD (CARGA DE PRENDAS / INVENTARIO) */}
+      {/* MODAL DEL PUBLISHER DASHBOARD (CARGA DE PRENDAS) */}
       {/* ========================================================= */}
       {showPublishModal && (
         <div
@@ -1164,7 +1678,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
             </div>
 
             <form onSubmit={handlePublishProductSubmit} className="space-y-4">
-              {/* Título de la prenda */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-neutral-200">
                   Título de la Prenda o Calzado *
@@ -1179,7 +1692,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 />
               </div>
 
-              {/* Categoría */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-neutral-200">
                   Categoría Streetwear & Estilo *
@@ -1197,7 +1709,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </select>
               </div>
 
-              {/* Descripción detallada de materiales y corte */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
                   <span>Descripción de Materiales, Diseño & Caída Urbana *</span>
@@ -1213,7 +1724,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 />
               </div>
 
-              {/* Precios y Stock */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-neutral-200">
@@ -1259,7 +1769,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              {/* URLs de Imágenes */}
               <div className="space-y-1">
                 <label className="block text-xs font-semibold text-neutral-200 flex items-center justify-between">
                   <span>Imágenes de la Prenda (URLs separadas por coma) *</span>
@@ -1275,7 +1784,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 />
               </div>
 
-              {/* Tallas con Presets */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-neutral-200">
                   Tallas Disponibles (Haz clic para seleccionar)
@@ -1301,7 +1809,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              {/* Colores con Presets */}
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-neutral-200">
                   Colores Urbanos (Haz clic para seleccionar)
@@ -1327,7 +1834,6 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </div>
               </div>
 
-              {/* Badge e Interruptor de Envío Gratis */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div className="space-y-1">
                   <label className="block text-xs font-semibold text-neutral-200">
@@ -1486,6 +1992,142 @@ function BoutiqueProfileContent({ params }: { params: Promise<{ slug: string }> 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* VISOR MODAL DE HISTORIAS */}
+      {/* ========================================================= */}
+      {activeStoryIndex !== null && stories[activeStoryIndex] && (
+        <div
+          className="fixed inset-0 z-[250] bg-black/95 backdrop-blur-xl flex items-center justify-center p-0 sm:p-4 select-none"
+          onClick={closeStory}
+        >
+          <div
+            className="relative w-full sm:max-w-md h-full sm:h-[90vh] bg-neutral-950 sm:rounded-3xl overflow-hidden flex flex-col justify-between shadow-2xl border border-white/20"
+            onClick={(e) => e.stopPropagation()}
+            onMouseDown={() => setIsStoryPaused(true)}
+            onMouseUp={() => setIsStoryPaused(false)}
+            onTouchStart={() => setIsStoryPaused(true)}
+            onTouchEnd={() => setIsStoryPaused(false)}
+          >
+            <div className="absolute top-3 left-3 right-3 z-30 flex gap-1.5">
+              {stories.map((_, i) => (
+                <div key={i} className="flex-1 h-1 rounded-full bg-white/25 overflow-hidden">
+                  <div
+                    className="h-full bg-white transition-all duration-100 ease-linear"
+                    style={{
+                      width:
+                        i < activeStoryIndex
+                          ? "100%"
+                          : i === activeStoryIndex
+                          ? `${storyProgress}%`
+                          : "0%",
+                    }}
+                  />
+                </div>
+              ))}
+            </div>
+
+            <div className="absolute top-6 left-4 right-4 z-30 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full overflow-hidden border border-amber-400 bg-black">
+                  <img src={seller.logo_url || stories[activeStoryIndex].image_url} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <span className="font-bold text-white text-xs block drop-shadow-md">
+                    {seller.store_name}
+                  </span>
+                  <span className="text-[9px] text-neutral-300 drop-shadow-md">
+                    Historia de Boutique &bull; Activa
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeStory}
+                className="w-8 h-8 rounded-full bg-black/60 text-white hover:bg-black flex items-center justify-center text-lg cursor-pointer"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="relative flex-1 bg-black flex items-center justify-center overflow-hidden">
+              <img
+                src={stories[activeStoryIndex].image_url}
+                alt=""
+                className="w-full h-full object-contain"
+              />
+
+              <div
+                className="absolute left-0 top-0 bottom-0 w-1/3 cursor-pointer z-20"
+                onClick={handlePrevStory}
+              />
+              <div
+                className="absolute right-0 top-0 bottom-0 w-1/3 cursor-pointer z-20"
+                onClick={handleNextStory}
+              />
+            </div>
+
+            <div className="relative z-30 p-4 bg-gradient-to-t from-black via-black/85 to-transparent space-y-3">
+              {stories[activeStoryIndex].caption && (
+                <p className="text-white text-xs sm:text-sm font-medium drop-shadow-md leading-relaxed">
+                  {stories[activeStoryIndex].caption}
+                </p>
+              )}
+
+              {stories[activeStoryIndex].product_name && (
+                <div className="p-3 bg-white/10 backdrop-blur-md border border-amber-400/50 rounded-xl flex items-center justify-between gap-3 shadow-lg">
+                  <div className="min-w-0">
+                    <span className="text-[9px] uppercase tracking-wider text-amber-300 font-bold block">
+                      🛍️ Prenda Etiquetada en la Historia
+                    </span>
+                    <span className="text-xs font-bold text-white block truncate">
+                      {stories[activeStoryIndex].product_name}
+                    </span>
+                    {stories[activeStoryIndex].product_price && (
+                      <span className="text-xs font-mono font-black text-emerald-400">
+                        $ {Number(stories[activeStoryIndex].product_price).toLocaleString("es-CO")} COP
+                      </span>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const matched = products.find(
+                        (p) => p.name === stories[activeStoryIndex].product_name || p.slug === stories[activeStoryIndex].product_slug
+                      );
+                      if (matched) {
+                        handleBuyNow(matched);
+                        closeStory();
+                      } else {
+                        const prodId = stories[activeStoryIndex].product_id || `story_prod_${Date.now()}`;
+                        addToCart({
+                          id: `${prodId}-story`,
+                          product_id: prodId,
+                          name: stories[activeStoryIndex].product_name!,
+                          price: stories[activeStoryIndex].product_price || 150000,
+                          image: stories[activeStoryIndex].image_url,
+                          quantity: 1,
+                          maxStock: 10,
+                          seller_id: seller.id,
+                          seller_name: seller.store_name,
+                        });
+                        setIsCartOpen(true);
+                        closeStory();
+                      }
+                    }}
+                    className="bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 text-black px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer shadow-md shrink-0 active:scale-95 flex items-center gap-1.5"
+                  >
+                    <span>⚡</span>
+                    <span>Compra Directa</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
