@@ -12,6 +12,19 @@ function SuccessContent() {
   const refParam = searchParams.get("ref");
   const [loading, setLoading] = useState(true);
 
+  const isWalletRecharge = refParam?.startsWith("NRK-WAL-");
+
+  useEffect(() => {
+    // Automatic return to Nerkley APK if user completed payment
+    const autoReturn = setTimeout(() => {
+      if (typeof window !== "undefined") {
+        window.location.href = `com.nerkley.app://wompi-result?id=${transactionId || ""}&ref=${refParam || ""}`;
+      }
+    }, 1200);
+
+    return () => clearTimeout(autoReturn);
+  }, [transactionId, refParam]);
+
   useEffect(() => {
     const updateOrderStatus = async () => {
       if (typeof window !== "undefined") {
@@ -136,15 +149,16 @@ function SuccessContent() {
           </div>
 
           <span className="text-xs uppercase tracking-[0.25em] text-neutral-400 font-semibold block">
-            Pago Exitoso &bull; Orden Confirmada
+            {isWalletRecharge ? "Recarga Exitosa • Billetera Nerkley Pay" : "Pago Exitoso • Orden Confirmada"}
           </span>
           <h1 className="text-3xl font-serif uppercase tracking-wider text-white font-semibold">
-            ¡Gracias por tu compra!
+            {isWalletRecharge ? "¡Pago Confirmado en Wompi!" : "¡Gracias por tu compra!"}
           </h1>
 
           <p className="text-sm text-neutral-300 leading-relaxed bg-white/5 p-4 border border-white/5">
-            Tu pago ha sido procesado exitosamente por Wompi y tu pedido ha pasado a estado{" "}
-            <span className="font-bold text-emerald-400 uppercase">Pagado / En Preparación</span>. Tu orden entra ahora a nuestro protocolo de inspección de calidad y empaque exclusivo, con un tiempo estimado de entrega de 5 a 8 días hábiles. En breve te compartiremos tu guía oficial de rastreo.
+            {isWalletRecharge
+              ? "Tu recarga ha sido verificada y acreditada por Wompi Bancolombia. Regresando a tu aplicación móvil Nerkley para actualizar tu billetera..."
+              : "Tu pago ha sido procesado exitosamente por Wompi y tu pedido ha pasado a estado Pagado / En Preparación. En breve te compartiremos tu guía oficial de rastreo."}
           </p>
 
           {transactionId && (
@@ -153,12 +167,18 @@ function SuccessContent() {
             </p>
           )}
 
-          <div className="pt-6">
+          <div className="pt-6 flex flex-col gap-3">
+            <a
+              href={`com.nerkley.app://wompi-result?id=${transactionId || ""}&ref=${refParam || ""}`}
+              className="inline-block w-full bg-[#FEE600] text-black py-4 text-xs font-black uppercase tracking-[0.25em] hover:bg-yellow-400 transition-all shadow-lg active:scale-98 text-center rounded-xl"
+            >
+              {isWalletRecharge ? "Abrir Billetera en la App Nerkley" : "Regresar a App Nerkley"}
+            </a>
             <Link
               href="/"
-              className="inline-block w-full bg-white text-black py-4 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-neutral-200 transition-all shadow-md active:scale-98"
+              className="inline-block w-full bg-white/10 text-white py-3 text-xs font-semibold uppercase tracking-[0.25em] hover:bg-white/20 transition-all text-center"
             >
-              Volver a la Tienda
+              Volver a la Tienda Web
             </Link>
           </div>
         </div>
